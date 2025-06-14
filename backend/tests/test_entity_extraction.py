@@ -1,7 +1,7 @@
 import asyncio
 import json
 from typing import List, Any
-from ..core.llm_client import ollama_client
+from ..core.llm_client import llm_client
 from ..config import settings
 from ..core import crud
 from ..core.database import AsyncSessionLocal
@@ -193,7 +193,7 @@ async def test_entity_extraction(intent: str, user_prompt: str) -> None:
         final_user_content = f"Otrzymałem polecenie od użytkownika z intencją '{intent}'. Przeanalizuj poniższe polecenie i zwróć obiekt JSON z wyekstrahowanymi encjami.\n\nPolecenie: \"{user_prompt}\""
         messages = [{'role': 'system', 'content': ENTITY_EXTRACTION_PROMPT}, {'role': 'user', 'content': final_user_content}]
         
-        response = await ollama_client.chat(
+        response = await llm_client.chat(
             model=settings.DEFAULT_CHAT_MODEL, messages=messages, stream=False, options={'temperature': 0.0}
         )
         

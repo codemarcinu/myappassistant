@@ -1,6 +1,6 @@
 import asyncio
 import json
-from ..core.llm_client import ollama_client
+from ..core.llm_client import llm_client
 from ..config import settings
 
 # Prompt systemowy pozostaje ten sam - prosty i klarowny.
@@ -25,7 +25,7 @@ async def test_intent_recognition(user_prompt: str) -> None:
             {'role': 'user', 'content': user_prompt}
         ]
         
-        response = await ollama_client.chat(
+        response = await llm_client.chat(
             model=settings.DEFAULT_CHAT_MODEL,
             messages=messages,
             stream=False,

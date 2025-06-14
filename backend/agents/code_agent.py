@@ -1,6 +1,6 @@
 from typing import Dict, Any, Optional
 from .base_agent import BaseAgent, AgentResponse
-from ..core.llm_client import ollama_client  # Importujemy naszego klienta Ollama
+from ..core.llm_client import llm_client  # Importujemy naszego klienta LLM
 from ..config import settings                # Importujemy naszą konfigurację
 
 class CodeAgent(BaseAgent):
@@ -39,7 +39,7 @@ class CodeAgent(BaseAgent):
             full_response = ""
             model_to_use = settings.DEFAULT_CODE_MODEL
 
-            async for chunk in ollama_client.generate_stream(model=model_to_use, prompt=prompt):
+            async for chunk in llm_client.generate_stream(model=model_to_use, prompt=prompt):
                 if "response" in chunk:
                     full_response += chunk["response"]
 

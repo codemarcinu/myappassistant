@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from fastapi.responses import StreamingResponse
 import asyncio
 
-from ..core.llm_client import ollama_client
+from ..core.llm_client import llm_client
 from ..config import settings
 
 # APIRouter działa jak "mini-aplikacja" FastAPI, grupując endpointy
@@ -19,7 +19,7 @@ async def chat_response_generator(prompt: str, model: str):
     Ollama i od razu przesyła je dalej (yield).
     """
     try:
-        async for chunk in ollama_client.generate_stream(model=model, prompt=prompt):
+        async for chunk in llm_client.generate_stream(model=model, prompt=prompt):
             # Z całego obiektu JSON od Ollamy interesuje nas tylko pole 'response'
             if "response" in chunk:
                 yield chunk["response"]

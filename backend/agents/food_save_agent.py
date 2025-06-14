@@ -5,7 +5,7 @@ from datetime import date, timedelta
 from typing import Dict, Any, Optional
 
 from .base_agent import BaseAgent, AgentResponse
-from ..core.llm_client import ollama_client
+from ..core.llm_client import llm_client
 from ..config import settings
 from ..services import shopping_service
 from ..schemas import shopping_schemas
@@ -42,7 +42,7 @@ class FoodSaveAgent(BaseAgent):
         
         try:
             full_response = ""
-            async for chunk in ollama_client.generate_stream(model=settings.DEFAULT_CODE_MODEL, prompt=prompt):
+            async for chunk in llm_client.generate_stream(model=settings.DEFAULT_CODE_MODEL, prompt=prompt):
                 if "response" in chunk: full_response += chunk["response"]
             
             cleaned_json_str = full_response.strip().replace("```json", "").replace("```", "").strip()
@@ -90,7 +90,7 @@ class FoodSaveAgent(BaseAgent):
             Twoje podsumowanie:
             """
             full_response = ""
-            async for chunk in ollama_client.generate_stream(model=settings.DEFAULT_CODE_MODEL, prompt=summary_prompt):
+            async for chunk in llm_client.generate_stream(model=settings.DEFAULT_CODE_MODEL, prompt=summary_prompt):
                 if "response" in chunk: full_response += chunk["response"]
 
             return AgentResponse(success=True, result=full_response)
@@ -112,7 +112,7 @@ class FoodSaveAgent(BaseAgent):
         """
         
         intent_response = ""
-        async for chunk in ollama_client.generate_stream(model=settings.DEFAULT_CODE_MODEL, prompt=intent_prompt):
+        async for chunk in llm_client.generate_stream(model=settings.DEFAULT_CODE_MODEL, prompt=intent_prompt):
             if "response" in chunk: intent_response += chunk["response"]
 
         intent = intent_response.strip().upper()

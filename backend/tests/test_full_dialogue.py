@@ -3,7 +3,7 @@ import json
 from typing import List, Any, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..core.llm_client import ollama_client
+from ..core.llm_client import llm_client
 from ..config import settings
 from ..core import crud
 from ..core.database import AsyncSessionLocal
@@ -54,7 +54,7 @@ Użytkownik został poproszony o wybór jednej z poniższych opcji:
     try:
         messages = [{'role': 'system', 'content': "Jesteś pomocnym asystentem AI. Zawsze zwracaj tylko i wyłącznie obiekt JSON."}, {'role': 'user', 'content': resolver_prompt}]
         
-        response = await ollama_client.chat(
+        response = await llm_client.chat(
             model=settings.DEFAULT_CHAT_MODEL, messages=messages, stream=False, options={'temperature': 0.0}
         )
         

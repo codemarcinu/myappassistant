@@ -5,7 +5,7 @@ import logging
 from typing import Any, Dict, List, Optional
 from enum import Enum
 
-from ..core.llm_client import ollama_client
+from ..core.llm_client import llm_client
 from ..config import settings
 from .prompts import get_intent_recognition_prompt, get_entity_extraction_prompt, get_resolver_prompt
 from .utils import extract_json_from_text, sanitize_prompt
@@ -71,7 +71,7 @@ class AgentOrchestrator:
             {'role': 'system', 'content': "Jesteś precyzyjnym systemem klasyfikacji intencji. Zawsze zwracaj tylko JSON."},
             {'role': 'user', 'content': prompt}
         ]
-        response = await ollama_client.chat(
+        response = await llm_client.chat(
             model=settings.DEFAULT_CHAT_MODEL,
             messages=messages,
             stream=False,
@@ -93,7 +93,7 @@ class AgentOrchestrator:
             {'role': 'system', 'content': "Jesteś precyzyjnym systemem ekstrakcji encji. Zawsze zwracaj tylko JSON."},
             {'role': 'user', 'content': prompt}
         ]
-        response = await ollama_client.chat(
+        response = await llm_client.chat(
             model=settings.DEFAULT_CHAT_MODEL,
             messages=messages,
             stream=False,
@@ -114,7 +114,7 @@ class AgentOrchestrator:
             {'role': 'system', 'content': "Jesteś precyzyjnym systemem rozwiązywania niejednoznaczności. Zawsze zwracaj tylko JSON."},
             {'role': 'user', 'content': prompt}
         ]
-        response = await ollama_client.chat(
+        response = await llm_client.chat(
             model=settings.DEFAULT_CHAT_MODEL,
             messages=messages,
             stream=False,

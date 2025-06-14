@@ -1,7 +1,7 @@
 import json
 from typing import Dict
 
-from ..core.llm_client import ollama_client
+from ..core.llm_client import llm_client
 from ..config import settings
 from ..core.utils import extract_json_from_text
 
@@ -52,7 +52,7 @@ async def recognize_intent(user_command: str) -> str:
     ]
     
     try:
-        response = await ollama_client.chat(
+        response = await llm_client.chat(
             model=settings.DEFAULT_CHAT_MODEL,
             messages=messages,
             stream=False,

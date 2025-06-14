@@ -4,7 +4,7 @@ from typing import Any, List, Optional
 from ..core import crud
 from ..core.database import AsyncSessionLocal
 from ..models.shopping import ShoppingTrip, Product
-from ..core.llm_client import ollama_client
+from ..core.llm_client import llm_client
 from ..config import settings
 from .state import ConversationState
 from .orchestrator import recognize_intent
@@ -38,7 +38,7 @@ async def extract_entities(user_command: str, intent: str) -> dict:
     ]
     
     try:
-        response = await ollama_client.chat(
+        response = await llm_client.chat(
             model=settings.DEFAULT_CHAT_MODEL,
             messages=messages,
             stream=False,
@@ -68,7 +68,7 @@ async def resolve_ambiguity(options: List[Any], user_reply: str) -> Optional[Any
     ]
     
     try:
-        response = await ollama_client.chat(
+        response = await llm_client.chat(
             model=settings.DEFAULT_CHAT_MODEL,
             messages=messages,
             stream=False,

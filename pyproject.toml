@@ -7,7 +7,7 @@ readme = "README.md"
 package-mode = false
 
 [tool.poetry.dependencies]
-python = ">=3.9,<3.9.7 || >3.9.7,<4.0"
+python = ">=3.10,<4.0"
 streamlit = "^1.32.0"
 sqlalchemy = "^2.0.0"
 fastapi = "^0.109.0"
@@ -20,6 +20,11 @@ pydantic = "^2.6.0"
 pytesseract = "^0.3.10"
 pillow = "^10.0.0"
 pymupdf = "^1.23.0"
+aiosqlite = "^0.21.0"
+pydantic-settings = "^2.9.1"
+matplotlib = "^3.10.3"
+ollama = "^0.5.1"
+python-multipart = "^0.0.20"
 
 [build-system]
 requires = ["poetry-core"]
