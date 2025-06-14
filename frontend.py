@@ -2,92 +2,101 @@ import streamlit as st
 import asyncio
 import sys
 import os
-from backend.agents.orchestrator import orchestrator
-from backend.agents.state import ConversationState
 import pandas as pd
 
-# Kluczowy krok: dodajemy ścieżkę do katalogu głównego projektu,
-# aby Python mógł znaleźć nasze moduły z backendu.
-# Upewnij się, że ten skrypt jest w głównym katalogu projektu.
+# Upewnij się, że ścieżka do backendu jest poprawna
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 
-# --- Konfiguracja strony i tytuł ---
-st.set_page_config(page_title="FoodSave AI", page_icon="🛒")
-st.title("FoodSave AI - Twój Asystent Zakupowy")
+from backend.agents.orchestrator import orchestrator
+from backend.agents.state import ConversationState
 
-# --- Inicjalizacja Pamięci Sesji (Session State) ---
-# To wykona się tylko raz na początku sesji użytkownika.
+# Konfiguracja strony i tytuł
+st.set_page_config(page_title="FoodSave AI", layout="wide")
+st.title("🤖 FoodSave AI - Twój Asystent Zakupowy")
 
-# Inicjalizujemy historię czatu, jeśli jeszcze nie istnieje
+# Inicjalizacja Pamięci Sesji (Session State)
 if "messages" not in st.session_state:
     st.session_state.messages = [
         {"role": "assistant", "content": "Cześć! Jestem Twoim asystentem do spraw wydatków. Jak mogę Ci pomóc?"}
     ]
-
-# Inicjalizujemy stan konwersacji agenta dla tej sesji
 if "conversation_state" not in st.session_state:
     st.session_state.conversation_state = ConversationState()
 
-# --- Wyświetlanie Historii Czatu ---
-# Ta pętla rysuje na ekranie wszystkie dotychczasowe wiadomości z pamięci sesji
+# Wyświetlanie Historii Czatu
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
-        st.markdown(message["content"])
+        # Sprawdzamy, czy treść wiadomości to DataFrame do wyświetlenia
+        if isinstance(message["content"], pd.DataFrame):
+            st.dataframe(message["content"])
+        else:
+            st.markdown(message["content"])
 
-# --- Główna Pętla Interakcji ---
-# Czekamy na nowe polecenie od użytkownika w polu na dole ekranu
-if prompt := st.chat_input("Wpisz swoje polecenie..."):
-    # Dodaj wiadomość użytkownika do historii i ją wyświetl
+# --- NOWA SEKCJA: SZYBKIE AKCJE ---
+st.write("---") # Linia oddzielająca
+st.subheader("Szybkie Akcje")
+col1, col2, col3 = st.columns(3)
+
+# Definiujemy funkcję, która będzie obsługiwać kliknięcie przycisku
+def handle_action(command: str):
+    # Ustawiamy polecenie w sesji, aby główna pętla mogła je przetworzyć
+    st.session_state.action_command = command
+
+with col1:
+    st.button("Pokaż wszystkie paragony", on_click=handle_action, args=("pokaż wszystkie zakupy",), use_container_width=True)
+
+with col2:
+    st.button("Wydatki wg kategorii", on_click=handle_action, args=("pokaż podsumowanie wydatków według kategorii",), use_container_width=True)
+
+with col3:
+    st.button("Wydatki wg sklepów", on_click=handle_action, args=("pokaż wydatki w podziale na sklepy",), use_container_width=True)
+# --- KONIEC NOWEJ SEKCJI ---
+
+# Sprawdzamy, czy kliknięto przycisk, czy wpisano tekst
+prompt = st.chat_input("Wpisz swoje polecenie...")
+if "action_command" in st.session_state and st.session_state.action_command:
+    prompt = st.session_state.action_command
+    st.session_state.action_command = None # Czyścimy akcję po jej pobraniu
+
+# Główna Pętla Interakcji
+if prompt:
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    # Wyświetl animację "myślenia" i wywołaj logikę agenta
     with st.chat_message("assistant"):
         with st.spinner("Agent analizuje..."):
             agent_response = asyncio.run(
                 orchestrator.process_command(prompt, st.session_state.conversation_state)
             )
         
-        # --- ULEPSZONA LOGIKA WYŚWIETLANIA Z KOMPONENTAMI STREAMLIT ---
+        response_for_history = agent_response
         
-        # Domyślnie używamy st.markdown
-        display_function = st.markdown
-        response_text_for_history = ""
-
-        if isinstance(agent_response, list):
-            # Agent zwrócił dane analityczne
-            if not agent_response:
-                response_text_for_history = "Nie znalazłem żadnych danych pasujących do Twojego zapytania."
-                st.warning(response_text_for_history) # Używamy st.warning dla "nie znaleziono"
+        if isinstance(agent_response, list) and agent_response:
+            response_df = pd.DataFrame(agent_response)
+            if len(response_df.columns) == 2:
+                response_df.columns = ['Wartość', 'Grupa']
+                st.success("Przygotowałem dla Ciebie podsumowanie:")
+                st.dataframe(response_df)
+                st.bar_chart(response_df.set_index('Grupa'))
+                response_for_history = response_df # Zapisujemy DataFrame do historii
             else:
-                import pandas as pd
-                response_text_for_history = "Przygotowałem dla Ciebie podsumowanie."
-                st.success(response_text_for_history) # Używamy st.success dla powodzenia
-                
-                try:
-                    df = pd.DataFrame(agent_response)
-                    # Sprawdzamy, czy mamy dwie kolumny do wykresu
-                    if len(df.columns) == 2:
-                        st.dataframe(df)
-                        # Używamy nazw kolumn zwróconych przez SQLAlchemy
-                        st.bar_chart(df, x=df.columns[1], y=df.columns[0])
-                    else:
-                        st.dataframe(df)
-                except Exception as e:
-                    st.error(f"Wystąpił błąd podczas tworzenia wykresu: {e}")
+                st.write("Oto dane, które znalazłem:")
+                st.dataframe(response_df)
+                response_for_history = response_df
 
-        else: # Agent zwrócił zwykły tekst
-            response_text_for_history = agent_response
-            # Wybieramy komponent na podstawie słów kluczowych w odpowiedzi
-            if "Gotowe" in response_text_for_history or "Pomyślnie" in response_text_for_history:
-                st.success(response_text_for_history)
-            elif "Niestety" in response_text_for_history or "Błąd" in response_text_for_history:
-                st.error(response_text_for_history)
-            elif "pytanie" in response_text_for_history.lower() or "wybierz jedną" in response_text_for_history.lower():
-                st.info(response_text_for_history) # Używamy st.info dla pytań
+        elif isinstance(agent_response, str):
+            # Logika kolorowania odpowiedzi
+            if "Gotowe" in agent_response or "Pomyślnie" in agent_response:
+                st.success(agent_response)
+            elif "Niestety" in agent_response or "Błąd" in agent_response:
+                st.error(agent_response)
+            elif "pytanie" in agent_response.lower() or "wybierz jedną" in agent_response.lower():
+                st.info(agent_response)
             else:
-                st.markdown(response_text_for_history)
-
-    # Dodaj odpowiedź agenta do historii na potrzeby kolejnych interakcji
-    st.session_state.messages.append({"role": "assistant", "content": response_text_for_history}) 
+                st.markdown(agent_response)
+        
+    # Convert response to string if it's not already a string
+    content_for_history = str(response_for_history) if not isinstance(response_for_history, str) else response_for_history
+    st.session_state.messages.append({"role": "assistant", "content": content_for_history})
+    # Wymuszamy odświeżenie strony, aby poprawnie wyświetlić nowe wiadomości
+    st.rerun() 
