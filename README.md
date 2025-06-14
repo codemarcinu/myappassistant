@@ -109,3 +109,34 @@ System składa się z następujących komponentów:
 ## Licencja
 
 MIT License - zobacz plik [LICENSE](LICENSE) dla szczegółów.
+
+## Zarządzanie zależnościami
+
+Projekt korzysta z [Poetry](https://python-poetry.org/) do zarządzania zależnościami. Zalecane komendy:
+
+```bash
+# Instalacja zależności
+poetry install
+
+# Dodawanie nowego pakietu
+poetry add NAZWA_PAKIETU
+
+# Aktywacja środowiska
+poetry shell
+
+# (Opcjonalnie) Eksport requirements.txt do deployu
+poetry export -f requirements.txt --output requirements.txt --without-hashes
+```
+
+Nie edytuj pliku requirements.txt ręcznie! Jeśli go potrzebujesz, generuj go automatycznie z Poetry.
+
+## Pre-commit hooks
+
+Projekt korzysta z pre-commit. Instalacja i uruchomienie:
+
+```bash
+poetry add --dev pre-commit
+poetry run pre-commit install
+```
+
+Konfiguracja hooków znajduje się w pliku `.pre-commit-config.yaml`.
