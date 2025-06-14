@@ -49,33 +49,45 @@ if prompt := st.chat_input("Wpisz swoje polecenie..."):
                 orchestrator.process_command(prompt, st.session_state.conversation_state)
             )
         
-        # --- NOWA, INTELIGENTNA LOGIKA WYŚWIETLANIA ---
+        # --- ULEPSZONA LOGIKA WYŚWIETLANIA Z KOMPONENTAMI STREAMLIT ---
+        
+        # Domyślnie używamy st.markdown
+        display_function = st.markdown
+        response_text_for_history = ""
+
         if isinstance(agent_response, list):
-            # Agent zwrócił dane analityczne!
+            # Agent zwrócił dane analityczne
             if not agent_response:
-                response_text = "Nie znalazłem żadnych danych pasujących do Twojego zapytania."
-                st.markdown(response_text)
+                response_text_for_history = "Nie znalazłem żadnych danych pasujących do Twojego zapytania."
+                st.warning(response_text_for_history) # Używamy st.warning dla "nie znaleziono"
             else:
                 import pandas as pd
-                response_text = "Przygotowałem dla Ciebie podsumowanie."
-                st.markdown(response_text)
+                response_text_for_history = "Przygotowałem dla Ciebie podsumowanie."
+                st.success(response_text_for_history) # Używamy st.success dla powodzenia
                 
-                # Dynamiczne tworzenie DataFrame
-                df = pd.DataFrame(agent_response)
-                
-                # Sprawdzamy, czy mamy dwie kolumny do wykresu
-                if len(df.columns) == 2:
-                    st.dataframe(df)
-                    # Używamy nazw kolumn zwróconych przez SQLAlchemy
-                    st.bar_chart(df, x=df.columns[1], y=df.columns[0])
-                else:
-                    st.dataframe(df)
-
-            st.session_state.messages.append({"role": "assistant", "content": response_text})
+                try:
+                    df = pd.DataFrame(agent_response)
+                    # Sprawdzamy, czy mamy dwie kolumny do wykresu
+                    if len(df.columns) == 2:
+                        st.dataframe(df)
+                        # Używamy nazw kolumn zwróconych przez SQLAlchemy
+                        st.bar_chart(df, x=df.columns[1], y=df.columns[0])
+                    else:
+                        st.dataframe(df)
+                except Exception as e:
+                    st.error(f"Wystąpił błąd podczas tworzenia wykresu: {e}")
 
         else: # Agent zwrócił zwykły tekst
-            response_text = agent_response
-            st.markdown(response_text)
+            response_text_for_history = agent_response
+            # Wybieramy komponent na podstawie słów kluczowych w odpowiedzi
+            if "Gotowe" in response_text_for_history or "Pomyślnie" in response_text_for_history:
+                st.success(response_text_for_history)
+            elif "Niestety" in response_text_for_history or "Błąd" in response_text_for_history:
+                st.error(response_text_for_history)
+            elif "pytanie" in response_text_for_history.lower() or "wybierz jedną" in response_text_for_history.lower():
+                st.info(response_text_for_history) # Używamy st.info dla pytań
+            else:
+                st.markdown(response_text_for_history)
 
     # Dodaj odpowiedź agenta do historii na potrzeby kolejnych interakcji
-    st.session_state.messages.append({"role": "assistant", "content": response_text}) 
+    st.session_state.messages.append({"role": "assistant", "content": response_text_for_history}) 
