@@ -3,6 +3,7 @@ import requests
 import pandas as pd
 import json
 from pathlib import Path
+from typing import List, Dict, Any
 
 # --- Konfiguracja strony ---
 st.set_page_config(
@@ -25,7 +26,8 @@ else:
     st.warning("Nie znaleziono pliku style.css. Interfejs może nie wyglądać zgodnie z oczekiwaniami.")
 
 # Adres URL backendu
-BACKEND_URL = "http://localhost:8000/api/upload/"
+BACKEND_CHAT_URL = "http://localhost:8000/api/upload/"
+BACKEND_PANTRY_URL = "http://localhost:8000/api/pantry/products" # Nowy URL
 
 # --- Inicjalizacja Stanu Sesji ---
 if "messages" not in st.session_state:
@@ -98,7 +100,7 @@ with main_content:
                     "conversation_state": json.dumps(st.session_state.conversation_state)
                 }
                 with st.spinner("Agent myśli..."):
-                    response = requests.post(BACKEND_URL, json=payload)
+                    response = requests.post(BACKEND_CHAT_URL, json=payload)
                     response.raise_for_status() # Rzuć wyjątkiem dla kodów błędu 4xx/5xx
                 
                 response_data = response.json()
@@ -160,4 +162,52 @@ with st.sidebar:
     )
     if st.session_state.active_agent != active_agent_name:
         st.session_state.active_agent = active_agent_name
-        st.rerun() 
+        st.rerun()
+
+# --- ZAKTUALIZOWANA ZAKŁADKA "Moja Spiżarnia" ---
+with pantry_tab:
+    st.markdown("<h3>Produkty w Spiżarni</h3>", unsafe_allow_html=True)
+
+    @st.cache_data(ttl=60) # Cache na 60 sekund
+    def get_pantry_products() -> List[Dict[str, Any]]:
+        """Pobiera produkty z backendu."""
+        try:
+            response = requests.get(BACKEND_PANTRY_URL)
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            st.error(f"Nie udało się połączyć z backendem: {e}")
+            return []
+        except json.JSONDecodeError:
+            st.error("Otrzymano nieprawidłowe dane z serwera.")
+            return []
+
+    products = get_pantry_products()
+
+    if not products:
+        st.info("Twoja spiżarnia jest pusta. Dodaj produkty za pomocą czatu, np. 'dodaj paragon z wczoraj'.")
+    else:
+        # Można dodać filtry
+        # category_filter = st.selectbox("Filtruj po kategorii", ["Wszystkie"] + sorted(list(set(p.get('unified_category', 'Inne') for p in products))))
+        
+        for product in products:
+            # Domyślne wartości na wypadek braku danych
+            name = product.get('name', 'Brak nazwy')
+            category = product.get('unified_category', 'Brak kategorii')
+            
+            # W przyszłości można dodać datę ważności do modelu
+            expiry_date_str = "Wygasa: nie podano"
+
+            st.markdown(f"""
+            <div class="product-item">
+                <div class="product-info">
+                    <h4>{name}</h4>
+                    <p class="product-category">{category}</p>
+                    <p class="product-expiry">{expiry_date_str}</p>
+                </div>
+                <div class="product-actions">
+                    <button class="btn btn--sm btn--outline">Edytuj</button>
+                    <button class="btn btn--sm btn--outline">Usuń</button>
+                </div>
+            </div>
+            """, unsafe_allow_html=True) 

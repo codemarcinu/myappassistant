@@ -257,6 +257,12 @@ async def get_summary(db: AsyncSession, query_params: dict) -> List[Any]:
 
     return []
 
+async def get_all_products(db: AsyncSession) -> List[Product]:
+    """Pobiera wszystkie produkty ze wszystkich zakupów."""
+    query = select(Product).order_by(Product.id.desc())
+    result = await db.execute(query)
+    return result.scalars().all()
+
 # Testowanie funkcji parse_human_date
 if __name__ == '__main__':
     print("--- Testowanie parse_human_date ---")
