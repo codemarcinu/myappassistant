@@ -225,49 +225,37 @@ async def get_summary(db: AsyncSession, query_params: dict) -> List[Any]:
     metryka = query_params.get("metryka")
     grupowanie = query_params.get("grupowanie", [])
     
-    # --- NOWA, BARDZIEJ ELASTYCZNA LOGIKA ---
-
-    # Jeśli agent chce po prostu listę wszystkiego, zwracamy wszystkie paragony
     if metryka == "lista_wszystkiego":
-        print("Wykonuję zapytanie o listę wszystkich paragonów...")
-        query = select(ShoppingTrip).order_by(ShoppingTrip.trip_date.desc())
-        result = await db.execute(query)
-        return list(result.scalars().all())
+        stmt = select(ShoppingTrip).order_by(ShoppingTrip.trip_date.desc())
+        result = await db.execute(stmt)
+        return result.scalars().all()
 
-    # Jeśli jest to metryka analityczna
     if metryka == "suma_wydatkow":
-        # Definiujemy, co będziemy wybierać z bazy
-        selekcja = [func.sum(Product.quantity * func.coalesce(Product.unit_price, 0)).label("suma_wydatkow")]
+        selekcja = [func.sum(Product.unit_price * Product.quantity).label("value")]
         kolumny_grupujace = []
         
-        # ... (reszta logiki dla sumowania i grupowania pozostaje bez zmian) ...
         for g in grupowanie:
             if g == "sklep":
-                kolumna = ShoppingTrip.store_name.label("sklep")
-                selekcja.append(kolumna)
-                kolumny_grupujace.append(kolumna)
+                kolumna = ShoppingTrip.store_name.label("group")
             elif g == "kategoria":
-                kolumna = Product.category.label("kategoria")
-                selekcja.append(kolumna)
-                kolumny_grupujace.append(kolumna)
-        
+                kolumna = Product.category.label("group")
+            else:
+                continue
+            
+            selekcja.append(kolumna)
+            kolumny_grupujace.append(kolumna)
+            
         if not selekcja: return []
 
-        query = select(*selekcja).join(ShoppingTrip)
+        stmt = select(*selekcja).join(ShoppingTrip, Product.trip_id == ShoppingTrip.id)
         
         for kol in kolumny_grupujace:
-            query = query.group_by(kol)
+            stmt = stmt.group_by(kol)
             
-    else:
-        # Jeśli metryka jest nieznana, zwracamy pustą listę
-        return []
+        result = await db.execute(stmt)
+        return result.all()
 
-    # Aplikowanie filtrów
-    # ... (logika filtrowania i sortowania pozostaje bez zmian) ...
-
-    print("Wykonuję finalne zapytanie analityczne...")
-    result = await db.execute(query)
-    return list(result.all())
+    return []
 
 # Testowanie funkcji parse_human_date
 if __name__ == '__main__':

@@ -7,6 +7,7 @@ from typing import Union, List, Dict, Any, TypedDict
 import matplotlib.pyplot as plt
 from backend.agents.base_agent import BaseAgent
 from backend.agents.orchestrator import orchestrator
+from backend.models.shopping import ShoppingTrip
 
 # Upewnij się, że ścieżka do backendu jest poprawna
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '.')))
@@ -21,28 +22,29 @@ class Message(TypedDict):
 st.set_page_config(page_title="FoodSave AI", layout="wide")
 st.title("🤖 FoodSave AI - Twój Asystent Zakupowy")
 
-# Inicjalizacja Pamięci Sesji (Session State)
+# Inicjalizacja Pamięci Sesji
 if "messages" not in st.session_state:
-    st.session_state.messages: List[Message] = [
-        {"role": "assistant", "content": "Cześć! Jestem Twoim asystentem do spraw wydatków. Jak mogę Ci pomóc?"}
-    ]
+    st.session_state.messages = [{"role": "assistant", "content": "Cześć! Jak mogę Ci pomóc?"}]
 if "conversation_state" not in st.session_state:
     st.session_state.conversation_state = ConversationState()
 
-# --- NOWA, INTELIGENTNA PĘTLA WYŚWIETLAJĄCA HISTORIĘ ---
+# Wyświetlanie Historii Czatu
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         content = message["content"]
         if isinstance(content, pd.DataFrame):
-            # Jeśli to DataFrame, rysujemy tabelę i wykres
             st.markdown("Przygotowałem dla Ciebie podsumowanie:")
             st.dataframe(content)
-            # Sprawdzamy, czy mamy odpowiednie kolumny do narysowania wykresu
-            if 'Grupa' in content.columns and 'Wartość' in content.columns:
-                st.bar_chart(content.set_index('Grupa'))
+            # Sprawdzamy, czy dane nadają się na wykres
+            if not content.empty and len(content.columns) == 2:
+                # Upewnijmy się, że kolumna indeksu nie jest używana do wykresu
+                if content.index.name in content.columns:
+                    chart_data = content.reset_index()
+                else:
+                    chart_data = content
+                st.bar_chart(chart_data, x=chart_data.columns[1], y=chart_data.columns[0])
         else:
-            # Jeśli to zwykły tekst, wyświetlamy go
-            st.markdown(str(content))
+            st.markdown(content)
 
 # Sekcja "Szybkie Akcje"
 st.write("---")
@@ -70,69 +72,23 @@ if "action_command" in st.session_state and st.session_state.action_command:
 # Główna Pętla Interakcji
 if prompt:
     st.session_state.messages.append({"role": "user", "content": prompt})
-    # Wywołujemy logikę agenta
-    agent_response = asyncio.run(
-        orchestrator.process_command(prompt, st.session_state.conversation_state)
-    )
     
-    # Debugowanie - wyświetlamy surowe dane
-    st.write("Debug - Typ odpowiedzi:", type(agent_response))
-    st.write("Debug - Zawartość odpowiedzi:", agent_response)
+    agent_response = asyncio.run(orchestrator.process_command(prompt, st.session_state.conversation_state))
     
-    # Inicjalizujemy zmienną response_for_history
-    response_for_history = None
-
+    response_for_history = agent_response
+    
+    # NOWA LOGIKA TWORZENIA DATAFRAME
     if isinstance(agent_response, list) and agent_response:
-        response_text_for_history = "Przygotowałem dla Ciebie podsumowanie."
-        st.success(response_text_for_history)
-        
-        try:
-            # Dynamiczne tworzenie DataFrame i nadawanie nazw kolumnom
-            df = pd.DataFrame(agent_response)
-            st.write("Debug - DataFrame przed przetworzeniem:", df)
-            
-            if len(df.columns) == 2:
-                # Zakładamy, że pierwsza kolumna to wartość, druga to etykieta
-                df.columns = ['Wartość', 'Grupa']
-                df = df.set_index('Grupa') # Ustawiamy grupę jako indeks
-                st.write("Debug - DataFrame po przetworzeniu:", df)
-            
-            st.write("### Podsumowanie w Tabeli")
-            st.dataframe(df)
-            
-            # Używamy kolumn do stworzenia dwóch layoutów
-            col1, col2 = st.columns(2)
+        if isinstance(agent_response[0], ShoppingTrip):
+            # Obsługa listy wszystkich paragonów
+            data_for_df = [{"Data": trip.trip_date, "Sklep": trip.store_name, "Kwota": trip.total_amount} for trip in agent_response]
+            response_for_history = pd.DataFrame(data_for_df)
+        elif isinstance(agent_response[0], tuple) or isinstance(agent_response[0], object) and hasattr(agent_response[0], '_fields'):
+            # Obsługa wyników analitycznych
+            response_for_history = pd.DataFrame(agent_response)
+            if len(response_for_history.columns) == 2:
+                response_for_history.columns = ['Wartość', 'Grupa']
+                response_for_history = response_for_history.set_index('Grupa')
 
-            with col1:
-                st.write("### Wydatki na Wykresie Słupkowym")
-                st.bar_chart(df)
-
-            with col2:
-                st.write("### Struktura Wydatków (Wykres Kołowy)")
-                # Tworzymy wykres kołowy za pomocą Matplotlib
-                fig, ax = plt.subplots()
-                ax.pie(df['Wartość'], labels=df.index.tolist(), autopct='%1.1f%%', startangle=90)
-                ax.axis('equal')  # Zapewnia, że wykres jest idealnym kołem
-                
-                # Wyświetlamy wykres w Streamlit
-                st.pyplot(fig)
-
-            # Zapisujemy do historii DataFrame
-            response_for_history = df
-
-        except Exception as e:
-            st.error(f"Wystąpił błąd podczas tworzenia wykresu: {e}")
-            st.write("Debug - Szczegóły błędu:", str(e))
-            response_for_history = str(e)
-
-    elif isinstance(agent_response, str):
-        response_text_for_history = agent_response
-        st.success(response_text_for_history)
-        response_for_history = agent_response
-
-    # Konwertujemy DataFrame na string dla historii
-    if isinstance(response_for_history, pd.DataFrame):
-        st.session_state.messages.append({"role": "assistant", "content": response_for_history.to_string()})
-    else:
-        st.session_state.messages.append({"role": "assistant", "content": str(response_for_history)})
+    st.session_state.messages.append({"role": "assistant", "content": response_for_history})
     st.rerun() 
