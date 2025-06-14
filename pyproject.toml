@@ -1,0 +1,26 @@
+[tool.poetry]
+name = "foodsave-ai"
+version = "1.0.0"
+description = "Konwersacyjny Asystent Zakupowy"
+authors = ["Your Name <your.email@example.com>"]
+readme = "README.md"
+package-mode = false
+
+[tool.poetry.dependencies]
+python = ">=3.9,<3.9.7 || >3.9.7,<4.0"
+streamlit = "^1.32.0"
+sqlalchemy = "^2.0.0"
+fastapi = "^0.109.0"
+uvicorn = "^0.27.0"
+python-dotenv = "^1.0.0"
+pandas = "^2.2.0"
+numpy = "^1.26.0"
+python-dateutil = "^2.8.2"
+pydantic = "^2.6.0"
+pytesseract = "^0.3.10"
+pillow = "^10.0.0"
+pymupdf = "^1.23.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api" 

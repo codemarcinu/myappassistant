@@ -33,12 +33,14 @@ System składa się z następujących komponentów:
 
 ## Uruchomienie
 
-1. Przygotuj środowisko i zainstaluj zależności:
+1. Przygotuj środowisko i zainstaluj zależności za pomocą Poetry:
    ```bash
-   python -m venv venv
-   source venv/bin/activate  # Na Windows: venv\Scripts\activate
-   pip install -r requirements.txt
-   pip install streamlit  # Instalacja Streamlit dla frontendu
+   # Jeśli nie masz Poetry, zainstaluj globalnie:
+   pipx install poetry
+   # Instalacja zależności i utworzenie środowiska:
+   poetry install
+   # Aktywuj środowisko Poetry:
+   poetry shell
    ```
 
 2. Upewnij się, że serwer Ollama jest uruchomiony z odpowiednim modelem:
@@ -82,7 +84,8 @@ System składa się z następujących komponentów:
 
 ## Wymagania Systemowe
 
-* Python 3.8+
+* Python 3.9+ (z wyłączeniem 3.9.7)
+* Poetry (do zarządzania zależnościami)
 * Ollama z modelem Mistral
 * SQLite (domyślnie) lub PostgreSQL (opcjonalnie)
 * 4GB RAM (minimum)
