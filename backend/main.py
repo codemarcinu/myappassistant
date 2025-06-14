@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
 from .config import settings
-from .api import chat, agents, food, upload
+from .api import chat, agents, food, upload, pantry
 from .core.database import engine, Base, AsyncSessionLocal
 from .models import shopping
 from .core.migrations import run_migrations
@@ -29,6 +29,7 @@ app.include_router(chat.router, prefix="/api", tags=["Chat"])
 app.include_router(agents.router, prefix="/api", tags=["Agents"])
 app.include_router(food.router, prefix="/api")
 app.include_router(upload.router, prefix="/api", tags=["Upload"])
+app.include_router(pantry.router, prefix="/api", tags=["Pantry"])
 
 @app.get("/")
 async def read_root():
