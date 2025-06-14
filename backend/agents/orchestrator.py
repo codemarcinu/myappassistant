@@ -100,10 +100,15 @@ class AgentOrchestrator:
             self.logger.error(f"Błąd podczas rozwiązywania niejednoznaczności: {e}")
         return None
 
-    async def process_command(self, user_command: str, state: ConversationState) -> str | List[Any]:
+    async def process_command(self, user_command: str, state: ConversationState, ocr_context: str = "") -> str | List[Any]:
         """
         Główna funkcja orkiestratora, zarządzająca całym przepływem.
         WERSJA Z POPRAWIONĄ LOGIKĄ DLA WYNIKÓW ANALITYCZNYCH.
+        
+        Args:
+            user_command: Polecenie użytkownika
+            state: Stan konwersacji
+            ocr_context: Opcjonalny kontekst z OCR, jeśli użytkownik przesłał paragon
         """
         # Ścieżka 1: Użytkownik doprecyzowuje poprzednie polecenie
         if state.is_awaiting_clarification:
@@ -117,7 +122,9 @@ class AgentOrchestrator:
                 return "Niestety, nie udało mi się zrozumieć wyboru. Zacznijmy od nowa."
 
         # Ścieżka 2: Nowe polecenie
-        intent_str = await self.recognize_intent(user_command)
+        # Jeśli mamy kontekst OCR, dodajemy go do polecenia
+        command_with_context = f"{user_command}\n\n{ocr_context}" if ocr_context else user_command
+        intent_str = await self.recognize_intent(command_with_context)
         try:
             intent = IntentType(intent_str)
         except ValueError:

@@ -105,7 +105,16 @@ if "action_command" in st.session_state and st.session_state.action_command:
 if prompt:
     st.session_state.messages.append({"role": "user", "content": prompt})
     
-    agent_response = asyncio.run(orchestrator.process_command(prompt, st.session_state.conversation_state))
+    # Sprawdzamy, czy w tle nie czeka jakiś obrazek do przetworzenia
+    context_from_ocr = ""
+    if "ocr_text" in st.session_state and st.session_state.ocr_text:
+        context_from_ocr = f"Użytkownik załączył paragon. Oto odczytany z niego tekst:\n\n---\n{st.session_state.ocr_text}\n---"
+        # Czyścimy tekst z pamięci, aby nie przetwarzać go ponownie
+        del st.session_state.ocr_text
+    
+    agent_response = asyncio.run(
+        orchestrator.process_command(prompt, st.session_state.conversation_state, ocr_context=context_from_ocr)
+    )
     
     response_for_history = agent_response
     
