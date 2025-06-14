@@ -8,7 +8,7 @@ from enum import Enum
 from ..core.llm_client import ollama_client
 from ..config import settings
 from .prompts import get_intent_recognition_prompt, get_entity_extraction_prompt, get_resolver_prompt
-from .utils import extract_json_from_text
+from .utils import extract_json_from_text, sanitize_prompt
 from .state import ConversationState
 from . import tools
 from .ocr_agent import OCRAgent
@@ -139,6 +139,12 @@ class AgentOrchestrator:
             ocr_context: Opcjonalny kontekst z OCR, jeśli użytkownik przesłał paragon
             file_data: Opcjonalne dane pliku do przetworzenia (file_bytes i file_type)
         """
+        # Sanityzacja polecenia użytkownika
+        logging.info(f"Otrzymano polecenie: '{user_command}'")
+        sanitized_command = sanitize_prompt(user_command)
+        if sanitized_command != user_command:
+            logging.warning(f"Polecenie po sanityzacji: '{sanitized_command}'")
+
         # Jeśli mamy dane pliku, najpierw przetwarzamy go przez OCR
         if file_data and 'file_bytes' in file_data and 'file_type' in file_data:
             ocr_text = await self.process_file(file_data['file_bytes'], file_data['file_type'])
@@ -148,7 +154,7 @@ class AgentOrchestrator:
 
         # Ścieżka 1: Użytkownik doprecyzowuje poprzednie polecenie
         if state.is_awaiting_clarification:
-            chosen_object = await self.resolve_ambiguity(state.ambiguous_options, user_command)
+            chosen_object = await self.resolve_ambiguity(state.ambiguous_options, sanitized_command)
             if chosen_object and state.original_intent and state.original_entities:
                 success = await tools.execute_database_action(state.original_intent, chosen_object, state.original_entities)
                 state.reset()
@@ -159,7 +165,7 @@ class AgentOrchestrator:
 
         # Ścieżka 2: Nowe polecenie
         # Jeśli mamy kontekst OCR, dodajemy go do polecenia
-        command_with_context = f"{user_command}\n\n{ocr_context}" if ocr_context else user_command
+        command_with_context = f"{sanitized_command}\n\n{ocr_context}" if ocr_context else sanitized_command
         intent_str = await self.recognize_intent(command_with_context)
         try:
             intent = IntentType(intent_str)
@@ -169,7 +175,7 @@ class AgentOrchestrator:
         if intent == IntentType.UNKNOWN:
             return "Przepraszam, nie potrafię pomóc w tej kwestii. Skupmy się na wydatkach."
         
-        entities = await self.extract_entities(user_command, intent.value)
+        entities = await self.extract_entities(sanitized_command, intent.value)
         
         # Najpierw obsługujemy intencje, które nie wymagają wyszukiwania
         if intent == IntentType.ADD_PURCHASE:
