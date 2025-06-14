@@ -5,6 +5,41 @@ import json
 from pathlib import Path
 from typing import List, Dict, Any
 
+BACKEND_CHAT_URL = "http://localhost:8000/api/orchestrator/execute"
+BACKEND_PANTRY_URL = "http://localhost:8000/api/pantry/products" # Nowy URL
+
+def execute_command(command: str):
+    """Wysyła polecenie do backendu i aktualizuje stan czatu."""
+    st.session_state.messages.append({"role": "user", "content": command})
+    try:
+        payload = {
+            "task": command,
+            "conversation_state": st.session_state.conversation_state
+        }
+        with st.spinner("Agent wykonuje akcję..."):
+            response = requests.post(BACKEND_CHAT_URL, json=payload)
+            response.raise_for_status()
+        
+        response_data = response.json()
+        assistant_response_content = response_data.get("response", "Przepraszam, wystąpił błąd.")
+        assistant_response_data = response_data.get("data")
+        
+        # Aktualizujemy stan konwersacji
+        st.session_state.conversation_state = response_data.get("conversation_state", {})
+        
+        st.session_state.messages.append({
+            "role": "assistant",
+            "content": assistant_response_content,
+            "data": assistant_response_data
+        })
+        # Wyczyść cache danych spiżarni, aby wymusić odświeżenie
+        st.cache_data.clear()
+
+    except Exception as e:
+        error_message = f"Wystąpił błąd: {e}"
+        st.error(error_message)
+        st.session_state.messages.append({"role": "assistant", "content": error_message})
+
 # --- Konfiguracja strony ---
 st.set_page_config(
     layout="wide",
@@ -24,10 +59,6 @@ if css_file.exists():
     st.markdown(f'<style>{load_css(css_file)}</style>', unsafe_allow_html=True)
 else:
     st.warning("Nie znaleziono pliku style.css. Interfejs może nie wyglądać zgodnie z oczekiwaniami.")
-
-# Adres URL backendu
-BACKEND_CHAT_URL = "http://localhost:8000/api/upload/"
-BACKEND_PANTRY_URL = "http://localhost:8000/api/pantry/products" # Nowy URL
 
 # --- Inicjalizacja Stanu Sesji ---
 if "messages" not in st.session_state:
@@ -189,38 +220,6 @@ with pantry_tab:
                     st.rerun()
 
 # --- GŁÓWNA LOGIKA APLIKACJI ---
-
-def execute_command(command: str):
-    """Wysyła polecenie do backendu i aktualizuje stan czatu."""
-    st.session_state.messages.append({"role": "user", "content": command})
-    try:
-        payload = {
-            "command": command,
-            "conversation_state": st.session_state.conversation_state
-        }
-        with st.spinner("Agent wykonuje akcję..."):
-            response = requests.post(BACKEND_CHAT_URL, json=payload)
-            response.raise_for_status()
-        
-        response_data = response.json()
-        assistant_response_content = response_data.get("response_text", "Przepraszam, wystąpił błąd.")
-        assistant_response_data = response_data.get("response_data")
-        
-        # Aktualizujemy stan konwersacji
-        st.session_state.conversation_state = response_data.get("conversation_state", {})
-        
-        st.session_state.messages.append({
-            "role": "assistant",
-            "content": assistant_response_content,
-            "data": assistant_response_data
-        })
-        # Wyczyść cache danych spiżarni, aby wymusić odświeżenie
-        st.cache_data.clear()
-
-    except Exception as e:
-        error_message = f"Wystąpił błąd: {e}"
-        st.error(error_message)
-        st.session_state.messages.append({"role": "assistant", "content": error_message})
 
 # NOWA SEKCJA: Sprawdzenie i wykonanie akcji z przycisku
 if st.session_state.action_command:
