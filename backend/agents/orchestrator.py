@@ -117,32 +117,36 @@ class AgentOrchestrator:
                 return "Niestety, nie udało mi się zrozumieć wyboru. Zacznijmy od nowa."
 
         # Ścieżka 2: Nowe polecenie
-        intent = await self.recognize_intent(user_command)
-        if intent == "UNKNOWN":
+        intent_str = await self.recognize_intent(user_command)
+        try:
+            intent = IntentType(intent_str)
+        except ValueError:
+            intent = IntentType.UNKNOWN
+            
+        if intent == IntentType.UNKNOWN:
             return "Przepraszam, nie potrafię pomóc w tej kwestii. Skupmy się na wydatkach."
         
-        entities = await self.extract_entities(user_command, intent)
+        entities = await self.extract_entities(user_command, intent.value)
         
-        if intent == "DODAJ_ZAKUPY":
+        # Najpierw obsługujemy intencje, które nie wymagają wyszukiwania
+        if intent == IntentType.ADD_PURCHASE:
             print(f"DEBUG: Otrzymane encje dla DODAJ_ZAKUPY: {entities}")
-            success = await tools.execute_database_action(intent, None, entities)
+            success = await tools.execute_database_action(intent.value, None, entities)
             return "Pomyślnie dodałem nowy paragon." if success else "Wystąpił błąd podczas dodawania paragonu."
         
-        # Najpierw obsługujemy zapytania analityczne, które zawsze zwracają listę wyników
-        if intent == "CZYTAJ_PODSUMOWANIE":
-            found_objects = await tools.find_database_object(intent, entities)
-            # Niezależnie od liczby wierszy, ten wynik jest zawsze odpowiedzią końcową
-            return found_objects
+        # Następnie obsługujemy zapytania analityczne, które zawsze zwracają listę wyników
+        if intent == IntentType.READ_SUMMARY:
+            return await tools.find_database_object(intent.value, entities)
 
-        # Dla pozostałych intencji (UPDATE, DELETE) logika pozostaje taka sama
-        found_objects = await tools.find_database_object(intent, entities)
+        # Dla pozostałych intencji (UPDATE, DELETE) uruchamiamy logikę z obsługą niejednoznaczności
+        found_objects = await tools.find_database_object(intent.value, entities)
         
         if len(found_objects) == 1:
-            success = await tools.execute_database_action(intent, found_objects[0], entities)
+            success = await tools.execute_database_action(intent.value, found_objects[0], entities)
             return "Gotowe, operacja wykonana." if success else "Coś poszło nie tak podczas zapisu."
             
         elif len(found_objects) > 1:
-            state.set_clarification_mode(intent, entities, found_objects)
+            state.set_clarification_mode(intent.value, entities, found_objects)
             return tools.generate_clarification_question_text(found_objects)
             
         else: # len == 0
