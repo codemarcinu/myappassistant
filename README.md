@@ -68,19 +68,33 @@ System składa się z następujących komponentów:
 
 ## Mapa Drogowa
 
-### Kamień Milowy 1: Dalszy Rozwój UI
-* Dodanie przycisków do typowych akcji ("Szybkie Akcje")
-* Bardziej zaawansowane wykresy (np. kołowe `st.pyplot`)
-* Możliwość edycji i usuwania wpisów bezpośrednio z tabeli w UI
+### Kamień Milowy 1: Dalszy Rozwój UI (W toku)
+* [x] Możliwość usuwania wpisów bezpośrednio z tabeli w UI
+* [ ] Możliwość **edycji** wpisów bezpośrednio z tabeli w UI
+* [ ] Dodanie przycisków do typowych akcji ("Szybkie Akcje")
+* [ ] Bardziej zaawansowane wykresy (np. kołowe `st.pyplot`)
 
-### Kamień Milowy 2: Rozszerzenie Inteligencji Agenta
-* Wdrożenie pełnej pamięci konwersacyjnej
-* Nauczenie agenta obsługi bardziej złożonych filtrów (np. przedziały dat)
+### Kamień Milowy 2: Rozszerzenie Inteligencji Agenta (Priorytet)
+* [x] Wdrożenie pełnej, **wieloturowej pamięci konwersacyjnej**
+* [ ] Nauczenie agenta obsługi złożonych filtrów analitycznych (np. przedziały dat: "w zeszłym tygodniu", "w maju")
+* [ ] Ukończenie i przetestowanie wszystkich operacji **CRUD** w przepływie konwersacyjnym
 
 ### Kamień Milowy 3: Przygotowanie do Produkcji
-* Implementacja uwierzytelniania użytkowników
-* Konteneryzacja aplikacji (Docker)
-* Przejście na produkcyjną bazę danych (PostgreSQL)
+* [ ] Implementacja uwierzytelniania użytkowników
+* [ ] Konteneryzacja aplikacji (Docker)
+* [ ] Przejście na produkcyjną bazę danych (PostgreSQL)
+
+### Kamień Milowy 4: Rozszerzenie Funkcjonalności
+* [ ] Integracja z systemami płatności (BLIK, przelewy)
+* [ ] Automatyczne kategoryzowanie produktów
+* [ ] Generowanie raportów PDF
+* [ ] Powiadomienia o przekroczeniu budżetu
+
+### Kamień Milowy 5: Optymalizacja i Skalowanie
+* [ ] Optymalizacja zapytań do bazy danych
+* [ ] Implementacja cachowania
+* [ ] Testy wydajnościowe
+* [ ] Monitoring i logowanie
 
 ## Wymagania Systemowe
 
