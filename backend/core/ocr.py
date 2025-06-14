@@ -1,30 +1,56 @@
 from PIL import Image
 import pytesseract
 import io
-from typing import Optional
+import fitz  # Import biblioteki PyMuPDF
+from typing import Optional, Tuple
 
-def extract_text_from_image(image_bytes: bytes) -> Optional[str]:
+def _extract_text_from_image_obj(image: Image.Image) -> str:
     """
-    Używa Tesseract OCR do wyciągnięcia tekstu z obrazu.
-    
-    Args:
-        image_bytes: Obraz w formie bajtów (otrzymany z file_uploader'a).
+    Prywatna funkcja pomocnicza, która wykonuje OCR na obiekcie obrazu PIL.
+    """
+    custom_config = r'--oem 3 --psm 4 -l pol'
+    return pytesseract.image_to_string(image, config=custom_config)
 
-    Returns:
-        Odczytany tekst lub None w przypadku błędu.
+def process_image_file(file_bytes: bytes) -> Optional[str]:
+    """
+    Przetwarza plik obrazu (jpg, png) i wyciąga z niego tekst.
     """
     try:
-        print("OCR: Rozpoczynam odczyt obrazu...")
-        # Otwieramy obraz z bajtów przekazanych przez Streamlit
-        image = Image.open(io.BytesIO(image_bytes))
-        
-        # Używamy Tesseracta do odczytania tekstu w języku polskim
-        # Konfiguracja '--psm 4' pomaga w traktowaniu obrazu jako pojedynczej kolumny tekstu
-        custom_config = r'--oem 3 --psm 4 -l pol'
-        text = pytesseract.image_to_string(image, config=custom_config)
-        
-        print("OCR: Odczyt zakończony sukcesem.")
+        print("OCR: Rozpoczynam odczyt pliku obrazu...")
+        image = Image.open(io.BytesIO(file_bytes))
+        text = _extract_text_from_image_obj(image)
+        print("OCR: Odczyt obrazu zakończony sukcesem.")
         return text
     except Exception as e:
-        print(f"Błąd podczas przetwarzania OCR: {e}")
+        print(f"Błąd podczas przetwarzania obrazu: {e}")
+        return None
+
+def process_pdf_file(file_bytes: bytes) -> Optional[str]:
+    """
+    Przetwarza plik PDF, konwertując każdą stronę na obraz i odczytując tekst.
+    """
+    try:
+        print("OCR: Rozpoczynam odczyt pliku PDF...")
+        full_text = []
+        # Otwieramy dokument PDF z bajtów
+        pdf_document = fitz.open(stream=file_bytes, filetype="pdf")
+        
+        # Iterujemy po każdej stronie dokumentu
+        for page_num in range(len(pdf_document)):
+            page = pdf_document.load_page(page_num)
+            # Konwertujemy stronę na obraz (pixmap)
+            pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))  # type: ignore # 2x zoom dla lepszej jakości
+            # Tworzymy obiekt obrazu PIL z pixmapa
+            img_size: Tuple[int, int] = (pix.width, pix.height)
+            image = Image.frombytes("RGB", img_size, pix.samples)
+            
+            # Używamy naszej funkcji do odczytu tekstu z obrazu strony
+            page_text = _extract_text_from_image_obj(image)
+            full_text.append(page_text)
+        
+        print(f"OCR: Odczyt PDF (stron: {len(pdf_document)}) zakończony sukcesem.")
+        return "\n".join(full_text)
+        
+    except Exception as e:
+        print(f"Błąd podczas przetwarzania PDF: {e}")
         return None 

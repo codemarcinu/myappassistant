@@ -67,33 +67,36 @@ for i, (btn_label, command) in enumerate(quick_actions.items()):
 st.write("---")
 st.subheader("Przetwarzanie Paragonu z Pliku")
 
+# Importujemy nowe funkcje OCR
+from backend.core.ocr import process_image_file, process_pdf_file
+
+# Zmieniamy akceptowane typy plików, dodając PDF
 uploaded_file = st.file_uploader(
-    "Załącz plik z paragonem (jpg, png)...", 
-    type=['jpg', 'jpeg', 'png']
+    "Załącz plik z paragonem (jpg, png, pdf)...", 
+    type=['jpg', 'jpeg', 'png', 'pdf']
 )
 
 if uploaded_file is not None:
-    # Ten blok wykona się tylko, gdy użytkownik prześle plik
     with st.spinner("Przetwarzam paragon..."):
-        # Importujemy naszą nową funkcję
-        from backend.core.ocr import extract_text_from_image
+        file_bytes = uploaded_file.getvalue()
+        file_extension = uploaded_file.name.split('.')[-1].lower()
         
-        # Czytamy plik jako bajty
-        image_bytes = uploaded_file.getvalue()
-        # Wywołujemy naszą funkcję OCR
-        extracted_text = extract_text_from_image(image_bytes)
-        
+        extracted_text = None
+        # Wybieramy odpowiednią funkcję w zależności od rozszerzenia
+        if file_extension in ['jpg', 'jpeg', 'png']:
+            extracted_text = process_image_file(file_bytes)
+        elif file_extension == 'pdf':
+            extracted_text = process_pdf_file(file_bytes)
+            
         if extracted_text:
             st.success("Odczytałem tekst z paragonu!")
-            
-            # Wyświetlamy surowy tekst, żeby zobaczyć, co odczytał Tesseract
             st.text_area("Odczytany surowy tekst:", extracted_text, height=300)
-
+            
             # Zapisujemy odczytany tekst w pamięci sesji, aby agent mógł go użyć
             st.session_state.ocr_text = extracted_text
             st.info("Tekst został przygotowany. Teraz poproś agenta, aby go przetworzył, np. pisząc: 'przeanalizuj ten paragon'.")
         else:
-            st.error("Nie udało się odczytać tekstu z obrazka.")
+            st.error("Nie udało się odczytać tekstu z pliku.")
 
 # Pobieramy polecenie z przycisku lub z pola tekstowego
 prompt = st.chat_input("Wpisz swoje polecenie...")
