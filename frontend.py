@@ -3,12 +3,17 @@ import asyncio
 import sys
 import os
 import pandas as pd
+from typing import Union, List, Dict, Any, TypedDict
 
 # Upewnij się, że ścieżka do backendu jest poprawna
-sys.path.append(os.path.abspath(os.path.dirname(__file__)))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '.')))
 
 from backend.agents.orchestrator import orchestrator
 from backend.agents.state import ConversationState
+
+class Message(TypedDict):
+    role: str
+    content: Union[str, pd.DataFrame]
 
 # Konfiguracja strony i tytuł
 st.set_page_config(page_title="FoodSave AI", layout="wide")
@@ -16,87 +21,69 @@ st.title("🤖 FoodSave AI - Twój Asystent Zakupowy")
 
 # Inicjalizacja Pamięci Sesji (Session State)
 if "messages" not in st.session_state:
-    st.session_state.messages = [
+    st.session_state.messages: List[Message] = [
         {"role": "assistant", "content": "Cześć! Jestem Twoim asystentem do spraw wydatków. Jak mogę Ci pomóc?"}
     ]
 if "conversation_state" not in st.session_state:
     st.session_state.conversation_state = ConversationState()
 
-# Wyświetlanie Historii Czatu
+# --- NOWA, INTELIGENTNA PĘTLA WYŚWIETLAJĄCA HISTORIĘ ---
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
-        # Sprawdzamy, czy treść wiadomości to DataFrame do wyświetlenia
-        if isinstance(message["content"], pd.DataFrame):
-            st.dataframe(message["content"])
+        content = message["content"]
+        if isinstance(content, pd.DataFrame):
+            # Jeśli to DataFrame, rysujemy tabelę i wykres
+            st.markdown("Przygotowałem dla Ciebie podsumowanie:")
+            st.dataframe(content)
+            # Sprawdzamy, czy mamy odpowiednie kolumny do narysowania wykresu
+            if 'Grupa' in content.columns and 'Wartość' in content.columns:
+                st.bar_chart(content.set_index('Grupa'))
         else:
-            st.markdown(message["content"])
+            # Jeśli to zwykły tekst, wyświetlamy go
+            st.markdown(str(content))
 
-# --- NOWA SEKCJA: SZYBKIE AKCJE ---
-st.write("---") # Linia oddzielająca
+# Sekcja "Szybkie Akcje"
+st.write("---")
 st.subheader("Szybkie Akcje")
-col1, col2, col3 = st.columns(3)
+cols = st.columns(3)
+quick_actions = {
+    "Pokaż wszystkie paragony": "pokaż wszystkie zakupy",
+    "Wydatki wg kategorii": "pokaż podsumowanie wydatków według kategorii",
+    "Wydatki wg sklepów": "pokaż wydatki w podziale na sklepy"
+}
 
 # Definiujemy funkcję, która będzie obsługiwać kliknięcie przycisku
-def handle_action(command: str):
-    # Ustawiamy polecenie w sesji, aby główna pętla mogła je przetworzyć
+def handle_action(command: str) -> None:
     st.session_state.action_command = command
 
-with col1:
-    st.button("Pokaż wszystkie paragony", on_click=handle_action, args=("pokaż wszystkie zakupy",), use_container_width=True)
+for i, (btn_label, command) in enumerate(quick_actions.items()):
+    cols[i].button(btn_label, on_click=handle_action, args=(command,), use_container_width=True)
 
-with col2:
-    st.button("Wydatki wg kategorii", on_click=handle_action, args=("pokaż podsumowanie wydatków według kategorii",), use_container_width=True)
-
-with col3:
-    st.button("Wydatki wg sklepów", on_click=handle_action, args=("pokaż wydatki w podziale na sklepy",), use_container_width=True)
-# --- KONIEC NOWEJ SEKCJI ---
-
-# Sprawdzamy, czy kliknięto przycisk, czy wpisano tekst
+# Pobieramy polecenie z przycisku lub z pola tekstowego
 prompt = st.chat_input("Wpisz swoje polecenie...")
 if "action_command" in st.session_state and st.session_state.action_command:
     prompt = st.session_state.action_command
-    st.session_state.action_command = None # Czyścimy akcję po jej pobraniu
+    st.session_state.action_command = None
 
 # Główna Pętla Interakcji
 if prompt:
     st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"):
-        st.markdown(prompt)
-
-    with st.chat_message("assistant"):
-        with st.spinner("Agent analizuje..."):
-            agent_response = asyncio.run(
-                orchestrator.process_command(prompt, st.session_state.conversation_state)
-            )
-        
-        response_for_history = agent_response
-        
-        if isinstance(agent_response, list) and agent_response:
-            response_df = pd.DataFrame(agent_response)
-            if len(response_df.columns) == 2:
-                response_df.columns = ['Wartość', 'Grupa']
-                st.success("Przygotowałem dla Ciebie podsumowanie:")
-                st.dataframe(response_df)
-                st.bar_chart(response_df.set_index('Grupa'))
-                response_for_history = response_df # Zapisujemy DataFrame do historii
-            else:
-                st.write("Oto dane, które znalazłem:")
-                st.dataframe(response_df)
-                response_for_history = response_df
-
-        elif isinstance(agent_response, str):
-            # Logika kolorowania odpowiedzi
-            if "Gotowe" in agent_response or "Pomyślnie" in agent_response:
-                st.success(agent_response)
-            elif "Niestety" in agent_response or "Błąd" in agent_response:
-                st.error(agent_response)
-            elif "pytanie" in agent_response.lower() or "wybierz jedną" in agent_response.lower():
-                st.info(agent_response)
-            else:
-                st.markdown(agent_response)
-        
-    # Convert response to string if it's not already a string
-    content_for_history = str(response_for_history) if not isinstance(response_for_history, str) else response_for_history
-    st.session_state.messages.append({"role": "assistant", "content": content_for_history})
-    # Wymuszamy odświeżenie strony, aby poprawnie wyświetlić nowe wiadomości
+    # Wywołujemy logikę agenta
+    agent_response = asyncio.run(
+        orchestrator.process_command(prompt, st.session_state.conversation_state)
+    )
+    
+    # --- NOWA LOGIKA ZAPISU DO HISTORII ---
+    response_content: Union[str, pd.DataFrame]
+    if isinstance(agent_response, list) and agent_response:
+        # Jeśli agent zwrócił dane, tworzymy z nich DataFrame
+        df = pd.DataFrame(agent_response)
+        if len(df.columns) == 2:
+            df.columns = ['Wartość', 'Grupa']
+        # Zapisujemy do historii DataFrame, a nie listę!
+        response_content = df
+    else:
+        response_content = str(agent_response)
+    
+    st.session_state.messages.append({"role": "assistant", "content": response_content})
     st.rerun() 
