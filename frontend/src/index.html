@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FoodSave AI - Zarządzanie Żywnością</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h2>Globalne Ustawienia</h2>
+                <button class="sidebar-toggle" id="sidebarToggle">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+            </div>
+            
+            <div class="settings-section">
+                <h3>🤖 Ustawienia AI</h3>
+                <div class="setting-item">
+                    <label class="form-label">Model AI</label>
+                    <select class="form-control">
+                        <option>GPT-4</option>
+                        <option>Claude</option>
+                        <option>Gemini</option>
+                    </select>
+                </div>
+                <div class="setting-item">
+                    <label class="toggle-label">
+                        <input type="checkbox" checked>
+                        <span class="toggle-slider"></span>
+                        Tryb kreatywny
+                    </label>
+                </div>
+            </div>
+
+            <div class="settings-section">
+                <h3>🌍 Język i Region</h3>
+                <div class="setting-item">
+                    <label class="form-label">Język interfejsu</label>
+                    <select class="form-control">
+                        <option>Polski</option>
+                        <option>English</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="settings-section">
+                <h3>🔔 Powiadomienia</h3>
+                <div class="setting-item">
+                    <label class="toggle-label">
+                        <input type="checkbox" checked>
+                        <span class="toggle-slider"></span>
+                        Powiadomienia email
+                    </label>
+                </div>
+                <div class="setting-item">
+                    <label class="toggle-label">
+                        <input type="checkbox">
+                        <span class="toggle-slider"></span>
+                        Powiadomienia push
+                    </label>
+                </div>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <header class="main-header">
+                <div class="tabs">
+                    <button class="tab-btn active" data-tab="chat">Czat z AI</button>
+                    <button class="tab-btn" data-tab="pantry">Moja Spiżarnia</button>
+                </div>
+            </header>
+
+            <div class="tab-content active" id="chatTab">
+                <div class="chat-messages" id="chatMessages">
+                    <div class="message ai-message">
+                        <div class="message-content">
+                            Cześć! Jestem Twoim asystentem FoodSave. W czym mogę dziś pomóc? Możesz dodać paragon, zapytać o wydatki lub sprawdzić stan spiżarni.
+                        </div>
+                    </div>
+                </div>
+                <div class="chat-input-area">
+                    <input type="text" id="chatInput" class="chat-input" placeholder="Wpisz polecenie lub pytanie...">
+                    <button id="sendBtn" class="btn btn--primary">Wyślij</button>
+                </div>
+            </div>
+
+            <div class="tab-content" id="pantryTab">
+                <div class="pantry-header">
+                    <h3>Produkty w Spiżarni</h3>
+                    <div class="pantry-categories">
+                        <button class="category-btn active" data-category="all">Wszystkie</button>
+                        <button class="category-btn" data-category="nabial">Nabiał</button>
+                        <button class="category-btn" data-category="mieso">Mięso</button>
+                        <button class="category-btn" data-category="warzywa">Warzywa</button>
+                    </div>
+                </div>
+                <div class="pantry-products" id="pantryProducts">
+                    <div class="product-item">
+                        <div class="product-info">
+                            <h4>Pierś z kurczaka</h4>
+                            <p class="product-category">Mięso</p>
+                            <p class="product-expiry">Wygasa: 2025-06-18</p>
+                        </div>
+                        <div class="product-actions">
+                            <button class="btn btn--sm btn--outline">Edytuj</button>
+                            <button class="btn btn--sm btn--outline">Usuń</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <div class="floating-agents">
+            <div class="agent-btn" data-agent="parser" title="Parser Paragonów">
+                <span class="agent-icon">📄</span>
+            </div>
+            <div class="agent-btn" data-agent="analyst" title="Analityk Wydatków">
+                <span class="agent-icon">📊</span>
+            </div>
+            <div class="agent-btn active" data-agent="budget" title="Doradca Budżetowy">
+                <span class="agent-icon">💰</span>
+            </div>
+            <div class="agent-btn" data-agent="planner" title="Planista Posiłków">
+                <span class="agent-icon">🍽️</span>
+            </div>
+            <div class="agent-btn" data-agent="sql" title="Asystent SQL">
+                <span class="agent-icon">🔍</span>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html> 
