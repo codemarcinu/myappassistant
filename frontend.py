@@ -63,6 +63,38 @@ def handle_action(command: str) -> None:
 for i, (btn_label, command) in enumerate(quick_actions.items()):
     cols[i].button(btn_label, on_click=handle_action, args=(command,), use_container_width=True)
 
+# Sekcja przetwarzania paragonu
+st.write("---")
+st.subheader("Przetwarzanie Paragonu z Pliku")
+
+uploaded_file = st.file_uploader(
+    "Załącz plik z paragonem (jpg, png)...", 
+    type=['jpg', 'jpeg', 'png']
+)
+
+if uploaded_file is not None:
+    # Ten blok wykona się tylko, gdy użytkownik prześle plik
+    with st.spinner("Przetwarzam paragon..."):
+        # Importujemy naszą nową funkcję
+        from backend.core.ocr import extract_text_from_image
+        
+        # Czytamy plik jako bajty
+        image_bytes = uploaded_file.getvalue()
+        # Wywołujemy naszą funkcję OCR
+        extracted_text = extract_text_from_image(image_bytes)
+        
+        if extracted_text:
+            st.success("Odczytałem tekst z paragonu!")
+            
+            # Wyświetlamy surowy tekst, żeby zobaczyć, co odczytał Tesseract
+            st.text_area("Odczytany surowy tekst:", extracted_text, height=300)
+
+            # Zapisujemy odczytany tekst w pamięci sesji, aby agent mógł go użyć
+            st.session_state.ocr_text = extracted_text
+            st.info("Tekst został przygotowany. Teraz poproś agenta, aby go przetworzył, np. pisząc: 'przeanalizuj ten paragon'.")
+        else:
+            st.error("Nie udało się odczytać tekstu z obrazka.")
+
 # Pobieramy polecenie z przycisku lub z pola tekstowego
 prompt = st.chat_input("Wpisz swoje polecenie...")
 if "action_command" in st.session_state and st.session_state.action_command:
