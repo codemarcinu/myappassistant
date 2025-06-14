@@ -1,6 +1,11 @@
 # Use Python 3.12 slim image as base
 FROM python:3.12-slim
 
+# Install system dependencies including tesseract-ocr
+RUN apt-get update && apt-get install -y \
+    tesseract-ocr \
+    && rm -rf /var/lib/apt/lists/*
+
 # Set working directory
 WORKDIR /app
 
