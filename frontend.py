@@ -4,11 +4,13 @@ import sys
 import os
 import pandas as pd
 from typing import Union, List, Dict, Any, TypedDict
+import matplotlib.pyplot as plt
+from backend.agents.base_agent import BaseAgent
+from backend.agents.orchestrator import orchestrator
 
 # Upewnij się, że ścieżka do backendu jest poprawna
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '.')))
 
-from backend.agents.orchestrator import orchestrator
 from backend.agents.state import ConversationState
 
 class Message(TypedDict):
@@ -73,17 +75,64 @@ if prompt:
         orchestrator.process_command(prompt, st.session_state.conversation_state)
     )
     
-    # --- NOWA LOGIKA ZAPISU DO HISTORII ---
-    response_content: Union[str, pd.DataFrame]
-    if isinstance(agent_response, list) and agent_response:
-        # Jeśli agent zwrócił dane, tworzymy z nich DataFrame
-        df = pd.DataFrame(agent_response)
-        if len(df.columns) == 2:
-            df.columns = ['Wartość', 'Grupa']
-        # Zapisujemy do historii DataFrame, a nie listę!
-        response_content = df
-    else:
-        response_content = str(agent_response)
+    # Debugowanie - wyświetlamy surowe dane
+    st.write("Debug - Typ odpowiedzi:", type(agent_response))
+    st.write("Debug - Zawartość odpowiedzi:", agent_response)
     
-    st.session_state.messages.append({"role": "assistant", "content": response_content})
+    # Inicjalizujemy zmienną response_for_history
+    response_for_history = None
+
+    if isinstance(agent_response, list) and agent_response:
+        response_text_for_history = "Przygotowałem dla Ciebie podsumowanie."
+        st.success(response_text_for_history)
+        
+        try:
+            # Dynamiczne tworzenie DataFrame i nadawanie nazw kolumnom
+            df = pd.DataFrame(agent_response)
+            st.write("Debug - DataFrame przed przetworzeniem:", df)
+            
+            if len(df.columns) == 2:
+                # Zakładamy, że pierwsza kolumna to wartość, druga to etykieta
+                df.columns = ['Wartość', 'Grupa']
+                df = df.set_index('Grupa') # Ustawiamy grupę jako indeks
+                st.write("Debug - DataFrame po przetworzeniu:", df)
+            
+            st.write("### Podsumowanie w Tabeli")
+            st.dataframe(df)
+            
+            # Używamy kolumn do stworzenia dwóch layoutów
+            col1, col2 = st.columns(2)
+
+            with col1:
+                st.write("### Wydatki na Wykresie Słupkowym")
+                st.bar_chart(df)
+
+            with col2:
+                st.write("### Struktura Wydatków (Wykres Kołowy)")
+                # Tworzymy wykres kołowy za pomocą Matplotlib
+                fig, ax = plt.subplots()
+                ax.pie(df['Wartość'], labels=df.index.tolist(), autopct='%1.1f%%', startangle=90)
+                ax.axis('equal')  # Zapewnia, że wykres jest idealnym kołem
+                
+                # Wyświetlamy wykres w Streamlit
+                st.pyplot(fig)
+
+            # Zapisujemy do historii DataFrame
+            response_for_history = df
+
+        except Exception as e:
+            st.error(f"Wystąpił błąd podczas tworzenia wykresu: {e}")
+            st.write("Debug - Szczegóły błędu:", str(e))
+            response_for_history = str(e)
+
+    elif isinstance(agent_response, str):
+        response_text_for_history = agent_response
+        st.success(response_text_for_history)
+        response_for_history = agent_response
+
+    # Konwertujemy DataFrame na string dla historii
+    if isinstance(response_for_history, pd.DataFrame):
+        st.session_state.messages.append({"role": "assistant", "content": response_for_history.to_string()})
+    else:
+        st.session_state.messages.append({"role": "assistant", "content": str(response_for_history)})
     st.rerun() 
