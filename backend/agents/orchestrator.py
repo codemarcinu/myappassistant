@@ -62,11 +62,14 @@ class AgentOrchestrator:
             self.logger.error(f"Błąd podczas przetwarzania pliku: {e}")
             return f"Wystąpił błąd podczas przetwarzania pliku: {str(e)}"
 
-    async def recognize_intent(self, user_command: str) -> str:
+    async def recognize_intent(self, user_command: str, state: ConversationState) -> str:
         """
         Analizuje polecenie użytkownika i zwraca rozpoznaną intencję.
         """
-        prompt = get_intent_recognition_prompt(user_command)
+        # Dodajemy kontekst konwersacji do promptu
+        conversation_context = state.get_conversation_context()
+        prompt = get_intent_recognition_prompt(user_command, conversation_context)
+        
         messages = [
             {'role': 'system', 'content': "Jesteś precyzyjnym systemem klasyfikacji intencji. Zawsze zwracaj tylko JSON."},
             {'role': 'user', 'content': prompt}
@@ -84,11 +87,14 @@ class AgentOrchestrator:
             self.logger.error(f"Błąd podczas rozpoznawania intencji: {e}")
             return 'UNKNOWN'
 
-    async def extract_entities(self, user_command: str, intent: str) -> Dict:
+    async def extract_entities(self, user_command: str, intent: str, state: ConversationState) -> Dict:
         """
         Ekstrahuje encje z polecenia użytkownika na podstawie rozpoznanej intencji.
         """
-        prompt = get_entity_extraction_prompt(user_command, intent)
+        # Dodajemy kontekst konwersacji do promptu
+        conversation_context = state.get_conversation_context()
+        prompt = get_entity_extraction_prompt(user_command, intent, conversation_context)
+        
         messages = [
             {'role': 'system', 'content': "Jesteś precyzyjnym systemem ekstrakcji encji. Zawsze zwracaj tylko JSON."},
             {'role': 'user', 'content': prompt}
@@ -105,11 +111,14 @@ class AgentOrchestrator:
             self.logger.error(f"Błąd podczas ekstrakcji encji: {e}")
             return {}
 
-    async def resolve_ambiguity(self, options: list, user_reply: str) -> Any | None:
+    async def resolve_ambiguity(self, options: list, user_reply: str, state: ConversationState) -> Any | None:
         """
         Rozwiązuje niejednoznaczność w wyborze użytkownika.
         """
-        prompt = get_resolver_prompt(options, user_reply)
+        # Dodajemy kontekst konwersacji do promptu
+        conversation_context = state.get_conversation_context()
+        prompt = get_resolver_prompt(options, user_reply, conversation_context)
+        
         messages = [
             {'role': 'system', 'content': "Jesteś precyzyjnym systemem rozwiązywania niejednoznaczności. Zawsze zwracaj tylko JSON."},
             {'role': 'user', 'content': prompt}
@@ -154,7 +163,7 @@ class AgentOrchestrator:
 
         # Ścieżka 1: Użytkownik doprecyzowuje poprzednie polecenie
         if state.is_awaiting_clarification:
-            chosen_object = await self.resolve_ambiguity(state.ambiguous_options, sanitized_command)
+            chosen_object = await self.resolve_ambiguity(state.ambiguous_options, sanitized_command, state)
             if chosen_object and state.original_intent and state.original_entities:
                 success = await tools.execute_database_action(state.original_intent, chosen_object, state.original_entities)
                 state.reset()
@@ -166,7 +175,7 @@ class AgentOrchestrator:
         # Ścieżka 2: Nowe polecenie
         # Jeśli mamy kontekst OCR, dodajemy go do polecenia
         command_with_context = f"{sanitized_command}\n\n{ocr_context}" if ocr_context else sanitized_command
-        intent_str = await self.recognize_intent(command_with_context)
+        intent_str = await self.recognize_intent(command_with_context, state)
         try:
             intent = IntentType(intent_str)
         except ValueError:
@@ -175,7 +184,7 @@ class AgentOrchestrator:
         if intent == IntentType.UNKNOWN:
             return "Przepraszam, nie potrafię pomóc w tej kwestii. Skupmy się na wydatkach."
         
-        entities = await self.extract_entities(sanitized_command, intent.value)
+        entities = await self.extract_entities(sanitized_command, intent.value, state)
         
         # Najpierw obsługujemy intencje, które nie wymagają wyszukiwania
         if intent == IntentType.ADD_PURCHASE:

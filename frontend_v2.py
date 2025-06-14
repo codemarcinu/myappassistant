@@ -194,7 +194,10 @@ def execute_command(command: str):
     """Wysyła polecenie do backendu i aktualizuje stan czatu."""
     st.session_state.messages.append({"role": "user", "content": command})
     try:
-        payload = {"command": command, "conversation_state": json.dumps(st.session_state.conversation_state)}
+        payload = {
+            "command": command,
+            "conversation_state": st.session_state.conversation_state
+        }
         with st.spinner("Agent wykonuje akcję..."):
             response = requests.post(BACKEND_CHAT_URL, json=payload)
             response.raise_for_status()
@@ -202,6 +205,8 @@ def execute_command(command: str):
         response_data = response.json()
         assistant_response_content = response_data.get("response_text", "Przepraszam, wystąpił błąd.")
         assistant_response_data = response_data.get("response_data")
+        
+        # Aktualizujemy stan konwersacji
         st.session_state.conversation_state = response_data.get("conversation_state", {})
         
         st.session_state.messages.append({
