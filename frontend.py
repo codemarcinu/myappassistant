@@ -76,13 +76,13 @@ uploaded_file = st.file_uploader(
     type=['jpg', 'jpeg', 'png', 'pdf']
 )
 
-if uploaded_file is not None:
+# Sprawdzamy, czy został załadowany NOWY plik
+if uploaded_file is not None and uploaded_file.name != st.session_state.get("processed_file_name"):
     with st.spinner("Przetwarzam paragon..."):
         file_bytes = uploaded_file.getvalue()
         file_extension = uploaded_file.name.split('.')[-1].lower()
         
         extracted_text = None
-        # Wybieramy odpowiednią funkcję w zależności od rozszerzenia
         if file_extension in ['jpg', 'jpeg', 'png']:
             extracted_text = process_image_file(file_bytes)
         elif file_extension == 'pdf':
@@ -92,11 +92,14 @@ if uploaded_file is not None:
             st.success("Odczytałem tekst z paragonu!")
             st.text_area("Odczytany surowy tekst:", extracted_text, height=300)
             
-            # Zapisujemy odczytany tekst w pamięci sesji, aby agent mógł go użyć
+            # Zapisujemy tekst ORAZ nazwę przetworzonego pliku w pamięci sesji
             st.session_state.ocr_text = extracted_text
+            st.session_state.processed_file_name = uploaded_file.name
             st.info("Tekst został przygotowany. Teraz poproś agenta, aby go przetworzył, np. pisząc: 'przeanalizuj ten paragon'.")
         else:
             st.error("Nie udało się odczytać tekstu z pliku.")
+            # Czyścimy nazwę, jeśli przetwarzanie się nie udało
+            st.session_state.processed_file_name = None
 
 # Pobieramy polecenie z przycisku lub z pola tekstowego
 prompt = st.chat_input("Wpisz swoje polecenie...")
@@ -134,5 +137,5 @@ if prompt:
                 response_for_history.columns = ['Wartość', 'Grupa']
                 response_for_history = response_for_history.set_index('Grupa')
 
-    st.session_state.messages.append({"role": "assistant", "content": response_for_history})
-    st.rerun() 
+    st.session_state.messages.append({"role": "assistant", "content": str(response_for_history)})
+    # Usuwamy st.rerun() - Streamlit automatycznie odświeży interfejs 
