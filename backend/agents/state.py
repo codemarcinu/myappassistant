@@ -1,6 +1,7 @@
 from typing import Any, Dict, List, Optional
 from dataclasses import dataclass, field
 from datetime import datetime
+from collections import deque
 
 @dataclass
 class Message:
@@ -27,7 +28,8 @@ class ConversationState:
         self.original_intent = None
         self.original_entities = None
         self.ambiguous_options = []
-        self.conversation_history: List[Message] = []
+        # Używamy deque zamiast listy dla lepszej wydajności
+        self.conversation_history: deque[Message] = deque(maxlen=self.max_history)
 
     def set_clarification_mode(self, intent: str, entities: Dict, options: List[Any]):
         """
@@ -44,8 +46,6 @@ class ConversationState:
         Automatycznie usuwa najstarsze wiadomości, jeśli przekroczymy limit.
         """
         self.conversation_history.append(Message(role=role, content=content))
-        if len(self.conversation_history) > self.max_history:
-            self.conversation_history.pop(0)
 
     def get_conversation_context(self) -> str:
         """
