@@ -12,6 +12,11 @@ POLISH_MONTHS_GENITIVE = {
     'lipca': 7, 'sierpnia': 8, 'września': 9, 'października': 10, 'listopada': 11, 'grudnia': 12
 }
 
+# NOWOŚĆ: Słownik do tłumaczenia dni tygodnia
+POLISH_WEEKDAYS = {
+    'poniedziałek': 0, 'wtorek': 1, 'środa': 2, 'czwartek': 3, 'piątek': 4, 'sobota': 5, 'niedziela': 6
+}
+
 # Słownik mapujący nazwy z LLM na nazwy atrybutów w modelach
 FIELD_MAP = {
     "cena_jednostkowa": "unit_price",
@@ -24,39 +29,49 @@ FIELD_MAP = {
     "kategoria": "category"  # New field for product category
 }
 
-def parse_human_date(date_string: str) -> Optional[date]:
+def parse_human_date(date_string: str, today: Optional[date] = None) -> Optional[date]:
     """
     Tłumaczy "ludzki" opis daty na obiekt daty w Pythonie.
-    Obsługuje: "dzisiaj", "wczoraj", "przedwczoraj", dni tygodnia i format "dzień miesiąc".
+    WERSJA OSTATECZNA: Poprawiona i bardziej odporna.
     """
     if not date_string:
         return None
 
-    today = date.today()
+    if today is None:
+        today = date.today()
+
     text = date_string.lower().strip()
 
-    # Przypadek 1: Słowa relatywne
-    if text == 'dzisiaj':
+    # Przypadek 1: Słowa relatywne (sprawdzamy zawieranie, a nie równość)
+    if 'dzisiaj' in text:
         return today
-    if text == 'wczoraj':
+    if 'wczoraj' in text:
         return today - timedelta(days=1)
-    if text == 'przedwczoraj':
+    if 'przedwczoraj' in text:
         return today - timedelta(days=2)
 
-    # Przypadek 2: Format "10 czerwca"
-    match = re.match(r'(\d{1,2})\s+([a-z]+)', text)
+    # Przypadek 2: Dni tygodnia
+    # Usuwamy słowa "ostatni", "zeszły", "w" dla uproszczenia
+    day_text = text.replace("ostatni", "").replace("zeszły", "").replace("w", "").strip()
+    if day_text in POLISH_WEEKDAYS:
+        target_weekday = POLISH_WEEKDAYS[day_text]
+        today_weekday = today.weekday()
+        days_ago = (today_weekday - target_weekday + 7) % 7
+        if days_ago == 0: # Jeśli to ten sam dzień tygodnia, cofnij o 7 dni
+            days_ago = 7
+        return today - timedelta(days=days_ago)
+
+    # Przypadek 3: Format "10 czerwca" (używamy re.search, aby znaleźć wzorzec w dowolnym miejscu)
+    match = re.search(r'(\d{1,2})\s+([a-zżźćńółęąś]+)', text)
     if match:
         day, month_name = match.groups()
         month_num = POLISH_MONTHS_GENITIVE.get(month_name)
         if month_num:
             try:
-                # Zakładamy bieżący rok
                 return date(today.year, month_num, int(day))
             except ValueError:
                 return None
     
-    # TODO: W przyszłości można dodać obsługę dni tygodnia (np. "ostatni poniedziałek")
-
     return None
 
 async def find_purchase_for_action(db: AsyncSession, entities: dict) -> list[ShoppingTrip]:
@@ -258,8 +273,12 @@ async def get_summary(db: AsyncSession, query_params: dict) -> List[Any]:
 if __name__ == '__main__':
     print("--- Testowanie parse_human_date ---")
     
-    # Dziś mamy 13 czerwca 2025
-    print(f"Test dla 'dzisiaj': {parse_human_date('dzisiaj')}")
-    print(f"Test dla 'wczoraj': {parse_human_date('wczoraj')}")
-    print(f"Test dla '12 czerwca': {parse_human_date('12 czerwca')}")
-    print(f"Test dla 'nieznany tekst': {parse_human_date('jakiś tekst')}") 
+    # Ustawiamy datę testową na 14 czerwca 2025 (sobota)
+    test_date = date(2025, 6, 14)
+    
+    print(f"Test dla 'dzisiaj': {parse_human_date('dzisiaj', test_date)}")
+    print(f"Test dla 'wczoraj': {parse_human_date('wczoraj', test_date)}")
+    print(f"Test dla 'w piątek': {parse_human_date('w piątek', test_date)}") # Oczekiwano: 2025-06-13
+    print(f"Test dla 'w ostatni poniedziałek': {parse_human_date('w ostatni poniedziałek', test_date)}") # Oczekiwano: 2025-06-09
+    print(f"Test dla 'sobota': {parse_human_date('sobota', test_date)}") # Oczekiwano: 2025-06-07 (poprzednia sobota, nie dzisiejsza)
+    print(f"Test dla '12 czerwca': {parse_human_date('12 czerwca', test_date)}") 
