@@ -11,6 +11,7 @@ from .prompts import get_intent_recognition_prompt, get_entity_extraction_prompt
 from .utils import extract_json_from_text
 from .state import ConversationState
 from . import tools
+from .ocr_agent import OCRAgent
 
 class IntentType(Enum):
     """
@@ -22,6 +23,7 @@ class IntentType(Enum):
     DELETE_ITEM = "DELETE_ITEM"
     UPDATE_PURCHASE = "UPDATE_PURCHASE"
     DELETE_PURCHASE = "DELETE_PURCHASE"
+    PROCESS_FILE = "PROCESS_FILE"  # Nowa intencja dla przetwarzania plików
     UNKNOWN = "UNKNOWN"
 
 class AgentOrchestrator:
@@ -32,6 +34,33 @@ class AgentOrchestrator:
     def __init__(self):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.logger.info("Orchestrator zainicjalizowany jako główny mózg systemu")
+        self.ocr_agent = OCRAgent()
+
+    async def process_file(self, file_bytes: bytes, file_type: str) -> str:
+        """
+        Przetwarza plik (obraz lub PDF) używając OCR agenta.
+        
+        Args:
+            file_bytes: Bajty pliku do przetworzenia
+            file_type: Typ pliku ('image' lub 'pdf')
+            
+        Returns:
+            Rozpoznany tekst z pliku lub komunikat o błędzie
+        """
+        try:
+            response = await self.ocr_agent.execute("", {
+                "file_bytes": file_bytes,
+                "file_type": file_type
+            })
+            
+            if response.success:
+                return response.result["text"]
+            else:
+                return f"Błąd OCR: {response.error}"
+                
+        except Exception as e:
+            self.logger.error(f"Błąd podczas przetwarzania pliku: {e}")
+            return f"Wystąpił błąd podczas przetwarzania pliku: {str(e)}"
 
     async def recognize_intent(self, user_command: str) -> str:
         """
@@ -100,16 +129,23 @@ class AgentOrchestrator:
             self.logger.error(f"Błąd podczas rozwiązywania niejednoznaczności: {e}")
         return None
 
-    async def process_command(self, user_command: str, state: ConversationState, ocr_context: str = "") -> str | List[Any]:
+    async def process_command(self, user_command: str, state: ConversationState, ocr_context: str = "", file_data: Optional[Dict[str, Any]] = None) -> str | List[Any]:
         """
         Główna funkcja orkiestratora, zarządzająca całym przepływem.
-        WERSJA Z POPRAWIONĄ LOGIKĄ DLA WYNIKÓW ANALITYCZNYCH.
         
         Args:
             user_command: Polecenie użytkownika
             state: Stan konwersacji
             ocr_context: Opcjonalny kontekst z OCR, jeśli użytkownik przesłał paragon
+            file_data: Opcjonalne dane pliku do przetworzenia (file_bytes i file_type)
         """
+        # Jeśli mamy dane pliku, najpierw przetwarzamy go przez OCR
+        if file_data and 'file_bytes' in file_data and 'file_type' in file_data:
+            ocr_text = await self.process_file(file_data['file_bytes'], file_data['file_type'])
+            if ocr_text.startswith("Błąd"):
+                return ocr_text
+            ocr_context = ocr_text
+
         # Ścieżka 1: Użytkownik doprecyzowuje poprzednie polecenie
         if state.is_awaiting_clarification:
             chosen_object = await self.resolve_ambiguity(state.ambiguous_options, user_command)
