@@ -61,9 +61,10 @@ Dla UPDATE_PURCHASE/DELETE_PURCHASE:
 Dla CZYTAJ_PODSUMOWANIE:
 ```json
 {{
-    "okres": "dzien/tydzien/miesiac/rok",
-    "sklep": "nazwa sklepu (opcjonalnie)",
-    "kategoria": "kategoria produktów (opcjonalnie)"
+    "metryka": "suma_wydatkow",
+    "filtry": [],
+    "grupowanie": ["sklep", "kategoria"],
+    "sortowanie": null
 }}
 ```
 
@@ -107,6 +108,18 @@ JSON:
   "produkty": [
     {{ "nazwa_artykulu": "jajka", "ilosc": 10, "cena_jednostkowa": 1.20, "cena_calkowita": 12.00, "kategoria": "Nabiał" }}
   ]
+}}
+```
+
+**Przykład 4:**
+POLECENIE: "pokaż wszystkie moje zakupy"
+JSON:
+```json
+{{
+  "metryka": "lista_wszystkiego",
+  "filtry": [],
+  "grupowanie": [],
+  "sortowanie": null
 }}
 ```
 

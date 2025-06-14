@@ -103,6 +103,7 @@ class AgentOrchestrator:
     async def process_command(self, user_command: str, state: ConversationState) -> str | List[Any]:
         """
         Główna funkcja orkiestratora, zarządzająca całym przepływem.
+        WERSJA Z POPRAWIONĄ LOGIKĄ DLA WYNIKÓW ANALITYCZNYCH.
         """
         # Ścieżka 1: Użytkownik doprecyzowuje poprzednie polecenie
         if state.is_awaiting_clarification:
@@ -127,17 +128,19 @@ class AgentOrchestrator:
             success = await tools.execute_database_action(intent, None, entities)
             return "Pomyślnie dodałem nowy paragon." if success else "Wystąpił błąd podczas dodawania paragonu."
         
-        # Dla pozostałych intencji (READ, UPDATE, DELETE) najpierw szukamy
+        # Najpierw obsługujemy zapytania analityczne, które zawsze zwracają listę wyników
+        if intent == "CZYTAJ_PODSUMOWANIE":
+            found_objects = await tools.find_database_object(intent, entities)
+            # Niezależnie od liczby wierszy, ten wynik jest zawsze odpowiedzią końcową
+            return found_objects
+
+        # Dla pozostałych intencji (UPDATE, DELETE) logika pozostaje taka sama
         found_objects = await tools.find_database_object(intent, entities)
         
         if len(found_objects) == 1:
-            if intent == "CZYTAJ_PODSUMOWANIE":
-                # Zwracamy surowe dane zamiast tekstu
-                return found_objects
-            else:
-                success = await tools.execute_database_action(intent, found_objects[0], entities)
-                return "Gotowe, operacja wykonana." if success else "Coś poszło nie tak podczas zapisu."
-                
+            success = await tools.execute_database_action(intent, found_objects[0], entities)
+            return "Gotowe, operacja wykonana." if success else "Coś poszło nie tak podczas zapisu."
+            
         elif len(found_objects) > 1:
             state.set_clarification_mode(intent, entities, found_objects)
             return tools.generate_clarification_question_text(found_objects)
