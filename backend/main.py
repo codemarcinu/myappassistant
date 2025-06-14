@@ -1,11 +1,11 @@
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
-from backend.config import settings
-from backend.api import chat, agents, food, upload
-from backend.core.database import engine, Base, AsyncSessionLocal
-from backend.models import shopping
-from backend.core.migrations import run_migrations
-from backend.core.seed_data import seed_database
+from .config import settings
+from .api import chat, agents, food, upload
+from .core.database import engine, Base, AsyncSessionLocal
+from .models import shopping
+from .core.migrations import run_migrations
+from .core.seed_data import seed_database
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
