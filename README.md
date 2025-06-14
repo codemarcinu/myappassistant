@@ -38,6 +38,7 @@ System składa się z następujących komponentów:
    python -m venv venv
    source venv/bin/activate  # Na Windows: venv\Scripts\activate
    pip install -r requirements.txt
+   pip install streamlit  # Instalacja Streamlit dla frontendu
    ```
 
 2. Upewnij się, że serwer Ollama jest uruchomiony z odpowiednim modelem:
@@ -50,10 +51,18 @@ System składa się z następujących komponentów:
    python seed_db.py
    ```
 
-4. Uruchom aplikację:
+4. Uruchom backend (w osobnym terminalu):
+   ```bash
+   cd backend
+   python -m uvicorn main:app --reload
+   ```
+   Backend będzie dostępny pod adresem http://localhost:8000
+
+5. Uruchom frontend (w osobnym terminalu):
    ```bash
    streamlit run frontend.py
    ```
+   Frontend będzie dostępny pod adresem http://localhost:8501
 
 ## Mapa Drogowa
 
@@ -77,6 +86,8 @@ System składa się z następujących komponentów:
 * Ollama z modelem Mistral
 * SQLite (domyślnie) lub PostgreSQL (opcjonalnie)
 * 4GB RAM (minimum)
+* Uvicorn (dla backendu)
+* Streamlit (dla frontendu)
 
 ## Licencja
 
