@@ -6,6 +6,7 @@ from ..config import settings
 from ..core import crud
 from ..core.database import AsyncSessionLocal
 from ..models.shopping import ShoppingTrip, Product
+from ..agents.prompts import get_entity_extraction_prompt
 
 def extract_json_from_text(text: str) -> str:
     """
@@ -25,139 +26,6 @@ def extract_json_from_text(text: str) -> str:
             return ""
     except Exception:
         return ""
-
-# Nasz "Super-Prompt" dla Agenta Ekstrakcji Danych
-ENTITY_EXTRACTION_PROMPT = """Jesteś precyzyjnym agentem do ekstrakcji danych (encji) w systemie zarządzania budżetem. Twoim zadaniem jest analiza polecenia użytkownika oraz jego intencji i zwrócenie obiektu JSON z wyekstrahowanymi parametrami. Zawsze zwracaj tylko i wyłącznie obiekt JSON. Jeśli jakiejś informacji nie ma w poleceniu, użyj wartości `null`.
-
-### Schemat Obiektu JSON do zwrotu
-
-Twoja odpowiedź MUSI pasować do poniższego schematu, w zależności od otrzymanej intencji.
-
-#### 1. Dla intencji: UPDATE_ITEM
-```json
-{
-  "produkt_identyfikator": {
-    "nazwa": "mleko",
-    "kolejnosc": null,
-    "kryterium_dodatkowe": null
-  },
-  "paragon_identyfikator": {
-    "data": "wczoraj",
-    "sklep": null,
-    "kolejnosc": "ostatni"
-  },
-  "operacje": [
-    {
-      "pole_do_zmiany": "cena_jednostkowa",
-      "nowa_wartosc": 3.99
-    }
-  ]
-}
-```
-
-#### 2. Dla intencji: DELETE_ITEM
-```json
-{
-  "produkt_identyfikator": {
-    "nazwa": "masło",
-    "kolejnosc": null
-  },
-  "paragon_identyfikator": {
-    "data": null,
-    "sklep": "Lidl",
-    "kolejnosc": null
-  }
-}
-```
-
-#### 3. Dla intencji: UPDATE_PURCHASE
-```json
-{
-  "paragon_identyfikator": {
-    "data": "wczoraj",
-    "sklep": null,
-    "kolejnosc": "ostatni"
-  },
-  "operacje": [
-    {
-      "pole_do_zmiany": "sklep",
-      "nowa_wartosc": "Biedronka"
-    }
-  ]
-}
-```
-
-#### 4. Dla intencji: DELETE_PURCHASE
-```json
-{
-  "paragon_identyfikator": {
-    "data": "10 czerwca",
-    "sklep": "Lidl",
-    "kolejnosc": null
-  }
-}
-```
-
-#### 5. Dla intencji: DODAJ_ZAKUPY
-```json
-{
-  "paragon_info": {
-    "sklep": "Biedronka",
-    "data": "dzisiaj"
-  },
-  "produkty": [
-    {
-      "nazwa_artykulu": "mleko",
-      "ilosc": 2,
-      "cena_jednostkowa": 4.50,
-      "cena_calkowita": 9.00
-    },
-    {
-      "nazwa_artykulu": "chleb",
-      "ilosc": 1,
-      "cena_jednostkowa": 5.00,
-      "cena_calkowita": 5.00
-    }
-  ]
-}
-```
-
-#### 6. Dla intencji: CZYTAJ_PODSUMOWANIE
-```json
-{
-  "metryka": "suma_wydatkow", 
-  "grupowanie": ["sklep"],
-  "filtry": [
-    {
-      "pole": "data",
-      "operator": "w_tym_miesiacu"
-    },
-    {
-      "pole": "sklep",
-      "operator": "rowna_sie",
-      "wartosc": "Biedronka"
-    }
-  ],
-  "sortowanie": {
-    "pole": "suma_wydatkow",
-    "kierunek": "malejaco"
-  }
-}
-```
-
-### Wyjaśnienie Schematu 'CZYTAJ_PODSUMOWANIE'
-- `metryka`: Co liczymy? Dostępne wartości: `suma_wydatkow`, `liczba_produktow`, `srednia_cena`.
-- `grupowanie`: Jak grupujemy wyniki? Jest to lista pól, np. `["sklep"]`, `["kategoria_produktu"]`.
-- `filtry`: Jak zawężamy dane? Lista warunków WHERE.
-  - `pole`: Nazwa pola do filtrowania (np. `data`, `sklep`, `nazwa_artykulu`).
-  - `operator`: Jak filtrujemy? Np. `rowna_sie`, `zawiera`, `wieksze_niz`, `w_tym_miesiacu`, `w_zeszlym_roku`.
-  - `wartosc`: Wartość dla filtra.
-- `sortowanie`: Jak sortujemy wyniki?
-  - `pole`: Pole do sortowania.
-  - `kierunek`: `rosnaco` lub `malejaco`.
-
-### Przykład działania
-"""
 
 # --- NOWA FUNKCJA GENERUJĄCA PYTANIE ---
 def generate_clarification_question(options: List[Any]) -> str:
@@ -189,9 +57,12 @@ async def test_entity_extraction(intent: str, user_prompt: str) -> None:
     print(f"\n--- Testuję polecenie: '{user_prompt}' (Intencja: {intent}) ---")
     
     try:
-        # Krok 1: Ekstrakcja encji z LLM (pozostaje bez zmian)
-        final_user_content = f"Otrzymałem polecenie od użytkownika z intencją '{intent}'. Przeanalizuj poniższe polecenie i zwróć obiekt JSON z wyekstrahowanymi encjami.\n\nPolecenie: \"{user_prompt}\""
-        messages = [{'role': 'system', 'content': ENTITY_EXTRACTION_PROMPT}, {'role': 'user', 'content': final_user_content}]
+        # Krok 1: Ekstrakcja encji z LLM
+        prompt = get_entity_extraction_prompt(user_prompt, intent)
+        messages = [
+            {'role': 'system', 'content': "Jesteś precyzyjnym systemem ekstrakcji encji. Zawsze zwracaj tylko JSON."},
+            {'role': 'user', 'content': prompt}
+        ]
         
         response = await llm_client.chat(
             model=settings.DEFAULT_CHAT_MODEL, messages=messages, stream=False, options={'temperature': 0.0}

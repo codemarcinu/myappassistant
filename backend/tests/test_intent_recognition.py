@@ -2,6 +2,7 @@ import asyncio
 import json
 from ..core.llm_client import llm_client
 from ..config import settings
+from ..agents.prompts import get_intent_recognition_prompt
 
 # Prompt systemowy pozostaje ten sam - prosty i klarowny.
 SYSTEM_PROMPT = """Jesteś precyzyjnym systemem klasyfikacji intencji. Twoim zadaniem jest analiza polecenia użytkownika i zwrócenie TYLKO I WYŁĄCZNIE obiektu JSON z jednym kluczem 'intencja'.
@@ -13,16 +14,11 @@ async def test_intent_recognition(user_prompt: str) -> None:
     print(f"\n--- Testuję polecenie: '{user_prompt}' ---")
     
     try:
-        # BUDUJEMY HISTORIĘ CZATU Z JEDNYM PRZYKŁADEM (ONE-SHOT)
-        # To uczy model rozróżniania UPDATE_ITEM od UPDATE_PURCHASE
+        # Używamy promptu z modułu prompts
+        prompt = get_intent_recognition_prompt(user_prompt)
         messages = [
-            {'role': 'system', 'content': SYSTEM_PROMPT},
-            # --- POCZĄTEK NASZEGO PRZYKŁADU ---
-            {'role': 'user', 'content': 'chciałbym poprawić cenę chleba na paragonie'},
-            {'role': 'assistant', 'content': '{"intencja": "UPDATE_ITEM"}'},
-            # --- KONIEC NASZEGO PRZYKŁADU ---
-            # Teraz właściwe polecenie od użytkownika
-            {'role': 'user', 'content': user_prompt}
+            {'role': 'system', 'content': "Jesteś precyzyjnym systemem klasyfikacji intencji. Zawsze zwracaj tylko JSON."},
+            {'role': 'user', 'content': prompt}
         ]
         
         response = await llm_client.chat(
@@ -37,7 +33,7 @@ async def test_intent_recognition(user_prompt: str) -> None:
         
         try:
             parsed_json = json.loads(raw_response.strip())
-            print(f"Rozpoznana intencja: {parsed_json.get('intencja', 'BRAK INTENCJI')}")
+            print(f"Rozpoznana intencja: {parsed_json.get('intent', 'BRAK INTENCJI')}")
         except json.JSONDecodeError as e:
             print(f"Błąd: Model nie zwrócił poprawnego JSON")
             print(f"Otrzymany tekst: {raw_response}")

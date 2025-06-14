@@ -5,7 +5,6 @@ from .api import chat, agents, food, upload
 from .core.database import engine, Base, AsyncSessionLocal
 from .models import shopping
 from .core.migrations import run_migrations
-from .core.seed_data import seed_database
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -15,10 +14,6 @@ async def lifespan(app: FastAPI):
     
     # Run migrations
     await run_migrations()
-    
-    # Seed database
-    async with AsyncSessionLocal() as session:
-        await seed_database(session)
     
     yield
     # Cleanup code here if needed
