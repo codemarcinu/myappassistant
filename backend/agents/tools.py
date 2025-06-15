@@ -2,7 +2,54 @@ from typing import Any, Dict, List
 
 from ..core import crud
 from ..core.database import AsyncSessionLocal
+from ..core.llm_client import llm_client
 from ..models.shopping import Product, ShoppingTrip
+
+
+async def recognize_intent(prompt: str) -> str:
+    """
+    Narzędzie, które rozpoznaje intencję użytkownika na podstawie promptu.
+    """
+    try:
+        response = await llm_client.chat(
+            model="gpt-3.5-turbo",
+            messages=[
+                {
+                    "role": "system",
+                    "content": "Jesteś precyzyjnym systemem klasyfikacji intencji. Zawsze zwracaj tylko JSON.",
+                },
+                {"role": "user", "content": prompt},
+            ],
+            stream=False,
+            options={"temperature": 0.0},
+        )
+        return response["message"]["content"]
+    except Exception as e:
+        print(f"Błąd podczas rozpoznawania intencji: {e}")
+        return '{"intent": "UNKNOWN"}'
+
+
+async def extract_entities(prompt: str) -> str:
+    """
+    Narzędzie, które ekstrahuje encje z promptu.
+    """
+    try:
+        response = await llm_client.chat(
+            model="gpt-3.5-turbo",
+            messages=[
+                {
+                    "role": "system",
+                    "content": "Jesteś precyzyjnym systemem ekstrakcji encji. Zawsze zwracaj tylko JSON.",
+                },
+                {"role": "user", "content": prompt},
+            ],
+            stream=False,
+            options={"temperature": 0.0},
+        )
+        return response["message"]["content"]
+    except Exception as e:
+        print(f"Błąd podczas ekstrakcji encji: {e}")
+        return "{}"
 
 
 async def find_database_object(intent: str, entities: Dict) -> List[Any]:

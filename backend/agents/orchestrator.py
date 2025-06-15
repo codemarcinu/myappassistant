@@ -1,13 +1,13 @@
 # PRAWIDŁOWA ZAWARTOŚĆ DLA PLIKU orchestrator.py
 
 import logging
-from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
-from ..config import settings
-from ..core.llm_client import llm_client
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from . import tools
-from .ocr_agent import OCRAgent
+from .agent_factory import AgentFactory
+from .base_agent import AgentResponse
 from .prompts import (
     get_entity_extraction_prompt,
     get_intent_recognition_prompt,
@@ -16,256 +16,177 @@ from .prompts import (
 from .state import ConversationState
 from .utils import extract_json_from_text, sanitize_prompt
 
-
-class IntentType(Enum):
-    """
-    Typy intencji, które system może rozpoznać.
-    """
-
-    ADD_PURCHASE = "DODAJ_ZAKUPY"
-    READ_SUMMARY = "CZYTAJ_PODSUMOWANIE"
-    UPDATE_ITEM = "UPDATE_ITEM"
-    DELETE_ITEM = "DELETE_ITEM"
-    UPDATE_PURCHASE = "UPDATE_PURCHASE"
-    DELETE_PURCHASE = "DELETE_PURCHASE"
-    PROCESS_FILE = "PROCESS_FILE"  # Nowa intencja dla przetwarzania plików
-    UNKNOWN = "UNKNOWN"
+logger = logging.getLogger(__name__)
 
 
-class AgentOrchestrator:
-    """
-    Klasa odpowiedzialna za zarządzanie i delegowanie zadań do odpowiednich agentów.
-    Teraz pełni rolę głównego "mózgu" systemu.
-    """
+class Orchestrator:
+    def __init__(self, db: AsyncSession, state: ConversationState):
+        self.db = db
+        self.state = state
+        self.agent_factory = AgentFactory()
 
-    def __init__(self):
-        self.logger = logging.getLogger(self.__class__.__name__)
-        self.logger.info("Orchestrator zainicjalizowany jako główny mózg systemu")
-        self.ocr_agent = OCRAgent()
-
-    async def process_file(self, file_bytes: bytes, file_type: str) -> str:
-        """
-        Przetwarza plik (obraz lub PDF) używając OCR agenta.
-
-        Args:
-            file_bytes: Bajty pliku do przetworzenia
-            file_type: Typ pliku ('image' lub 'pdf')
-
-        Returns:
-            Rozpoznany tekst z pliku lub komunikat o błędzie
-        """
-        try:
-            response = await self.ocr_agent.execute(
-                "", {"file_bytes": file_bytes, "file_type": file_type}
-            )
-
-            if response.success and response.data is not None:
-                return response.data["text"]
-            else:
-                return f"Błąd OCR: {response.error}"
-
-        except Exception as e:
-            self.logger.error(f"Błąd podczas przetwarzania pliku: {e}")
-            return f"Wystąpił błąd podczas przetwarzania pliku: {str(e)}"
-
-    async def recognize_intent(
-        self, user_command: str, state: ConversationState
-    ) -> str:
-        """
-        Analizuje polecenie użytkownika i zwraca rozpoznaną intencję.
-        """
-        conversation_context = state.get_conversation_context()
-        prompt = get_intent_recognition_prompt(user_command, conversation_context)
-
-        messages = [
-            {
-                "role": "system",
-                "content": (
-                    "Jesteś precyzyjnym systemem klasyfikacji intencji. "
-                    "Zawsze zwracaj tylko JSON."
-                ),
-            },
-            {"role": "user", "content": prompt},
-        ]
-        response = await llm_client.chat(
-            model=settings.DEFAULT_CHAT_MODEL,
-            messages=messages,
-            stream=False,
-            options={"temperature": 0.0},
-        )
-        try:
-            result = extract_json_from_text(response["message"]["content"])
-            return result.get("intent", "UNKNOWN")
-        except Exception as e:
-            self.logger.error(f"Błąd podczas rozpoznawania intencji: {e}")
-            return "UNKNOWN"
-
-    async def extract_entities(
-        self, user_command: str, intent: str, state: ConversationState
-    ) -> Dict:
-        """
-        Ekstrahuje encje z polecenia użytkownika na podstawie rozpoznanej intencji.
-        """
-        conversation_context = state.get_conversation_context()
-        prompt = get_entity_extraction_prompt(
-            user_command, intent, conversation_context
-        )
-
-        messages = [
-            {
-                "role": "system",
-                "content": (
-                    "Jesteś precyzyjnym systemem ekstrakcji encji. "
-                    "Zawsze zwracaj tylko JSON."
-                ),
-            },
-            {"role": "user", "content": prompt},
-        ]
-        response = await llm_client.chat(
-            model=settings.DEFAULT_CHAT_MODEL,
-            messages=messages,
-            stream=False,
-            options={"temperature": 0.0},
-        )
-        try:
-            return extract_json_from_text(response["message"]["content"])
-        except Exception as e:
-            self.logger.error(f"Błąd podczas ekstrakcji encji: {e}")
-            return {}
-
-    async def resolve_ambiguity(
-        self, options: list, user_reply: str, state: ConversationState
-    ) -> Any | None:
-        """
-        Rozwiązuje niejednoznaczność w wyborze użytkownika.
-        """
-        conversation_context = state.get_conversation_context()
-        prompt = get_resolver_prompt(options, user_reply, conversation_context)
-
-        messages = [
-            {
-                "role": "system",
-                "content": (
-                    "Jesteś precyzyjnym systemem rozwiązywania niejednoznaczności. "
-                    "Zawsze zwracaj tylko JSON."
-                ),
-            },
-            {"role": "user", "content": prompt},
-        ]
-        response = await llm_client.chat(
-            model=settings.DEFAULT_CHAT_MODEL,
-            messages=messages,
-            stream=False,
-            options={"temperature": 0.0},
-        )
-        try:
-            result = extract_json_from_text(response["message"]["content"])
-            choice = result.get("choice")
-            if choice and 1 <= choice <= len(options):
-                return options[choice - 1]
-        except Exception as e:
-            self.logger.error(f"Błąd podczas rozwiązywania niejednoznaczności: {e}")
-        return None
+    async def process_file(self, file_content: bytes, filename: str) -> Dict[str, Any]:
+        """Processes an uploaded file (e.g., a receipt image) using an appropriate agent."""
+        # Simple factory based on file type
+        if filename.lower().endswith((".png", ".jpg", ".jpeg")):
+            ocr_agent = self.agent_factory.create_agent("ocr")
+            response = await ocr_agent.process({"file_content": file_content})
+            return response.dict()
+        return {"error": "Unsupported file type"}
 
     async def process_command(
-        self,
-        user_command: str,
-        state: ConversationState,
-        ocr_context: str = "",
-        file_data: Optional[Dict[str, Any]] = None,
-    ) -> str | List[Any]:
-        """
-        Główna funkcja orkiestratora, zarządzająca całym przepływem.
+        self, user_command: str, file_info: Optional[Dict] = None
+    ) -> Dict[str, Any]:
+        """Main entry point to process a user's text command."""
+        self.state.add_message("user", user_command)
+        logger.info(f"Processing command: '{user_command}'")
 
-        Args:
-            user_command: Polecenie użytkownika
-            state: Stan konwersacji
-            ocr_context: Opcjonalny kontekst z OCR
-            file_data: Opcjonalne dane pliku do przetworzenia
-        """
-        logging.info(f"Otrzymano polecenie: '{user_command}'")
-        sanitized_command = sanitize_prompt(user_command)
-        if sanitized_command != user_command:
-            logging.warning(f"Polecenie po sanityzacji: '{sanitized_command}'")
+        if self.state.is_awaiting_clarification:
+            return await self._handle_clarification(user_command)
 
-        if file_data and "file_bytes" in file_data and "file_type" in file_data:
-            ocr_text = await self.process_file(
-                file_data["file_bytes"], file_data["file_type"]
+        # Recognize intent
+        intent_prompt = get_intent_recognition_prompt(user_command)
+        intent_response = await tools.recognize_intent(intent_prompt)
+        intent = extract_json_from_text(intent_response).get("intent", "UNKNOWN")
+
+        if intent == "UNKNOWN":
+            return {"response": "Nie zrozumiałem polecenia.", "state": self.state.to_dict()}
+
+        # Extract entities
+        entity_prompt = get_entity_extraction_prompt(user_command, intent)
+        entities_response = await tools.extract_entities(entity_prompt)
+        entities = extract_json_from_text(entities_response)
+        logger.info(f"Recognized Intent: {intent}, Entities: {entities}")
+
+        found_objects = await tools.find_database_object(intent, entities)
+
+        if len(found_objects) > 1:
+            logger.info("Multiple objects found, asking for clarification.")
+            clarification_question = tools.generate_clarification_question_text(
+                options=found_objects
             )
-            if ocr_text.startswith("Błąd"):
-                return ocr_text
-            ocr_context = ocr_text
-
-        if state.is_awaiting_clarification:
-            chosen_object = await self.resolve_ambiguity(
-                state.ambiguous_options, sanitized_command, state
+            self.state.set_clarification_mode(
+                intent=intent,
+                entities=entities,
+                options=found_objects
             )
-            if chosen_object and state.original_intent and state.original_entities:
+            return {
+                "response": clarification_question,
+                "data": [obj.to_dict() for obj in found_objects],
+                "state": self.state.to_dict(),
+            }
+        elif len(found_objects) == 1:
+            logger.info("Single object found, proceeding with action.")
+            single_object = found_objects[0]
+
+            # Check if the intent is for modification (UPDATE/DELETE)
+            modification_intents = [
+                "UPDATE_ITEM",
+                "DELETE_ITEM",
+                "UPDATE_PURCHASE",
+                "DELETE_PURCHASE",
+            ]
+            if intent in modification_intents:
                 success = await tools.execute_database_action(
-                    state.original_intent, chosen_object, state.original_entities
+                    intent=intent,
+                    target_object=single_object,
+                    entities=entities,
                 )
-                state.reset()
-                return (
-                    "Gotowe, operacja została wykonana."
-                    if success
-                    else "Coś poszło nie tak podczas zapisu."
+                if success:
+                    action_word = "Zaktualizowałem" if "UPDATE" in intent else "Usunąłem"
+                    response_text = f"{action_word} wpis."
+                else:
+                    response_text = "Wystąpił błąd podczas modyfikacji danych."
+                
+                return {"response": response_text, "state": self.state.to_dict()}
+
+            # For READ or other intents, just return the found object's data
+            return {
+                "response": f"Znalazłem szukany wpis.",
+                "data": [single_object.to_dict()],
+                "state": self.state.to_dict(),
+            }
+
+        if not found_objects:
+            logger.info("No objects found.")
+            # For CREATE intents, this is the expected path
+            if intent in ["CREATE_ITEM", "CREATE_PURCHASE"]:
+                success = await tools.execute_database_action(
+                    intent=intent,
+                    target_object=None,
+                    entities=entities,
                 )
-            else:
-                state.reset()
-                return (
-                    "Niestety, nie udało mi się zrozumieć wyboru. " "Zacznijmy od nowa."
+                if success:
+                    return {
+                        "response": "Gotowe, dodałem nowy wpis do bazy.",
+                        "state": self.state.to_dict(),
+                    }
+                else:
+                    return {
+                        "response": "Nie udało mi się dodać wpisu, brakowało potrzebnych danych.",
+                        "state": self.state.to_dict(),
+                    }
+
+            # For ANALYZE intents
+            if intent == "ANALYZE":
+                 summary_data = await tools.execute_database_action(
+                    intent=intent,
+                    target_object=None,
+                    entities=entities,
                 )
+                 return {
+                    "response": "Oto analiza Twoich wydatków.",
+                    "data": summary_data,
+                    "state": self.state.to_dict()
+                }
 
-        command_with_context = (
-            f"{sanitized_command}\n\n{ocr_context}"
-            if ocr_context
-            else sanitized_command
-        )
-        intent_str = await self.recognize_intent(command_with_context, state)
-        try:
-            intent = IntentType(intent_str)
-        except ValueError:
-            intent = IntentType.UNKNOWN
+            return {
+                "response": "Nie znalazłem w bazie pasujących wpisów.",
+                "state": self.state.to_dict(),
+            }
+        
+        # Fallback - should ideally not be reached
+        return {
+            "response": "Coś poszło nie tak z logiką Orchestratora.",
+            "state": self.state.to_dict(),
+        }
 
-        if intent == IntentType.UNKNOWN:
-            return (
-                "Przepraszam, nie potrafię pomóc w tej kwestii. "
-                "Skupmy się na wydatkach."
-            )
+    async def _handle_clarification(self, user_command: str) -> Dict[str, Any]:
+        """Handles the user's response when the agent is in clarification mode."""
+        logger.info(f"Handling clarification. User response: '{user_command}'")
+        # For now, a simple 'yes' confirms the first option.
+        # A more robust solution would parse the user's choice.
+        if "tak" in user_command.lower() or "pierwszy" in user_command.lower():
+            if not self.state.ambiguous_options or not self.state.original_intent or not self.state.original_entities:
+                self.state.reset()
+                return {
+                    "response": "Wystąpił błąd podczas przetwarzania odpowiedzi.",
+                    "state": self.state.to_dict(),
+                }
 
-        entities = await self.extract_entities(sanitized_command, intent.value, state)
+            confirmed_object = self.state.ambiguous_options[0]
+            intent = self.state.original_intent
+            entities = self.state.original_entities
 
-        if intent == IntentType.ADD_PURCHASE:
-            print(f"DEBUG: Otrzymane encje dla DODAJ_ZAKUPY: {entities}")
-            success = await tools.execute_database_action(intent.value, None, entities)
-            return (
-                "Pomyślnie dodałem nowy paragon."
-                if success
-                else "Wystąpił błąd podczas dodawania paragonu."
-            )
-
-        if intent == IntentType.READ_SUMMARY:
-            return await tools.find_database_object(intent.value, entities)
-
-        found_objects = await tools.find_database_object(intent.value, entities)
-
-        if len(found_objects) == 1:
             success = await tools.execute_database_action(
-                intent.value, found_objects[0], entities
+                intent=intent,
+                target_object=confirmed_object,
+                entities=entities,
             )
-            return (
-                "Gotowe, operacja wykonana."
+            response_text = (
+                "Operacja wykonana pomyślnie."
                 if success
-                else "Coś poszło nie tak podczas zapisu."
+                else "Nie udało się wykonać operacji."
             )
-
-        elif len(found_objects) > 1:
-            state.set_clarification_mode(intent.value, entities, found_objects)
-            return tools.generate_clarification_question_text(found_objects)
-
-        else:  # len == 0
-            return "Niestety, nie znalazłem niczego pasującego do Twojego opisu."
+            self.state.reset()
+            return {"response": response_text, "state": self.state.to_dict()}
+        else:
+            self.state.reset()
+            return {
+                "response": "OK, anulowałem operację.",
+                "state": self.state.to_dict(),
+            }
 
 
 # Tworzymy instancję orkiestratora
-orchestrator = AgentOrchestrator()
+orchestrator = Orchestrator()
