@@ -58,7 +58,6 @@ System składa się z następujących komponentów:
 # Jeśli nie masz Poetry, zainstaluj globalnie:
 pipx install poetry
 
-# Instalacja zależności i utworzenie środowiska:
 poetry install
 
 # Aktywuj środowisko Poetry:
