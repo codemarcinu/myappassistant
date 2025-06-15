@@ -2,7 +2,7 @@ import logging
 from typing import Any, Dict, List
 
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession  # type: ignore
 
 from backend.config import settings
 from backend.core import crud

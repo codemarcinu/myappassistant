@@ -4,7 +4,7 @@ from datetime import date
 from enum import Enum
 from typing import Any, Dict, Optional
 
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession  # type: ignore
 
 from backend.agents.agent_factory import AgentFactory
 from backend.agents.prompts import (

@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession  # type: ignore
 
 # Importujemy instancję orchestratora
 from ..agents.orchestrator import IntentType, Orchestrator
@@ -15,6 +15,7 @@ router = APIRouter()
 class OrchestratorRequest(BaseModel):
     task: str
     session_id: Optional[str] = None
+    conversation_state: Optional[Dict[str, Any]] = None
 
 
 class AgentResponse(BaseModel):
@@ -26,7 +27,7 @@ class AgentResponse(BaseModel):
     conversation_state: Optional[Dict[str, Any]] = None
 
 
-@router.post("/orchestrator/execute", response_model=AgentResponse)
+@router.post("/agents/execute", response_model=AgentResponse)
 async def execute_orchestrator_task(
     request: OrchestratorRequest,
     db: AsyncSession = Depends(get_db),
