@@ -25,10 +25,27 @@ pydantic-settings = "^2.9.1"
 matplotlib = "^3.10.3"
 ollama = "^0.5.1"
 python-multipart = "^0.0.20"
+slowapi = "^0.1.8"
 
 [tool.poetry.group.dev.dependencies]
 pre-commit = "^4.2.0"
+mypy = "^1.16.0"
+types-requests = "^2.32.4.20250611"
+black = "^25.1.0"
+isort = "^6.0.1"
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.flake8]
+max-line-length = 88
+extend-ignore = "E203,E501"
+
+[tool.black]
+line-length = 88
+target-version = ['py310']
+
+[tool.isort]
+profile = "black"
+line_length = 88

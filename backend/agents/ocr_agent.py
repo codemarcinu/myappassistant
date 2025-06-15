@@ -1,7 +1,9 @@
 from typing import Any, Dict
+
 from pydantic import BaseModel, ValidationError
-from .base_agent import BaseAgent, AgentResponse
+
 from ..core.ocr import process_image_file, process_pdf_file
+from .base_agent import AgentResponse, BaseAgent
 
 
 class OCRAgentInput(BaseModel):
@@ -12,8 +14,8 @@ class OCRAgentInput(BaseModel):
 
 
 class OCRAgent(BaseAgent):
-    """
-    Agent odpowiedzialny za optyczne rozpoznawanie znaków (OCR) z obrazów i dokumentów PDF.
+    """Agent odpowiedzialny za optyczne rozpoznawanie znaków (OCR) z obrazów i dokumentów PDF.
+
     Wykorzystuje Tesseract OCR z obsługą języka polskiego.
     """
 

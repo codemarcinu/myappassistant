@@ -1,7 +1,9 @@
 # w pliku backend/models/shopping.py
-from sqlalchemy import Column, Integer, String, Float, Date, ForeignKey
+from sqlalchemy import Column, Date, Float, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
-from ..core.database import Base # Importujemy naszą klasę bazową z kroku 2
+
+from ..core.database import Base  # Importujemy naszą klasę bazową z kroku 2
+
 
 class ShoppingTrip(Base):
     __tablename__ = "shopping_trips"
@@ -13,7 +15,10 @@ class ShoppingTrip(Base):
 
     # Ta relacja tworzy połączenie z produktami.
     # Jeden paragon (ShoppingTrip) może mieć wiele produktów (Product).
-    products = relationship("Product", back_populates="trip", cascade="all, delete-orphan")
+    products = relationship(
+        "Product", back_populates="trip", cascade="all, delete-orphan"
+    )
+
 
 class Product(Base):
     __tablename__ = "products"

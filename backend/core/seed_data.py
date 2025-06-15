@@ -1,5 +1,6 @@
-from datetime import date, timedelta
-from ..models.shopping import ShoppingTrip, Product
+from datetime import date
+
+from ..models.shopping import Product, ShoppingTrip
 
 # Example seed data for testing with fixed dates
 SEED_DATA = [
@@ -13,16 +14,16 @@ SEED_DATA = [
                 "quantity": 1.0,
                 "unit_price": 7.50,
                 "discount": 0.0,
-                "category": "Nabiał"
+                "category": "Nabiał",
             },
             {
                 "name": "jajka",
                 "quantity": 10.0,
                 "unit_price": 0.80,
                 "discount": 0.0,
-                "category": "Nabiał"
-            }
-        ]
+                "category": "Nabiał",
+            },
+        ],
     },
     {
         "trip_date": date(2025, 6, 11),  # 3 dni temu
@@ -34,9 +35,9 @@ SEED_DATA = [
                 "quantity": 1.0,
                 "unit_price": 5.00,
                 "discount": 0.0,
-                "category": "Pieczywo"
+                "category": "Pieczywo",
             }
-        ]
+        ],
     },
     {
         "trip_date": date(2025, 6, 13),  # wczoraj
@@ -48,11 +49,12 @@ SEED_DATA = [
                 "quantity": 2.0,
                 "unit_price": 5.00,
                 "discount": 0.0,
-                "category": "Nabiał"
+                "category": "Nabiał",
             }
-        ]
-    }
+        ],
+    },
 ]
+
 
 async def seed_database(db):
     """Seed the database with initial data."""
@@ -61,7 +63,7 @@ async def seed_database(db):
         trip = ShoppingTrip(
             trip_date=trip_data["trip_date"],
             store_name=trip_data["store_name"],
-            total_amount=trip_data["total_amount"]
+            total_amount=trip_data["total_amount"],
         )
         db.add(trip)
         await db.flush()
@@ -74,8 +76,8 @@ async def seed_database(db):
                 unit_price=product_data["unit_price"],
                 discount=product_data["discount"],
                 category=product_data["category"],
-                trip_id=trip.id
+                trip_id=trip.id,
             )
             db.add(product)
 
-    await db.commit() 
+    await db.commit()

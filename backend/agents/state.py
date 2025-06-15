@@ -1,14 +1,17 @@
-from typing import Any, Dict, List, Optional
+from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime
-from collections import deque
+from typing import Any, Dict, List
+
 
 @dataclass
 class Message:
     """Reprezentuje pojedynczą wiadomość w konwersacji."""
+
     role: str  # 'user' lub 'assistant'
     content: str
     timestamp: datetime = field(default_factory=datetime.now)
+
 
 class ConversationState:
     """
@@ -16,6 +19,7 @@ class ConversationState:
     Przechowuje informacje o tym, czy system oczekuje na doprecyzowanie
     i jakie dane są potrzebne do kontynuacji.
     """
+
     def __init__(self, max_history: int = 5):
         self.max_history = max_history
         self.reset()
@@ -53,7 +57,7 @@ class ConversationState:
         """
         if not self.conversation_history:
             return ""
-        
+
         context = "Historia konwersacji:\n"
         for msg in self.conversation_history:
             context += f"{msg.role.upper()}: {msg.content}\n"
@@ -69,13 +73,17 @@ class ConversationState:
             "original_entities": self.original_entities,
             "ambiguous_options": self.ambiguous_options,
             "conversation_history": [
-                {"role": msg.role, "content": msg.content, "timestamp": msg.timestamp.isoformat()}
+                {
+                    "role": msg.role,
+                    "content": msg.content,
+                    "timestamp": msg.timestamp.isoformat(),
+                }
                 for msg in self.conversation_history
-            ]
+            ],
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'ConversationState':
+    def from_dict(cls, data: Dict[str, Any]) -> "ConversationState":
         """
         Tworzy instancję ConversationState z danych serializowanych.
         """
@@ -84,13 +92,15 @@ class ConversationState:
         state.original_intent = data.get("original_intent")
         state.original_entities = data.get("original_entities")
         state.ambiguous_options = data.get("ambiguous_options", [])
-        
+
         # Przywracanie historii konwersacji
         for msg_data in data.get("conversation_history", []):
-            state.conversation_history.append(Message(
-                role=msg_data["role"],
-                content=msg_data["content"],
-                timestamp=datetime.fromisoformat(msg_data["timestamp"])
-            ))
-        
-        return state 
+            state.conversation_history.append(
+                Message(
+                    role=msg_data["role"],
+                    content=msg_data["content"],
+                    timestamp=datetime.fromisoformat(msg_data["timestamp"]),
+                )
+            )
+
+        return state

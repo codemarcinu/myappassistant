@@ -1,28 +1,35 @@
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
-from fastapi.responses import StreamingResponse
-import asyncio
+from typing import Any, Dict, cast
 
-from ..core.llm_client import llm_client
+from fastapi import APIRouter
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
+
 from ..config import settings
+from ..core.llm_client import llm_client
 
 # APIRouter działa jak "mini-aplikacja" FastAPI, grupując endpointy
 router = APIRouter()
 
+
 class ChatRequest(BaseModel):
     prompt: str
-    model: str | None = None # Pole opcjonalne
+    model: str | None = None  # Pole opcjonalne
+
 
 async def chat_response_generator(prompt: str, model: str):
     """
-    To jest asynchroniczny generator. Pobiera kawałki odpowiedzi od klienta
+    Asynchroniczny generator. Pobiera kawałki odpowiedzi od klienta
     Ollama i od razu przesyła je dalej (yield).
     """
     try:
-        async for chunk in llm_client.generate_stream(model=model, prompt=prompt):
-            # Z całego obiektu JSON od Ollamy interesuje nas tylko pole 'response'
-            if "response" in chunk:
-                yield chunk["response"]
+        async for chunk in llm_client.generate_stream(
+            model=model, prompt=prompt, system_prompt=""
+        ):
+            if not isinstance(chunk, dict):
+                continue
+            chunk_dict = cast(Dict[str, Any], chunk)
+            if "response" in chunk_dict:
+                yield chunk_dict["response"]
     except Exception as e:
         print(f"Błąd podczas streamowania: {e}")
         yield "Wystąpił błąd serwera."

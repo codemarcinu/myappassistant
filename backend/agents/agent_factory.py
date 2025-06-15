@@ -1,4 +1,5 @@
-from typing import Type, Dict
+from typing import Dict, Type
+
 from .base_agent import BaseAgent
 from .ocr_agent import OCRAgent
 
@@ -28,4 +29,4 @@ class AgentFactory:
         if agent_type not in cls._registry:
             raise ValueError(f"Nieznany typ agenta: {agent_type}")
         agent_class = cls._registry[agent_type]
-        return agent_class()
+        return agent_class(name="")

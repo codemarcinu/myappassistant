@@ -1,0 +1,13 @@
+import pytest
+
+from backend.agents.ocr_agent import OCRAgent, OCRAgentInput
+
+
+@pytest.mark.asyncio
+async def test_ocr_agent_image_success(monkeypatch):
+    agent = OCRAgent()
+    monkeypatch.setattr("backend.core.ocr.process_image_file", lambda x: "text")
+    input_data = OCRAgentInput(file_bytes=b"abc", file_type="image")
+    response = await agent.process(input_data)
+    assert response.success
+    assert "text" in response.data["text"]

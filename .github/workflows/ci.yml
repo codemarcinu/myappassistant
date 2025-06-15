@@ -1,0 +1,27 @@
+name: CI
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:13
+        ports: [5432:5432]
+        env:
+          POSTGRES_DB: testdb
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - run: pip install poetry
+      - run: poetry install
+      - run: poetry run pre-commit run --all-files
+      - run: poetry run pytest --cov=backend --cov-report=xml
+      - uses: codecov/codecov-action@v3
+      - run: poetry run bandit -r backend
+      - run: poetry run safety check

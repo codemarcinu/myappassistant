@@ -1,20 +1,24 @@
 # w pliku backend/services/shopping_service.py
 from typing import List, Optional
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete
-from sqlalchemy.orm import selectinload # <--- Kluczowy import!
 
-from ..models.shopping import ShoppingTrip, Product
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload  # <--- Kluczowy import!
+
+from ..models.shopping import Product, ShoppingTrip
 from ..schemas import shopping_schemas
 
-async def create_shopping_trip(db: AsyncSession, trip: shopping_schemas.ShoppingTripCreate) -> ShoppingTrip:
+
+async def create_shopping_trip(
+    db: AsyncSession, trip: shopping_schemas.ShoppingTripCreate
+) -> ShoppingTrip:
     """
     Tworzy w bazie danych nowy paragon (ShoppingTrip) wraz z powiązanymi produktami.
     """
     db_trip = ShoppingTrip(
         trip_date=trip.trip_date,
         store_name=trip.store_name,
-        total_amount=trip.total_amount
+        total_amount=trip.total_amount,
     )
     db.add(db_trip)
     await db.flush()
@@ -31,14 +35,19 @@ async def create_shopping_trip(db: AsyncSession, trip: shopping_schemas.Shopping
     query = (
         select(ShoppingTrip)
         .where(ShoppingTrip.id == db_trip.id)
-        .options(selectinload(ShoppingTrip.products)) # <--- TA LINIA JEST KLUCZOWA
+        .options(selectinload(ShoppingTrip.products))  # <--- TA LINIA JEST KLUCZOWA
     )
     result = await db.execute(query)
-    created_trip = result.scalar_one() # Używamy scalar_one, bo wiemy, że obiekt istnieje
+    created_trip = (
+        result.scalar_one()
+    )  # Używamy scalar_one, bo wiemy, że obiekt istnieje
 
     return created_trip
 
-async def get_shopping_trips(db: AsyncSession, skip: int = 0, limit: int = 100) -> List[ShoppingTrip]:
+
+async def get_shopping_trips(
+    db: AsyncSession, skip: int = 0, limit: int = 100
+) -> List[ShoppingTrip]:
     """
     Pobiera listę wszystkich paragonów z bazy danych wraz z ich produktami.
     """
@@ -46,16 +55,17 @@ async def get_shopping_trips(db: AsyncSession, skip: int = 0, limit: int = 100) 
         select(ShoppingTrip)
         .offset(skip)
         .limit(limit)
-        .order_by(ShoppingTrip.trip_date.desc()) # Sortuj od najnowszych
-        .options(selectinload(ShoppingTrip.products)) # Eager loading jest tu równie kluczowy!
+        .order_by(ShoppingTrip.trip_date.desc())  # Sortuj od najnowszych
+        .options(
+            selectinload(ShoppingTrip.products)
+        )  # Eager loading jest tu równie kluczowy!
     )
     result = await db.execute(query)
-    return result.scalars().all()
+    return list(result.scalars().all())
+
 
 async def update_shopping_trip(
-    db: AsyncSession, 
-    trip_id: int, 
-    trip_update: shopping_schemas.ShoppingTripUpdate
+    db: AsyncSession, trip_id: int, trip_update: shopping_schemas.ShoppingTripUpdate
 ) -> Optional[ShoppingTrip]:
     """
     Aktualizuje dane paragonu w bazie danych.
@@ -69,7 +79,7 @@ async def update_shopping_trip(
     )
     result = await db.execute(query)
     db_trip = result.scalar_one_or_none()
-    
+
     if not db_trip:
         return None
 
@@ -86,10 +96,9 @@ async def update_shopping_trip(
 
     return db_trip
 
+
 async def update_product(
-    db: AsyncSession, 
-    product_id: int, 
-    product_update: shopping_schemas.ProductUpdate
+    db: AsyncSession, product_id: int, product_update: shopping_schemas.ProductUpdate
 ) -> Optional[Product]:
     """
     Aktualizuje dane produktu w bazie danych.
@@ -99,7 +108,7 @@ async def update_product(
     query = select(Product).where(Product.id == product_id)
     result = await db.execute(query)
     db_product = result.scalar_one_or_none()
-    
+
     if not db_product:
         return None
 
@@ -116,12 +125,15 @@ async def update_product(
 
     return db_product
 
+
 async def delete_shopping_trip(db: AsyncSession, trip_id: int) -> bool:
-    """
-    Usuwa paragon z bazy danych na podstawie jego ID.
-    Automatycznie usuwa również wszystkie powiązane produkty dzięki konfiguracji cascade.
-    Zwraca True, jeśli obiekt został znaleziony i usunięty.
-    Zwraca False, jeśli obiekt nie został znaleziony.
+    """Usuwa paragon z bazy danych na podstawie jego ID.
+
+    Produkty powiązane z paragonem są automatycznie usuwane dzięki konfiguracji
+    cascade w modelu.
+
+    Returns:
+        bool: True jeśli obiekt został znaleziony i usunięty, False jeśli nie znaleziono
     """
     # 1. Znajdź obiekt w bazie
     query = select(ShoppingTrip).where(ShoppingTrip.id == trip_id)
@@ -136,6 +148,7 @@ async def delete_shopping_trip(db: AsyncSession, trip_id: int) -> bool:
     await db.commit()
 
     return True
+
 
 async def delete_product(db: AsyncSession, product_id: int) -> bool:
     """
