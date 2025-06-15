@@ -3,22 +3,39 @@ from typing import Optional
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel
 
+from backend.core.ocr import process_image_file, process_pdf_file
+
 
 class UploadRequest(BaseModel):
     command: Optional[str] = None
 
 
 class UploadResponse(BaseModel):
-    result: dict
+    text: str
+    content_type: str
 
 
-class DummyService:
-    def process(self, file_bytes: bytes) -> str:
-        return "dummy result"
+class OcrService:
+    def process(self, file_bytes: bytes, content_type: str) -> str:
+        if content_type.startswith("image/"):
+            text = process_image_file(file_bytes)
+        elif content_type == "application/pdf":
+            text = process_pdf_file(file_bytes)
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Nieobsługiwany typ pliku: {content_type}. Obsługiwane typy: image/*, application/pdf",
+            )
+
+        if text is None:
+            raise HTTPException(
+                status_code=500, detail="Błąd podczas przetwarzania pliku przez OCR."
+            )
+        return text
 
 
-def get_dummy_service() -> DummyService:
-    return DummyService()
+def get_ocr_service() -> OcrService:
+    return OcrService()
 
 
 router = APIRouter()
@@ -28,7 +45,7 @@ router = APIRouter()
 async def upload_file(
     file: UploadFile = File(...),
     request: UploadRequest = Depends(),
-    service: DummyService = Depends(get_dummy_service),
+    service: OcrService = Depends(get_ocr_service),
 ):
     """
     Endpoint do przesyłania plików (obrazów lub PDF) do przetworzenia przez OCR.
@@ -38,33 +55,17 @@ async def upload_file(
         command: Opcjonalne polecenie tekstowe do wykonania na rozpoznanym tekście
     """
     try:
-        # Sprawdź typ pliku
         content_type = file.content_type
         if not content_type:
             raise HTTPException(status_code=400, detail="Nie można określić typu pliku")
 
-        # Określ typ pliku na podstawie content_type
-        if content_type.startswith("image/"):
-            pass  # file_type = "image"
-        elif content_type == "application/pdf":
-            pass  # file_type = "pdf"
-        else:
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    f"Nieobsługiwany typ pliku: {content_type}. "
-                    "Obsługiwane typy: image/*, application/pdf"
-                ),
-            )
-
-        # Wczytaj zawartość pliku
         file_bytes = await file.read()
+        ocr_text = service.process(file_bytes, content_type)
 
-        # Użycie serwisu przez DI
-        dummy_result = service.process(file_bytes)
+        return UploadResponse(text=ocr_text, content_type=content_type)
 
-        # Przykład walidacji odpowiedzi przez Pydantic
-        return UploadResponse(result={"dummy": dummy_result})
-
+    except HTTPException as e:
+        # Re-raise HTTPException to preserve status code and detail
+        raise e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Wystąpił nieoczekiwany błąd: {e}")

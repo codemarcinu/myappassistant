@@ -1,12 +1,31 @@
-import pytest
-from httpx import AsyncClient
+import io
+
+from fastapi.testclient import TestClient
+from PIL import Image
+
+from backend.main import app
+
+client = TestClient(app)
 
 
-@pytest.mark.skip(reason="Wymaga ręcznego uruchomienia serwera FastAPI")
-@pytest.mark.asyncio
-async def test_upload_endpoint():
-    async with AsyncClient(base_url="http://localhost:8000") as ac:
-        files = {"file": ("test.png", b"fakebytes", "image/png")}
-        response = await ac.post("/api/v1/upload", files=files)
-        assert response.status_code == 200
-        assert "text" in response.json()
+def create_dummy_image_bytes() -> bytes:
+    """Tworzy prosty obraz PNG w pamięci i zwraca jego bajty."""
+    img = Image.new("RGB", (100, 30), color="red")
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    buf.seek(0)
+    return buf.read()
+
+
+def test_upload_endpoint_image():
+    """Testuje endpoint /upload z plikiem obrazu."""
+    image_bytes = create_dummy_image_bytes()
+    files = {"file": ("test.png", image_bytes, "image/png")}
+    response = client.post("/api/v1/upload", files=files)
+
+    assert response.status_code == 200
+    data = response.json()
+    assert "text" in data
+    assert data["content_type"] == "image/png"
+    # W tym przypadku Tesseract może zwrócić pusty string, co jest ok
+    assert isinstance(data["text"], str)

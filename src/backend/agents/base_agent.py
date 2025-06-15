@@ -9,6 +9,7 @@ class AgentResponse(BaseModel):
 
     success: bool
     data: Optional[Dict[str, Any]] = None
+    text: Optional[str] = None
     message: Optional[str] = None
     error: Optional[str] = None
 

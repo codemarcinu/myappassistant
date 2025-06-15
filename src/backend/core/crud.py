@@ -1,3 +1,4 @@
+import logging
 import re
 from datetime import date, timedelta
 from typing import Any, List, Optional
@@ -6,6 +7,8 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.shopping import Product, ShoppingTrip
+
+logger = logging.getLogger(__name__)
 
 # Słownik do tłumaczenia polskich nazw miesięcy w dopełniaczu (np. 10 czerwca)
 POLISH_MONTHS_GENITIVE = {
@@ -122,7 +125,7 @@ async def find_purchase_for_action(
 
     result = await db.execute(paragon_query)
     znalezione_paragony = list(result.scalars().all())
-    print(f"Znaleziono {len(znalezione_paragony)} pasujących paragonów.")
+    logger.info(f"Znaleziono {len(znalezione_paragony)} pasujących paragonów.")
     return znalezione_paragony
 
 
@@ -146,7 +149,9 @@ async def find_item_for_action(db: AsyncSession, entities: dict) -> list[Product
             )
         result = await db.execute(produkt_query)
         produkty += result.scalars().all()
-    print(f"Znaleziono {len(produkty)} pasujących produktów na danym/danych paragonie.")
+        logger.info(
+            f"Znaleziono {len(produkty)} pasujących produktów na danym/danych paragonie."
+        )
     return produkty
 
 
@@ -157,23 +162,25 @@ async def execute_action(
     Wykonuje finalną operację (UPDATE lub DELETE) na obiekcie z bazy danych.
     """
     if not target_object:
-        print("Błąd wykonania akcji: Obiekt docelowy nie został znaleziony.")
+        logger.warning("Błąd wykonania akcji: Obiekt docelowy nie został znaleziony.")
         return False
 
     try:
         if intent in ["DELETE_ITEM", "DELETE_PURCHASE"]:
-            print(f"Wykonuję operację DELETE na obiekcie: {target_object}")
+            logger.info(f"Wykonuję operację DELETE na obiekcie: {target_object}")
             await db.delete(target_object)
             await db.commit()
-            print("Operacja DELETE zakończona sukcesem.")
+            logger.info("Operacja DELETE zakończona sukcesem.")
             return True
 
         elif intent in ["UPDATE_ITEM", "UPDATE_PURCHASE"]:
             if not operations:
-                print("Błąd wykonania akcji: Brak zdefiniowanych operacji UPDATE.")
+                logger.warning(
+                    "Błąd wykonania akcji: Brak zdefiniowanych operacji UPDATE."
+                )
                 return False
 
-            print(f"Wykonuję operację UPDATE na obiekcie: {target_object}")
+            logger.info(f"Wykonuję operację UPDATE na obiekcie: {target_object}")
             all_ops_successful = True
             for op in operations:
                 human_field_name = op.get("pole_do_zmiany")
@@ -185,7 +192,7 @@ async def execute_action(
                 if not actual_field_name or not hasattr(
                     target_object, actual_field_name
                 ):
-                    print(
+                    logger.error(
                         f"Błąd: Nie można zmapować lub obiekt nie posiada pola dla "
                         f"'{human_field_name}'"
                     )
@@ -193,19 +200,21 @@ async def execute_action(
                     continue  # Przejdź do następnej operacji
 
                 setattr(target_object, actual_field_name, new_value)
-                print(f"Zmieniono pole '{actual_field_name}' na wartość '{new_value}'")
+                logger.info(
+                    f"Zmieniono pole '{actual_field_name}' na wartość '{new_value}'"
+                )
 
             if all_ops_successful:
                 await db.commit()
-                print("Operacja UPDATE zakończona sukcesem.")
+                logger.info("Operacja UPDATE zakończona sukcesem.")
                 return True
             else:
                 await db.rollback()
-                print("Operacja UPDATE przerwana z powodu błędów.")
+                logger.warning("Operacja UPDATE przerwana z powodu błędów.")
                 return False
 
     except Exception as e:
-        print(f"Wystąpił krytyczny błąd podczas zapisu do bazy: {e}")
+        logger.error(f"Wystąpił krytyczny błąd podczas zapisu do bazy: {e}")
         await db.rollback()
         return False
 
@@ -234,28 +243,29 @@ async def create_shopping_trip(db: AsyncSession, data: dict) -> ShoppingTrip:
 
         for produkt_data in lista_produktow:
             # Tłumaczymy klucze z JSON-a na atrybuty modelu SQLAlchemy
-            kwargs_dla_produktu = {
-                FIELD_MAP.get(key, key): value
+            product_kwargs: dict[str, Any] = {
+                mapped_key: value
                 for key, value in produkt_data.items()
-                if FIELD_MAP.get(key, key) in Product.__table__.columns
+                if (mapped_key := FIELD_MAP.get(key, key))
+                and mapped_key in Product.__table__.columns
             }
             # Upewniamy się, że ID paragonu jest dodane
-            kwargs_dla_produktu["trip_id"] = nowy_paragon.id
+            product_kwargs["trip_id"] = nowy_paragon.id
 
-            nowy_produkt = Product(**kwargs_dla_produktu)
+            nowy_produkt = Product(**product_kwargs)
             db.add(nowy_produkt)
 
         await db.commit()
         await db.refresh(nowy_paragon)
 
-        print(
+        logger.info(
             f"Dodano nowy paragon (ID: {nowy_paragon.id}) z "
             f"{len(lista_produktow)} produktami"
         )
         return nowy_paragon
 
     except Exception as e:
-        print(f"Wystąpił błąd podczas tworzenia wpisu: {e}")
+        logger.error(f"Wystąpił błąd podczas tworzenia wpisu: {e}")
         await db.rollback()
         raise
 
@@ -309,23 +319,49 @@ async def get_all_products(db: AsyncSession) -> List[Product]:
     return list(result.scalars().all())
 
 
-# Testowanie funkcji parse_human_date
-if __name__ == "__main__":
-    print("--- Testowanie parse_human_date ---")
+async def add_products_to_trip(
+    db: AsyncSession, shopping_trip_id: int, products_data: List[dict]
+) -> ShoppingTrip:
+    """
+    Dodaje wiele produktów do istniejącej listy zakupów w jednej transakcji.
+    """
+    try:
+        # Pobierz istniejący paragon
+        result = await db.execute(
+            select(ShoppingTrip).where(ShoppingTrip.id == shopping_trip_id)
+        )
+        shopping_trip = result.scalar_one_or_none()
 
-    # Ustawiamy datę testową na 14 czerwca 2025 (sobota)
-    test_date = date(2025, 6, 14)
+        if not shopping_trip:
+            raise ValueError(f"Shopping trip with id {shopping_trip_id} not found.")
 
-    print(f"Test dla 'dzisiaj': {parse_human_date('dzisiaj', test_date)}")
-    print(f"Test dla 'wczoraj': {parse_human_date('wczoraj', test_date)}")
-    print(
-        f"Test dla 'w piątek': {parse_human_date('w piątek', test_date)}"
-    )  # Oczekiwano: 2025-06-13
-    print(
-        f"Test dla 'w ostatni poniedziałek': "
-        f"{parse_human_date('w ostatni poniedziałek', test_date)}"
-    )  # Oczekiwano: 2025-06-09
-    print(
-        f"Test dla 'sobota': {parse_human_date('sobota', test_date)}"
-    )  # Oczekiwano: 2025-06-07 (poprzednia sobota, nie dzisiejsza)
-    print(f"Test dla '12 czerwca': {parse_human_date('12 czerwca', test_date)}")
+        for product_data in products_data:
+            product_kwargs: dict[str, Any] = {
+                mapped_key: value
+                for key, value in product_data.items()
+                if (mapped_key := FIELD_MAP.get(key, key))
+                and mapped_key in Product.__table__.columns
+            }
+            product_kwargs["trip_id"] = shopping_trip.id
+            new_product = Product(**product_kwargs)
+            db.add(new_product)
+
+        # Opcjonalnie: Zaktualizuj sumę na paragonie
+        total_products_price = sum(p.get("cena_calkowita", 0) for p in products_data)
+        if shopping_trip.total_amount:
+            shopping_trip.total_amount += total_products_price
+        else:
+            shopping_trip.total_amount = total_products_price
+
+        await db.commit()
+        await db.refresh(shopping_trip)
+
+        logger.info(
+            f"Dodano {len(products_data)} produktów do paragonu (ID: {shopping_trip.id})"
+        )
+        return shopping_trip
+
+    except Exception as e:
+        logger.error(f"Błąd podczas dodawania produktów do paragonu: {e}")
+        await db.rollback()
+        raise

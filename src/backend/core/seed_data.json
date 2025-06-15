@@ -1,0 +1,115 @@
+{
+  "shopping_trips": [
+    {
+      "store_name": "Biedronka",
+      "trip_date": "2025-06-13",
+      "total_amount": 45.67,
+      "products": [
+        {
+          "name": "Mleko",
+          "quantity": 1,
+          "unit_price": 4.50,
+          "category": "Nabiał"
+        },
+        {
+          "name": "Chleb",
+          "quantity": 1,
+          "unit_price": 3.20,
+          "category": "Pieczywo"
+        },
+        {
+          "name": "Masło",
+          "quantity": 1,
+          "unit_price": 6.80,
+          "category": "Nabiał"
+        },
+        {
+          "name": "Jabłka",
+          "quantity": 1.5,
+          "unit_price": 3.99,
+          "category": "Owoce"
+        },
+        {
+          "name": "Ser żółty",
+          "quantity": 0.25,
+          "unit_price": 29.99,
+          "category": "Nabiał"
+        }
+      ]
+    },
+    {
+      "store_name": "Lidl",
+      "trip_date": "2025-06-10",
+      "total_amount": 62.35,
+      "products": [
+        {
+          "name": "Kurczak",
+          "quantity": 1.2,
+          "unit_price": 16.99,
+          "category": "Mięso"
+        },
+        {
+          "name": "Ziemniaki",
+          "quantity": 2,
+          "unit_price": 2.49,
+          "category": "Warzywa"
+        },
+        {
+          "name": "Jogurt",
+          "quantity": 4,
+          "unit_price": 1.49,
+          "category": "Nabiał"
+        },
+        {
+          "name": "Makaron",
+          "quantity": 2,
+          "unit_price": 4.99,
+          "category": "Suche"
+        },
+        {
+          "name": "Sos pomidorowy",
+          "quantity": 1,
+          "unit_price": 5.99,
+          "category": "Sosy"
+        }
+      ]
+    },
+    {
+      "store_name": "Auchan",
+      "trip_date": "2025-06-05",
+      "total_amount": 127.89,
+      "products": [
+        {
+          "name": "Wino",
+          "quantity": 2,
+          "unit_price": 25.99,
+          "category": "Alkohol"
+        },
+        {
+          "name": "Ser pleśniowy",
+          "quantity": 0.3,
+          "unit_price": 59.99,
+          "category": "Nabiał"
+        },
+        {
+          "name": "Oliwa z oliwek",
+          "quantity": 1,
+          "unit_price": 29.99,
+          "category": "Oleje"
+        },
+        {
+          "name": "Czekolada",
+          "quantity": 3,
+          "unit_price": 4.99,
+          "category": "Słodycze"
+        },
+        {
+          "name": "Kawa",
+          "quantity": 1,
+          "unit_price": 24.99,
+          "category": "Napoje"
+        }
+      ]
+    }
+  ]
+}

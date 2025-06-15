@@ -15,11 +15,7 @@ class FoodSaveUI:
     def __init__(self) -> None:
         self.api = ApiClient()
         self.agents = {
-            "parser": {"name": "Parser Paragonów", "icon": "📄"},
-            "analyst": {"name": "Analityk Wydatków", "icon": "📊"},
             "budget": {"name": "Doradca Budżetowy", "icon": "💰"},
-            "planner": {"name": "Planista Posiłków", "icon": "🍽️"},
-            "sql": {"name": "Asystent SQL", "icon": "🔍"},
         }
         self.init_state()
         st.set_page_config(
@@ -76,7 +72,7 @@ class FoodSaveUI:
             "conversation_state": st.session_state.conversation_state,
         }
         response = self.api.post(
-            "/api/orchestrator/execute",
+            "/api/v1/agents/execute",
             json=payload,
         )
         if "error" in response:

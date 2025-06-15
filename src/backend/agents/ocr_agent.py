@@ -62,7 +62,7 @@ class OCRAgent(BaseAgent):
 
             return AgentResponse(
                 success=True,
-                data={"text": text},
+                text=text,
                 message="Pomyślnie wyodrębniono tekst z pliku",
             )
         except Exception as e:

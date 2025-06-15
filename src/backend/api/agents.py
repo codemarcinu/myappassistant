@@ -1,3 +1,4 @@
+import uuid
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends
@@ -6,7 +7,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 # Importujemy instancję orchestratora
 from ..agents.orchestrator import IntentType, Orchestrator
-from ..agents.state import ConversationState
 from .food import get_db
 
 router = APIRouter()
@@ -14,7 +14,7 @@ router = APIRouter()
 
 class OrchestratorRequest(BaseModel):
     task: str
-    conversation_state: Optional[Dict[str, Any]] = None
+    session_id: Optional[str] = None
 
 
 class AgentResponse(BaseModel):
@@ -22,6 +22,7 @@ class AgentResponse(BaseModel):
     response: Optional[str] = None
     error: Optional[str] = None
     data: Optional[Any] = None
+    session_id: str
     conversation_state: Optional[Dict[str, Any]] = None
 
 
@@ -34,34 +35,29 @@ async def execute_orchestrator_task(
     Główny endpoint do zlecania zadań.
     Orchestrator sam decyduje, który agent wykona zadanie.
     """
+    session_id = request.session_id or str(uuid.uuid4())
     try:
-        # Przywracamy stan konwersacji z poprzedniego requestu lub tworzymy nowy
-        state = (
-            ConversationState.from_dict(request.conversation_state)
-            if request.conversation_state
-            else ConversationState()
+        # The orchestrator now manages state internally via session_id
+        orchestrator = Orchestrator(db=db)
+
+        # The process_command method handles state retrieval and message history
+        response_data = await orchestrator.process_command(
+            user_command=request.task, session_id=session_id
         )
 
-        # Dodajemy wiadomość użytkownika do historii
-        state.add_message("user", request.task)
-
-        # Zakładamy, że masz dostęp do instancji db (np. przez Depends lub w inny sposób)
-        # Tutaj musisz przekazać odpowiednią instancję db
-        orchestrator = Orchestrator(db=db, state=state)
-        response = await orchestrator.process_command(request.task)
-
-        # Dodajemy odpowiedź asystenta do historii
-        if isinstance(response, str):
-            state.add_message("assistant", response)
+        # The state is now returned as part of the orchestrator's response
+        current_state_dict = response_data.get("state", {})
 
         return AgentResponse(
             success=True,
-            response=str(response) if isinstance(response, (str, list)) else None,
-            data=response if isinstance(response, list) else None,
-            conversation_state=state.to_dict(),
+            response=response_data.get("response"),
+            data=response_data.get("data"),
+            session_id=session_id,
+            conversation_state=current_state_dict,
         )
     except Exception as e:
-        return AgentResponse(success=False, error=str(e))
+        # Also return session_id on error so client can continue
+        return AgentResponse(success=False, error=str(e), session_id=session_id)
 
 
 @router.get("/agents", response_model=List[Dict[str, str]])

@@ -1,73 +1,17 @@
-import asyncio
 import json
 import os
+from typing import Any, Dict
 
 import pytest
 
-from backend.agents.prompts import get_intent_recognition_prompt
-from backend.config import settings
-from backend.core.llm_client import llm_client
-
-# Prompt systemowy pozostaje ten sam - prosty i klarowny.
-SYSTEM_PROMPT = (
-    "Jesteś precyzyjnym systemem klasyfikacji intencji. Twoim zadaniem jest analiza "
-    "polecenia użytkownika i zwrócenie TYLKO I WYŁĄCZNIE obiektu JSON z jednym "
-    "kluczem 'intencja'.\n"
-    "Dostępne wartości dla klucza 'intencja' to: DODAJ_ZAKUPY, CZYTAJ_PODSUMOWANIE, "
-    "UPDATE_ITEM, DELETE_ITEM, UPDATE_PURCHASE, DELETE_PURCHASE, UNKNOWN.\n"
-    "Nie dodawaj żadnego tekstu przed ani po obiekcie JSON. Twoja odpowiedź musi być "
-    "wyłącznie poprawnym składniowo JSON-em.\n"
-)
+from backend.agents.tools.tools import recognize_intent
 
 # Ladowanie danych testowych bezposrednio z pliku JSON
 TEST_DATA_PATH = os.path.join(
-    os.path.dirname(__file__), "..", "..", "tests", "fixtures", "test_data.json"
+    os.path.dirname(__file__), "..", "..", "..", "tests", "fixtures", "test_data.json"
 )
 with open(TEST_DATA_PATH, "r") as f:
     TEST_DATA = json.load(f)
-
-
-async def test_intent_recognition(user_prompt: str) -> None:
-    print(f"\n--- Testuję polecenie: '{user_prompt}' ---")
-
-    try:
-        # Używamy promptu z modułu prompts
-        prompt = get_intent_recognition_prompt(user_prompt)
-        messages = [
-            {
-                "role": "system",
-                "content": (
-                    "Jesteś precyzyjnym systemem klasyfikacji intencji. "
-                    "Zawsze zwracaj tylko JSON."
-                ),
-            },
-            {"role": "user", "content": prompt},
-        ]
-
-        response = await llm_client.chat(
-            model=settings.DEFAULT_CHAT_MODEL,
-            messages=messages,
-            stream=False,
-            options={"temperature": 0.0},
-        )
-
-        raw_response = response["message"]["content"]
-        print(f"Odpowiedź modelu: {raw_response}")
-
-        try:
-            parsed_json = json.loads(raw_response.strip())
-            print(
-                "Rozpoznana intencja: {0}".format(
-                    parsed_json.get("intent", "BRAK INTENCJI")
-                )
-            )
-        except json.JSONDecodeError as e:
-            print("Błąd: Model nie zwrócił poprawnego JSON")
-            print(f"Otrzymany tekst: {raw_response}")
-            print(f"Szczegóły błędu: {e}")
-
-    except Exception as e:
-        print(f"Wystąpił błąd: {e}")
 
 
 @pytest.mark.asyncio
@@ -75,50 +19,29 @@ async def test_intent_recognition(user_prompt: str) -> None:
     "user_prompt, expected_intent",
     [(item["prompt"], item["intent"]) for item in TEST_DATA],
 )
-async def test_intent_recognition_parametrized(
-    user_prompt: str, expected_intent: str
+async def test_intent_recognition_with_mock(
+    user_prompt: str, expected_intent: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    print(f"\n--- Testuję polecenie: '{user_prompt}' ---")
+    """
+    Testuje funkcję recognize_intent z użyciem atrapy (mock) dla klienta LLM.
+    """
+    # Definiujemy atrapę odpowiedzi, którą ma zwrócić llm_client.chat
+    mock_response = {"message": {"content": json.dumps({"intent": expected_intent})}}
 
-    try:
-        prompt = get_intent_recognition_prompt(user_prompt)
-        messages = [
-            {
-                "role": "system",
-                "content": "Jesteś precyzyjnym systemem klasyfikacji intencji. Zawsze zwracaj tylko JSON.",
-            },
-            {"role": "user", "content": prompt},
-        ]
+    # Definiujemy asynchroniczną funkcję-atrapę
+    async def mock_chat(*args: Any, **kwargs: Any) -> Dict[str, Any]:
+        return mock_response
 
-        response = await llm_client.chat(
-            model=settings.DEFAULT_CHAT_MODEL,
-            messages=messages,
-            stream=False,
-            options={"temperature": 0.0},
-        )
+    # Używamy monkeypatch do zastąpienia prawdziwej metody `chat` naszą atrapą
+    monkeypatch.setattr("backend.core.llm_client.llm_client.chat", mock_chat)
 
-        raw_response = response["message"]["content"]
-        print(f"Odpowiedź modelu: {raw_response}")
+    # Wywołujemy testowaną funkcję
+    raw_json_response = await recognize_intent(user_prompt)
 
-        parsed_json = json.loads(raw_response.strip())
-        recognized_intent = parsed_json.get("intent")
+    # Parsujemy odpowiedź i sprawdzamy asercję
+    parsed_response = json.loads(raw_json_response)
+    recognized_intent = parsed_response.get("intent")
 
-        assert recognized_intent == expected_intent, (
-            f"Oczekiwano intencji '{expected_intent}', "
-            f"a otrzymano '{recognized_intent}'"
-        )
-
-    except Exception as e:
-        pytest.fail(f"Test zakończony niepowodzeniem: {e}")
-
-
-async def run_tests():
-    """Run all intent recognition tests with test data."""
-    print("Running intent recognition tests...")
-    for item in TEST_DATA:
-        await test_intent_recognition(item["prompt"])
-    print("Intent recognition tests completed.")
-
-
-if __name__ == "__main__":
-    asyncio.run(run_tests())
+    assert (
+        recognized_intent == expected_intent
+    ), f"Oczekiwano intencji '{expected_intent}', a otrzymano '{recognized_intent}'"

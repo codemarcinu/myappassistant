@@ -1,6 +1,7 @@
 # PRAWIDŁOWA ZAWARTOŚĆ DLA PLIKU orchestrator.py
 
 import logging
+import re
 from datetime import date
 from enum import Enum
 from typing import Any, Dict, Optional
@@ -12,6 +13,7 @@ from ..core.database import AsyncSessionLocal
 from .agent_factory import AgentFactory
 from .prompts import get_entity_extraction_prompt, get_intent_recognition_prompt
 from .state import ConversationState, append_to_history, get_agent_state
+from .tools.date_parser import parse_date_range_with_llm
 from .tools.tools import (
     execute_database_action,
     extract_entities,
@@ -47,9 +49,15 @@ class Orchestrator:
         # Simple factory based on file type
         if filename.lower().endswith((".png", ".jpg", ".jpeg")):
             ocr_agent = self.agent_factory.create_agent("ocr")
-            response = await ocr_agent.process({"file_content": file_content})
-            # TODO: Process the OCR response and integrate it into the conversation state
-            return response.dict()
+            ocr_response = await ocr_agent.process({"file_content": file_content})
+
+            # Integrate the OCR response into the conversation
+            ocr_text = ocr_response.text
+            user_command = (
+                f"Przetworzono plik '{filename}'. Rozpoznany tekst: {ocr_text}"
+            )
+            return await self.process_command(user_command, session_id)
+
         return {"error": "Unsupported file type"}
 
     async def process_command(
@@ -80,7 +88,7 @@ class Orchestrator:
         entities = extract_json_from_text(entities_response)
         logger.info(f"Recognized Intent: {intent}, Entities: {entities}")
 
-        found_objects = await find_database_object(intent, entities)
+        found_objects = await find_database_object(self.db, intent, entities)
 
         if len(found_objects) > 1:
             logger.info("Multiple objects found, asking for clarification.")
@@ -108,6 +116,7 @@ class Orchestrator:
             ]
             if intent in modification_intents:
                 success = await execute_database_action(
+                    db=self.db,
                     intent=intent,
                     target_object=single_object,
                     entities=entities,
@@ -134,6 +143,7 @@ class Orchestrator:
             # For CREATE intents, this is the expected path
             if intent in ["CREATE_ITEM", "CREATE_PURCHASE"]:
                 success = await execute_database_action(
+                    db=self.db,
                     intent=intent,
                     target_object=None,
                     entities=entities,
@@ -152,6 +162,7 @@ class Orchestrator:
             # For ANALYZE intents
             if intent == "ANALYZE":
                 summary_data = await execute_database_action(
+                    db=self.db,
                     intent=intent,
                     target_object=None,
                     entities=entities,
@@ -178,25 +189,27 @@ class Orchestrator:
     ) -> Dict[str, Any]:
         """Handles the user's response when the agent is in clarification mode."""
         logger.info(f"Handling clarification. User response: '{user_command}'")
-        # For now, a simple 'yes' confirms the first option.
-        # A more robust solution would parse the user's choice.
-        if "tak" in user_command.lower() or "pierwszy" in user_command.lower():
-            if (
-                not state.ambiguous_options
-                or not state.original_intent
-                or not state.original_entities
-            ):
-                state.reset()
-                return {
-                    "response": "Wystąpił błąd podczas przetwarzania odpowiedzi.",
-                    "state": state.to_dict(),
-                }
 
-            confirmed_object = state.ambiguous_options[0]
+        # Try to parse a number from the user's command
+        try:
+            # Find the first number in the string
+            match = re.search(r"\d+", user_command)
+            if not match:
+                raise ValueError("No number found in user response")
+            choice_idx = int(match.group(0)) - 1
+
+            if not (0 <= choice_idx < len(state.ambiguous_options)):
+                raise IndexError("Choice is out of bounds")
+
+            if not state.original_intent or not state.original_entities:
+                raise ValueError("Incomplete state for clarification")
+
+            confirmed_object = state.ambiguous_options[choice_idx]
             intent = state.original_intent
             entities = state.original_entities
 
             success = await execute_database_action(
+                db=self.db,
                 intent=intent,
                 target_object=confirmed_object,
                 entities=entities,
@@ -206,18 +219,58 @@ class Orchestrator:
                 if success
                 else "Nie udało się wykonać operacji."
             )
-            state.reset()
-            return {"response": response_text, "state": state.to_dict()}
+        except (ValueError, IndexError) as e:
+            logger.warning(f"Could not parse user's clarification choice: {e}")
+            response_text = (
+                "Nie zrozumiałem wyboru. Proszę, podaj numer opcji. Anuluję operację."
+            )
+
+        state.reset()
+        return {"response": response_text, "state": state.to_dict()}
+
+    async def get_agent_response_with_date_parsing(
+        self, user_message: str, session_id: str
+    ) -> Dict[str, Any]:
+        """
+        Processes a user message, using conversation memory and date parsing tools.
+        """
+        # 1. Add user message to history
+        append_to_history(session_id, {"role": "user", "content": user_message})
+
+        # 2. Get current conversation state
+        current_state = get_agent_state(session_id)
+        history = current_state.history
+
+        date_range = parse_date_range_with_llm(user_message)
+
+        if date_range:
+            start_dt = date.fromisoformat(date_range["start_date"])
+            end_dt = date.fromisoformat(date_range["end_date"])
+
+            trips = await crud.get_trips_by_date_range(
+                self.db, start_date=start_dt, end_date=end_dt
+            )
+
+            if not trips:
+                agent_response_text = f"Nie znalazłem żadnych zakupów w okresie od {start_dt} do {end_dt}."
+            else:
+                response_lines = [
+                    f"Znalazłem {len(trips)} wypraw na zakupy w podanym okresie:"
+                ]
+                for trip in trips:
+                    response_lines.append(
+                        f"- {trip.trip_date}: {trip.store_name} za {trip.total_amount:.2f} zł"
+                    )
+                agent_response_text = "\n".join(response_lines)
         else:
-            state.reset()
-            return {
-                "response": "OK, anulowałem operację.",
-                "state": state.to_dict(),
-            }
+            agent_response_text = f"Nie znalazłem w Twojej wiadomości informacji o dacie. Powiedziałeś: '{user_message}'."
 
+        # 5. Add agent's response to history
+        append_to_history(
+            session_id, {"role": "assistant", "content": agent_response_text}
+        )
 
-# Tworzymy instancję orkiestratora tylko w kodzie, gdzie mamy db i state!
-# orchestrator = Orchestrator()
+        return {"response": agent_response_text, "history_length": len(history)}
 
 
 async def get_memory_agent_response(
@@ -226,34 +279,19 @@ async def get_memory_agent_response(
     """
     Główna funkcja, która przetwarza wiadomość użytkownika,
     korzystając z pamięci konwersacyjnej.
-
-    Ta funkcja używa nowej pamięci konwersacyjnej zaimplementowanej w state.py,
-    działając niezależnie od klasy Orchestrator.
     """
     # 1. Dodaj nową wiadomość użytkownika do historii
-    from .state import append_to_history, get_agent_state
-
     append_to_history(session_id, {"role": "user", "content": user_message})
 
     # 2. Pobierz aktualny stan konwersacji (już z nową wiadomością)
     current_state = get_agent_state(session_id)
     history = current_state.history
 
-    # --- Logika Agenta (na razie prosta) ---
-    # TODO: W tym miejscu w przyszłości umieścimy logikę LLM,
-    # która przeanalizuje całą historię i wygeneruje inteligentną odpowiedź.
-    # Na razie, dla testu, stworzymy prostą odpowiedź potwierdzającą.
-
-    print(f"--- Pełna historia dla sesji '{session_id}' ---")
-    for message in history:
-        print(f"- {message['role']}: {message['content']}")
-    print("------------------------------------")
-
+    # TODO: W tym miejscu w przyszłości umieścimy logikę LLM.
     agent_response_text = (
         f"Zapamiętałem, że napisałeś: '{user_message}'. "
         f"Łączna liczba wiadomości w historii: {len(history)}."
     )
-    # --- Koniec Logiki Agenta ---
 
     # 3. Dodaj odpowiedź agenta do historii
     append_to_history(session_id, {"role": "assistant", "content": agent_response_text})
@@ -266,58 +304,9 @@ async def get_agent_response(user_message: str, session_id: str) -> Dict[str, An
     Główna funkcja, która przetwarza wiadomość użytkownika,
     korzystając z pamięci konwersacyjnej i narzędzi.
     """
-    # 1. Dodaj wiadomość użytkownika do historii
-    append_to_history(session_id, {"role": "user", "content": user_message})
-
-    # 2. Pobierz aktualny stan konwersacji
-    current_state = get_agent_state(session_id)
-    history = current_state.history
-
-    # --- Logika Agenta ---
-
-    # Importujemy narzędzie do parsowania dat
-    from .tools.date_parser import parse_date_range_with_llm
-
-    # 3. Spróbuj użyć narzędzia do parsowania daty
-    date_range = parse_date_range_with_llm(user_message)
-
-    # 4. Wygeneruj odpowiedź na podstawie wyniku
-    if date_range:
-        start_dt = date.fromisoformat(date_range["start_date"])
-        end_dt = date.fromisoformat(date_range["end_date"])
-
-        # Otwieramy nową sesję do bazy danych
-        async with AsyncSessionLocal() as db:
-            trips = await crud.get_trips_by_date_range(
-                db, start_date=start_dt, end_date=end_dt
-            )
-
-        # Formatujemy wynik
-        if not trips:
-            agent_response_text = (
-                f"Nie znalazłem żadnych zakupów w okresie od {start_dt} do {end_dt}."
-            )
-        else:
-            response_lines = [
-                f"Znalazłem {len(trips)} wypraw na zakupy w podanym okresie:"
-            ]
-            for trip in trips:
-                response_lines.append(
-                    f"- {trip.trip_date}: {trip.store_name} za {trip.total_amount:.2f} zł"
-                )
-            agent_response_text = "\n".join(response_lines)
-    else:
-        # Wyświetlamy historię w konsoli dla debugowania
-        print(f"--- Pełna historia dla sesji '{session_id}' ---")
-        for message in history:
-            print(f"- {message['role']}: {message['content']}")
-        print("------------------------------------")
-
-        agent_response_text = f"Nie znalazłem w Twojej wiadomości informacji o dacie. Powiedziałeś: '{user_message}'."
-
-    # --- Koniec Logiki Agenta ---
-
-    # 5. Dodaj odpowiedź agenta do historii
-    append_to_history(session_id, {"role": "assistant", "content": agent_response_text})
-
-    return {"response": agent_response_text, "history_length": len(history)}
+    # Ta funkcja jest teraz wrapperem, który tworzy sesję i wywołuje metodę Orchestratora
+    async with AsyncSessionLocal() as db:
+        orchestrator = Orchestrator(db)
+        return await orchestrator.get_agent_response_with_date_parsing(
+            user_message, session_id
+        )

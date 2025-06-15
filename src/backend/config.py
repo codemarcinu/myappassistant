@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     )
     DEFAULT_EMBEDDING_MODEL: str = "nomic-embed-text:latest"
 
+    # Konfiguracja bazy danych
+    DATABASE_URL: str = "sqlite+aiosqlite:///./shopping.db"
+
     # Ta linia mówi Pydantic, aby wczytał zmienne z pliku .env w głównym katalogu
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 

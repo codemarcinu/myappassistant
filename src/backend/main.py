@@ -1,11 +1,6 @@
 import logging
 from contextlib import asynccontextmanager
 
-from api import agents, chat, food, pantry, upload
-from config import settings
-from core.database import AsyncSessionLocal, Base, engine
-from core.migrations import run_migrations
-from core.seed_data import seed_database
 from fastapi import APIRouter, BackgroundTasks, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -14,6 +9,12 @@ from slowapi.middleware import SlowAPIMiddleware
 from slowapi.util import get_remote_address
 from sqlalchemy.sql import text
 from starlette.middleware.base import BaseHTTPMiddleware
+
+from backend.api import agents, chat, food, pantry, upload
+from backend.config import settings
+from backend.core.database import AsyncSessionLocal, Base, engine
+from backend.core.migrations import run_migrations
+from backend.core.seed_data import seed_database
 
 # --- Rate limiting ---
 limiter = Limiter(key_func=get_remote_address)
@@ -63,13 +64,14 @@ app = FastAPI(
 # --- Middleware ---
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    # UWAGA: W środowisku produkcyjnym te wartości powinny pochodzić ze zmiennych środowiskowych!
+    allow_origins=["http://localhost:8501", "http://127.0.0.1:8501"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 app.add_middleware(LoggingMiddleware)
-app.add_middleware(AuthMiddleware)
+# app.add_middleware(AuthMiddleware)  # Odkomentuj, gdy AuthMiddleware będzie gotowe
 app.state.limiter = limiter
 app.add_middleware(SlowAPIMiddleware)
 
@@ -87,23 +89,14 @@ async def not_found_handler(request: Request, exc):
 
 
 # --- API Versioning ---
-api_v1 = APIRouter(prefix="/api/v1")
-api_v2 = APIRouter(prefix="/api/v2")
+api_v1 = APIRouter()
 api_v1.include_router(chat.router, tags=["Chat"])
 api_v1.include_router(agents.router, tags=["Agents"])
 api_v1.include_router(food.router)
 api_v1.include_router(upload.router, tags=["Upload"])
 api_v1.include_router(pantry.router, tags=["Pantry"])
 
-
-@api_v2.get("/hello")
-async def hello_v2():
-    """Przykładowy endpoint v2."""
-    return {"message": "Hello from API v2!"}
-
-
-app.include_router(api_v1)
-app.include_router(api_v2)
+app.include_router(api_v1, prefix="/api/v1")
 
 
 # --- Health check ---

@@ -1,9 +1,15 @@
+import logging
 from typing import Any, Dict, List
 
-from ..core import crud
-from ..core.database import AsyncSessionLocal
-from ..core.llm_client import llm_client
-from ..models.shopping import Product, ShoppingTrip
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from backend.config import settings
+from backend.core import crud
+from backend.core.llm_client import llm_client
+from backend.models.shopping import Product, ShoppingTrip
+
+logger = logging.getLogger(__name__)
 
 
 async def recognize_intent(prompt: str) -> str:
@@ -12,7 +18,7 @@ async def recognize_intent(prompt: str) -> str:
     """
     try:
         response = await llm_client.chat(
-            model="gpt-3.5-turbo",
+            model=settings.DEFAULT_CHAT_MODEL,
             messages=[
                 {
                     "role": "system",
@@ -25,7 +31,7 @@ async def recognize_intent(prompt: str) -> str:
         )
         return response["message"]["content"]
     except Exception as e:
-        print(f"Błąd podczas rozpoznawania intencji: {e}")
+        logger.error(f"Błąd podczas rozpoznawania intencji: {e}")
         return '{"intent": "UNKNOWN"}'
 
 
@@ -35,7 +41,7 @@ async def extract_entities(prompt: str) -> str:
     """
     try:
         response = await llm_client.chat(
-            model="gpt-3.5-turbo",
+            model=settings.DEFAULT_CHAT_MODEL,
             messages=[
                 {
                     "role": "system",
@@ -48,42 +54,58 @@ async def extract_entities(prompt: str) -> str:
         )
         return response["message"]["content"]
     except Exception as e:
-        print(f"Błąd podczas ekstrakcji encji: {e}")
+        logger.error(f"Błąd podczas ekstrakcji encji: {e}")
         return "{}"
 
 
-async def find_database_object(intent: str, entities: Dict) -> List[Any]:
+async def find_database_object(
+    db: AsyncSession, intent: str, entities: Dict
+) -> List[Any]:
     """
     Narzędzie, które na podstawie intencji i encji wyszukuje obiekty w bazie danych.
     Zwraca listę znalezionych obiektów.
     """
-    async with AsyncSessionLocal() as db:
-        if intent in ["UPDATE_ITEM", "DELETE_ITEM"]:
+    match intent:
+        case "UPDATE_ITEM" | "DELETE_ITEM":
             return await crud.find_item_for_action(db, entities=entities)
-        elif intent in ["UPDATE_PURCHASE", "DELETE_PURCHASE"]:
+        case "UPDATE_PURCHASE" | "DELETE_PURCHASE" | "ADD_PRODUCTS_TO_TRIP":
             return await crud.find_purchase_for_action(db, entities=entities)
-        elif intent == "CZYTAJ_PODSUMOWANIE":
+        case "CZYTAJ_PODSUMOWANIE":
             return await crud.get_summary(db, query_params=entities)
-    return []
+        case _:
+            return []
 
 
 async def execute_database_action(
-    intent: str, target_object: Any, entities: Dict
-) -> bool:
+    db: AsyncSession, intent: str, target_object: Any, entities: Dict
+) -> Any:
     """
-    Narzędzie, które wykonuje operację zapisu (UPDATE/DELETE/CREATE) w bazie.
+    Narzędzie, które wykonuje operację zapisu (UPDATE/DELETE/CREATE) lub analizy w bazie.
     """
-    async with AsyncSessionLocal() as db:
-        try:
-            if intent == "DODAJ_ZAKUPY":
-                await crud.create_shopping_trip(db, data=entities)
-                return True
-            else:  # Dla UPDATE i DELETE
-                operations = entities.get("operacje")
-                return await crud.execute_action(db, intent, target_object, operations)
-        except Exception as e:
-            print(f"Błąd podczas wykonywania akcji w bazie danych: {e}")
-            return False
+    try:
+        if intent in ["DODAJ_ZAKUPY", "CREATE_ITEM", "CREATE_PURCHASE"]:
+            await crud.create_shopping_trip(db, data=entities)
+            return True
+        elif intent == "ADD_PRODUCTS_TO_TRIP":
+            if not target_object or not isinstance(target_object, ShoppingTrip):
+                logger.error("Nie znaleziono paragonu do którego można dodać produkty.")
+                return False
+            products_data = entities.get("produkty", [])
+            if not products_data:
+                logger.error("Brak danych o produktach do dodania.")
+                return False
+            await crud.add_products_to_trip(
+                db, shopping_trip_id=target_object.id, products_data=products_data
+            )
+            return True
+        elif intent == "ANALYZE":
+            return await crud.get_summary(db, query_params=entities)
+        else:  # Dla UPDATE i DELETE
+            operations = entities.get("operacje")
+            return await crud.execute_action(db, intent, target_object, operations)
+    except SQLAlchemyError as e:
+        logger.error(f"Błąd podczas wykonywania akcji w bazie danych: {e}")
+        return False
 
 
 def generate_clarification_question_text(options: List[Any]) -> str:

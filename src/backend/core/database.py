@@ -1,13 +1,16 @@
+from typing import AsyncGenerator
+
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import declarative_base
 
-# Adres URL do naszej bazy danych. Używamy SQLite, która zapisze bazę
-# danych w pliku na dysku.
-DATABASE_URL = "sqlite+aiosqlite:///./shopping.db"
+from backend.config import settings
+
+# Adres URL do naszej bazy danych jest teraz wczytywany z centralnej konfiguracji.
+# Używamy SQLite, która zapisze bazę danych w pliku na dysku.
 
 # Tworzymy silnik SQLAlchemy, który będzie zarządzał połączeniami do bazy danych.
 engine = create_async_engine(
-    DATABASE_URL,
+    settings.DATABASE_URL,
     pool_pre_ping=True,
     echo=False,  # Ustaw na True, aby widzieć zapytania SQL
 )
@@ -29,13 +32,13 @@ AsyncTestSessionLocal = async_sessionmaker(
 )
 
 
-async def get_db() -> AsyncSession:
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """Dependency to get a database session."""
     async with AsyncSessionLocal() as session:
         yield session
 
 
-async def get_test_db() -> AsyncSession:
+async def get_test_db() -> AsyncGenerator[AsyncSession, None]:
     """Dependency to get a test database session."""
     async with AsyncTestSessionLocal() as session:
         # Tutaj można by w przyszłości zainicjować schemat bazy danych, jeśli potrzeba
