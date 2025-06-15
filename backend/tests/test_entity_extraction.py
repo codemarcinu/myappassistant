@@ -21,27 +21,6 @@ TEST_DATA_PATH = os.path.join(
 with open(TEST_DATA_PATH, "r") as f:
     TEST_DATA = json.load(f)
 
-
-def extract_json_from_text(text: str) -> str:
-    """
-    Wyszukuje i wyciąga pierwszy kompletny obiekt JSON z dłuższego tekstu.
-    """
-    try:
-        # Znajdź pierwszą klamrę otwierającą
-        start_index = text.find("{")
-        # Znajdź ostatnią klamrę zamykającą
-        end_index = text.rfind("}")
-
-        if start_index != -1 and end_index != -1 and end_index > start_index:
-            # Wytnij tekst od pierwszej do ostatniej klamry włącznie
-            return text[start_index : end_index + 1]
-        else:
-            # Zwróć pusty string, jeśli nie znaleziono JSONa
-            return ""
-    except Exception:
-        return ""
-
-
 # --- NOWA FUNKCJA GENERUJĄCA PYTANIE ---
 def generate_clarification_question(options: List[Any]) -> str:
     """
