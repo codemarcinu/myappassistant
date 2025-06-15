@@ -1,23 +1,22 @@
 # PRAWIDŁOWA ZAWARTOŚĆ DLA PLIKU orchestrator.py
 
 import logging
-from typing import Any, Dict, Optional
 from enum import Enum
+from typing import Any, Dict, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from . import tools
 from .agent_factory import AgentFactory
-from .base_agent import AgentResponse
 from .prompts import (
     get_entity_extraction_prompt,
     get_intent_recognition_prompt,
-    get_resolver_prompt,
 )
 from .state import ConversationState
-from .utils import extract_json_from_text, sanitize_prompt
+from .utils import extract_json_from_text
 
 logger = logging.getLogger(__name__)
+
 
 class IntentType(Enum):
     DODAJ_ZAKUPY = "DODAJ_ZAKUPY"
@@ -28,6 +27,7 @@ class IntentType(Enum):
     DELETE_PURCHASE = "DELETE_PURCHASE"
     PROCESS_FILE = "PROCESS_FILE"
     UNKNOWN = "UNKNOWN"
+
 
 class Orchestrator:
     def __init__(self, db: AsyncSession, state: ConversationState):

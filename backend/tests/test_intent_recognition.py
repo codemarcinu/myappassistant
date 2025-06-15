@@ -1,11 +1,12 @@
 import asyncio
 import json
+
 import pytest
+from tests.fixtures.test_data import TEST_DATA
 
 from ..agents.prompts import get_intent_recognition_prompt
 from ..config import settings
 from ..core.llm_client import llm_client
-from tests.fixtures.test_data import TEST_DATA
 
 # Prompt systemowy pozostaje ten sam - prosty i klarowny.
 SYSTEM_PROMPT = (
@@ -94,7 +95,7 @@ async def test_intent_recognition_parametrized(
 
         parsed_json = json.loads(raw_response.strip())
         recognized_intent = parsed_json.get("intent")
-        
+
         assert recognized_intent == expected_intent, (
             f"Oczekiwano intencji '{expected_intent}', "
             f"a otrzymano '{recognized_intent}'"

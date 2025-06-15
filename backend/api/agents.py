@@ -2,12 +2,12 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
 
 # Importujemy instancję orchestratora
 from ..agents.orchestrator import IntentType, Orchestrator
 from ..agents.state import ConversationState
 from .food import get_db
-from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter()
 

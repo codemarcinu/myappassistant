@@ -1,8 +1,6 @@
 import pytest
 from httpx import AsyncClient
 
-from backend.main import app
-
 
 @pytest.mark.skip(reason="Wymaga ręcznego uruchomienia serwera FastAPI")
 @pytest.mark.asyncio

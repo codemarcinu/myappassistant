@@ -1,6 +1,6 @@
 import pytest
+
 from backend.agents.ocr_agent import OCRAgent, OCRAgentInput
-from backend.services.models import AgentResponse
 
 
 @pytest.mark.asyncio

@@ -2,18 +2,20 @@ import asyncio
 import json
 from typing import Any, List, Optional
 
+import pytest
+from sqlalchemy import and_, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from backend.agents.orchestrator import Orchestrator
+from backend.agents.state import ConversationState
+from backend.core.database import AsyncSessionLocal, get_test_db
+from backend.core.seed_data import seed_database, seed_test_data
+
 from ..config import settings
 from ..core import crud
 from ..core.database import AsyncSessionLocal
 from ..core.llm_client import llm_client
 from ..models.shopping import Product, ShoppingTrip
-import pytest
-from sqlalchemy import select, and_
-from sqlalchemy.ext.asyncio import AsyncSession
-from backend.agents.state import ConversationState
-from backend.agents.orchestrator import Orchestrator
-from backend.core.database import AsyncSessionLocal, get_test_db
-from backend.core.seed_data import seed_database, seed_test_data
 
 # --- Funkcje pomocnicze, które już znamy ---
 
@@ -180,11 +182,11 @@ async def run_dialogue_simulation():
 if __name__ == "__main__":
     asyncio.run(run_dialogue_simulation())
 
+
 @pytest.fixture
 async def db_session() -> AsyncSession:
     """Pytest fixture to provide a test database session and handle setup/teardown."""
-    session = await get_test_db()
-    await seed_test_data(session)
+    session = AsyncSessionLocal()
     try:
         yield session
     finally:
@@ -197,7 +199,7 @@ class TestFullDialogue:
         """
         Tests a full dialogue for adding a new item where the item does not exist.
         """
-        state = ConversationState(session_id="test_session")
+        state = ConversationState()
         orchestrator = Orchestrator(db=db_session, state=state)
 
         command = "dodaj parówki za 12 zł do wczorajszych zakupów"
@@ -217,7 +219,7 @@ class TestFullDialogue:
         """
         Tests a full dialogue for updating an existing, unique item.
         """
-        state = ConversationState(session_id="test_update_session")
+        state = ConversationState()
         orchestrator = Orchestrator(db=db_session, state=state)
 
         # Pre-condition check: ensure the milk price is 3.50
@@ -241,7 +243,7 @@ class TestFullDialogue:
         """
         Tests a full dialogue for deleting an existing, unique item.
         """
-        state = ConversationState(session_id="test_delete_session")
+        state = ConversationState()
         orchestrator = Orchestrator(db=db_session, state=state)
 
         # Pre-condition check: ensure the bread from yesterday exists

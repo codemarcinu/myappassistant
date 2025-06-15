@@ -1,17 +1,18 @@
 import asyncio
 import json
 from typing import Any, List
-import pytest
 
-from ..agents.prompts import get_entity_extraction_prompt
-from ..config import settings
-from ..core import crud
-from ..core.database import AsyncSessionLocal
-from ..core.llm_client import llm_client
-from ..models.shopping import Product, ShoppingTrip
-from ..agents.tools import generate_clarification_question
-from ..agents.utils import extract_json_from_text
+import pytest
 from tests.fixtures.test_data import TEST_DATA
+
+from backend.agents.prompts import get_entity_extraction_prompt
+from backend.agents.tools import generate_clarification_question_text
+from backend.agents.utils import extract_json_from_text
+from backend.config import settings
+from backend.core import crud
+from backend.core.database import AsyncSessionLocal
+from backend.core.llm_client import llm_client
+from backend.models.shopping import Product, ShoppingTrip
 
 
 def extract_json_from_text(text: str) -> str:
@@ -210,7 +211,7 @@ async def test_entity_extraction_parametrized(intent: str, user_prompt: str) -> 
 
             if intent not in ["CZYTAJ_PODSUMOWANIE", "DODAJ_ZAKUPY"]:
                 if len(znalezione_obiekty) > 1:
-                    pytanie = generate_clarification_question(znalezione_obiekty)
+                    pytanie = generate_clarification_question_text(znalezione_obiekty)
                     assert pytanie is not None
 
     except Exception as e:
