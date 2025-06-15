@@ -42,8 +42,9 @@ System składa się z następujących komponentów:
 - **Services** - Warstwa usług biznesowych
 
 ### Frontend
-- **`frontend_v2.py`** - Główna aplikacja Streamlit z interfejsem użytkownika
-- **`frontend/src/`** - Dodatkowe zasoby CSS i stylowanie
+- **`src/frontend/app.py`** - Główna aplikacja Streamlit z interfejsem użytkownika
+- **`ui/components/`** - Komponenty UI wykorzystywane w aplikacji
+- **`ui/services/`** - Usługi do komunikacji z API
 
 ### Pozostałe komponenty
 - **`tests/`** - Testy jednostkowe, integracyjne i E2E
@@ -73,8 +74,10 @@ ollama run mistral
 ### 3. Zasil bazę danych:
 
 ```
-python seed_db.py
+python scripts/seed_db.py
 ```
+
+**Uwaga:** Plik `src/backend/core/seed_data.py` zawiera obecnie tylko szkielet funkcji. Przed uruchomieniem skryptu należy zaimplementować logikę zasilania bazy danymi.
 
 ### 4. Uruchom backend (w osobnym terminalu):
 
@@ -106,9 +109,10 @@ Frontend będzie dostępny pod adresem `http://localhost:8501`
 - `id` - Unikalny identyfikator produktu
 - `shopping_trip_id` - Klucz obcy do tabeli shopping_trips
 - `name` - Nazwa produktu
-- `price` - Cena produktu
+- `unit_price` - Cena jednostkowa produktu
 - `quantity` - Ilość
-- `category` - Kategoria produktu
+- `discount` - Zniżka na produkt
+- `category` - Kategoria produktu (ważna dla funkcji analitycznych)
 - `created_at` - Data utworzenia rekordu
 
 ## API Endpoints
@@ -186,6 +190,10 @@ poetry run pytest tests/e2e/
 # Testy z pokryciem
 poetry run pytest --cov=backend --cov-report=html
 ```
+
+### Uwagi dotyczące testów
+
+Plik testów `src/backend/tests/test_intent_recognition.py` wymaga danych testowych w formacie zawierającym pola "prompt" i "intent" dla każdego przypadku testowego. Natomiast obecny plik `tests/fixtures/test_data.json` zawiera dane w innym formacie. Należy dostosować strukturę danych testowych przed uruchomieniem testów.
 
 ### Struktura testów
 
@@ -275,6 +283,7 @@ poetry run pre-commit run --all-files
 - ✅ Podstawowe rozpoznawanie intencji
 - ✅ Ekstrakcja encji
 - ✅ Zarządzanie stanu konwersacji
+- ✅ Obsługa niejednoznaczności poprzez pytania doprecyzowujące
 - ❌ Wdrożenie pełnej, wieloturowej pamięci konwersacyjnej
 - ❌ Nauczenie agenta obsługi złożonych filtrów analitycznych (np. przedziały dat: "w zeszłym tygodniu", "w maju")
 - ❌ Ukończenie i przetestowanie wszystkich operacji CRUD w przepływie konwersacyjnym

@@ -1,4 +1,34 @@
-{
-  "file_bytes": "dGVzdA==",
-  "file_type": "image"
-}
+[
+  {
+    "prompt": "Dodaj paragon z Biedronki z wczoraj: mleko 4.50zł, chleb 3.20zł, masło 6.80zł",
+    "intent": "DODAJ_ZAKUPY"
+  },
+  {
+    "prompt": "Ile wydałem w tym miesiącu na nabiał?",
+    "intent": "CZYTAJ_PODSUMOWANIE"
+  },
+  {
+    "prompt": "Zmień cenę mleka z ostatniego paragonu na 4.20zł",
+    "intent": "UPDATE_ITEM"
+  },
+  {
+    "prompt": "Usuń masło z paragonu z Biedronki",
+    "intent": "DELETE_ITEM"
+  },
+  {
+    "prompt": "Zmień datę paragonu z Lidla na wczoraj",
+    "intent": "UPDATE_PURCHASE"
+  },
+  {
+    "prompt": "Usuń paragon z Biedronki z 10 maja",
+    "intent": "DELETE_PURCHASE"
+  },
+  {
+    "prompt": "Zeskanuj ten paragon",
+    "intent": "PROCESS_FILE"
+  },
+  {
+    "prompt": "Jak masz na imię?",
+    "intent": "UNKNOWN"
+  }
+]
