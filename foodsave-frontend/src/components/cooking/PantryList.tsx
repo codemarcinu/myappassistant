@@ -1,16 +1,18 @@
-import React, { useState } from 'react';
+"use client";
+
+import { useState } from 'react';
 import { Card } from '../ui/Card';
 import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
 import { PantryItem, PantryListProps } from '@/types/cooking';
 
-export const PantryList: React.FC<PantryListProps> = ({
+export function PantryList({
   items,
   isLoading = false,
   onAddItem,
   onDeleteItem,
   onUpdateItem
-}) => {
+}: PantryListProps) {
   const [newItem, setNewItem] = useState('');
 
   const handleAddItem = async () => {
@@ -81,4 +83,4 @@ export const PantryList: React.FC<PantryListProps> = ({
       </div>
     </Card>
   );
-};
+}

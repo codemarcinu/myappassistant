@@ -1,13 +1,12 @@
-import React from 'react';
 import { Product, ProductTableProps } from '@/types/shopping';
 import { Button } from '../ui/Button';
 
-export const ProductTable: React.FC<ProductTableProps> = ({
+export function ProductTable({
   products,
   isLoading = false,
   onDeleteProduct,
   onEditProduct
-}) => {
+}: ProductTableProps) {
   if (isLoading) {
     return <div className="h-40 animate-pulse bg-gray-100 rounded" />;
   }
@@ -58,7 +57,12 @@ export const ProductTable: React.FC<ProductTableProps> = ({
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => onEditProduct(product.id, {})}
+                      onClick={() => {
+                        const newName = prompt('Podaj nową nazwę produktu:', product.name);
+                        if (newName) {
+                          onEditProduct(product.id, { name: newName });
+                        }
+                      }}
                       className="mr-2"
                     >
                       Edytuj
@@ -79,4 +83,4 @@ export const ProductTable: React.FC<ProductTableProps> = ({
       </table>
     </div>
   );
-};
+}

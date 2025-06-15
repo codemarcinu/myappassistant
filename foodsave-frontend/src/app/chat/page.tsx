@@ -15,7 +15,6 @@ export default function ChatPage() {
 
       <Card className="min-h-[calc(100vh-200px)] flex flex-col">
         <div className="p-4 border-b">
-          <h2 className="text-xl font-semibold">Czat z asystentem</h2>
           {error && (
             <div className="mt-2 p-2 bg-red-100 text-red-700 rounded">
               {error}

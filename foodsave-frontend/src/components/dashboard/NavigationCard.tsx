@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import { Card } from '../ui/Card';
-import React from 'react';
 
 interface NavigationCardProps {
   title: string;
@@ -10,13 +9,13 @@ interface NavigationCardProps {
   description?: string;
 }
 
-export const NavigationCard: React.FC<NavigationCardProps> = ({
+export function NavigationCard({
   title,
   href,
   icon,
   color,
   description
-}) => {
+}: NavigationCardProps) {
   return (
     <Link href={href} className="block">
       <Card className={`p-6 text-white ${color} hover:opacity-90 transition-all`}>
@@ -28,4 +27,4 @@ export const NavigationCard: React.FC<NavigationCardProps> = ({
       </Card>
     </Link>
   );
-};
+}

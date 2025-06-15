@@ -1,3 +1,4 @@
+exclude: '(^foodsave-frontend/node_modules/|foodsave-frontend/.next/)'
 repos:
   - repo: https://github.com/psf/black
     rev: 25.1.0

@@ -1,12 +1,14 @@
+"use client";
+
 import React, { useState } from 'react';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
 import { ReceiptUploaderProps } from '@/types/shopping';
 
-export const ReceiptUploader: React.FC<ReceiptUploaderProps> = ({
+export function ReceiptUploader({
   onUpload,
   isUploading
-}) => {
+}: ReceiptUploaderProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -48,4 +50,4 @@ export const ReceiptUploader: React.FC<ReceiptUploaderProps> = ({
       )}
     </Card>
   );
-};
+}

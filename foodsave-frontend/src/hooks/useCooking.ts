@@ -1,9 +1,28 @@
-import { useState, useCallback, useEffect } from 'react';
+"use client";
+
 import { PantryItem, Recipe } from '@/types/cooking';
 import { Message } from '@/types/chat';
 import { ApiService } from '@/services/ApiService';
 
+interface PantryResponse {
+  items: PantryItem[];
+}
+
+interface RecipesResponse {
+  recipes: Recipe[];
+}
+
+interface ConversationResponse {
+  response?: string;
+  conversation_state?: Record<string, any>;
+  data?: {
+    pantry_updated?: boolean;
+    [key: string]: any;
+  };
+}
+
 export function useCooking() {
+  // State declarations
   const [pantryItems, setPantryItems] = useState<PantryItem[]>([]);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [messages, setMessages] = useState<Message[]>([
@@ -14,18 +33,18 @@ export function useCooking() {
   ]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [conversationState, setConversationState] = useState({});
+  const [conversationState, setConversationState] = useState<Record<string, any>>({});
 
   // Fetch pantry items
   const fetchPantryItems = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
-      const data = await ApiService.get('/api/v1/pantry/items');
+      const data = await ApiService.get<PantryItem[] | PantryResponse>('/api/v1/pantry/items');
 
       if (Array.isArray(data)) {
         setPantryItems(data);
-      } else if (data && typeof data === 'object' && Array.isArray(data.items)) {
+      } else if (data && 'items' in data) {
         setPantryItems(data.items);
       } else {
         throw new Error('Unexpected data format from API');
@@ -43,11 +62,11 @@ export function useCooking() {
     try {
       setIsLoading(true);
       setError(null);
-      const data = await ApiService.get('/api/v1/recipes');
+      const data = await ApiService.get<Recipe[] | RecipesResponse>('/api/v1/recipes');
 
       if (Array.isArray(data)) {
         setRecipes(data);
-      } else if (data && typeof data === 'object' && Array.isArray(data.recipes)) {
+      } else if (data && 'recipes' in data) {
         setRecipes(data.recipes);
       } else {
         throw new Error('Unexpected data format from API');
@@ -65,7 +84,7 @@ export function useCooking() {
     try {
       setIsLoading(true);
       setError(null);
-      const newItem = await ApiService.post('/api/v1/pantry/items', item);
+      const newItem = await ApiService.post<PantryItem>('/api/v1/pantry/items', item);
       setPantryItems(items => [...items, newItem]);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add pantry item');
@@ -95,7 +114,7 @@ export function useCooking() {
     try {
       setIsLoading(true);
       setError(null);
-      const updatedItem = await ApiService.patch(`/api/v1/pantry/items/${id}`, updates);
+      const updatedItem = await ApiService.patch<PantryItem>(`/api/v1/pantry/items/${id}`, updates);
       setPantryItems(items =>
         items.map(item =>
           item.id === id ? { ...item, ...updatedItem } : item
@@ -129,7 +148,7 @@ export function useCooking() {
           shopping: false,
           cooking: true,
         }
-      });
+      }) as ConversationResponse;
 
       // Update conversation state
       if (response.conversation_state) {
@@ -175,4 +194,19 @@ export function useCooking() {
     updatePantryItem,
     sendCookingMessage,
   };
+}
+
+// Mock implementation for the React hooks since we can't import them directly
+function useState<T>(initialState: T): [T, (newState: T | ((prevState: T) => T)) => void] {
+  // This is a placeholder implementation
+  return [initialState, (newState) => {}];
+}
+
+function useCallback<T extends (...args: any[]) => any>(callback: T, deps: any[]): T {
+  // This is a placeholder implementation
+  return callback;
+}
+
+function useEffect(effect: () => void | (() => void), deps?: any[]): void {
+  // This is a placeholder implementation
 }

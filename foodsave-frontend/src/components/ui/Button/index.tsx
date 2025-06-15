@@ -1,4 +1,5 @@
-import React from 'react';
+"use client";
+
 import { cva, type VariantProps } from 'class-variance-authority';
 import { Spinner } from '../Spinner';
 
@@ -28,32 +29,43 @@ const buttonVariants = cva(
   }
 );
 
-export interface ButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
-    VariantProps<typeof buttonVariants> {
+interface ButtonProps {
+  className?: string;
+  variant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link";
+  size?: "default" | "sm" | "lg" | "icon";
   isLoading?: boolean;
+  disabled?: boolean;
+  children?: any;
+  type?: "button" | "submit" | "reset";
+  onClick?: (event: any) => void;
+  [key: string]: any;
 }
 
-export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, isLoading, children, ...props }, ref) => {
-    return (
-      <button
-        className={buttonVariants({ variant, size, className })}
-        ref={ref}
-        disabled={isLoading || props.disabled}
-        {...props}
-      >
-        {isLoading ? (
-          <>
-            <Spinner className="mr-2" />
-            {children}
-          </>
-        ) : (
-          children
-        )}
-      </button>
-    );
-  }
-);
+export function Button({
+  className,
+  variant,
+  size,
+  isLoading,
+  children,
+  disabled,
+  ...props
+}: ButtonProps) {
+  return (
+    <button
+      className={buttonVariants({ variant, size, className })}
+      disabled={isLoading || disabled}
+      {...props}
+    >
+      {isLoading ? (
+        <>
+          <Spinner className="mr-2" />
+          {children}
+        </>
+      ) : (
+        children
+      )}
+    </button>
+  );
+}
 
 Button.displayName = "Button";

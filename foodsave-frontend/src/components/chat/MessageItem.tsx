@@ -1,4 +1,3 @@
-import React from 'react';
 import { Card } from '../ui/Card';
 import { Message } from '@/types/chat';
 
@@ -6,7 +5,7 @@ interface MessageItemProps {
   message: Message;
 }
 
-export const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
+export function MessageItem({ message }: MessageItemProps) {
   const isUser = message.role === 'user';
 
   return (

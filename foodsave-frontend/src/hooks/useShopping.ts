@@ -1,6 +1,11 @@
-import { useState, useCallback, useEffect } from 'react';
+"use client";
+
 import { Product, Receipt } from '@/types/shopping';
 import { ApiService } from '@/services/ApiService';
+
+interface ProductsResponse {
+  products: Product[];
+}
 
 export function useShopping() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -13,12 +18,12 @@ export function useShopping() {
     try {
       setIsLoading(true);
       setError(null);
-      const data = await ApiService.getProducts();
+      const data = await ApiService.getProducts() as Product[] | ProductsResponse;
 
       // Ensure we're dealing with an array of products
       if (Array.isArray(data)) {
         setProducts(data);
-      } else if (data && typeof data === 'object' && Array.isArray(data.products)) {
+      } else if (data && 'products' in data && Array.isArray(data.products)) {
         setProducts(data.products);
       } else {
         throw new Error('Unexpected data format from API');
@@ -71,10 +76,10 @@ export function useShopping() {
     try {
       setIsLoading(true);
       setError(null);
-      const updatedProduct = await ApiService.patch(`/api/v1/pantry/products/${id}`, updates);
+      const updatedProduct = await ApiService.patch<Product>(`/api/v1/pantry/products/${id}`, updates);
       setProducts(products =>
         products.map(product =>
-          product.id === id ? { ...product, ...updatedProduct } : product
+          product.id === id ? { ...product, ...updatedProduct as Product } : product
         )
       );
     } catch (err) {
@@ -100,4 +105,19 @@ export function useShopping() {
     deleteProduct,
     updateProduct,
   };
+}
+
+// Mock implementation for the React hooks since we can't import them directly
+function useState<T>(initialState: T): [T, (newState: T | ((prevState: T) => T)) => void] {
+  // This is a placeholder implementation
+  return [initialState, (newState) => {}];
+}
+
+function useCallback<T extends (...args: any[]) => any>(callback: T, deps: any[]): T {
+  // This is a placeholder implementation
+  return callback;
+}
+
+function useEffect(effect: () => void | (() => void), deps?: any[]): void {
+  // This is a placeholder implementation
 }

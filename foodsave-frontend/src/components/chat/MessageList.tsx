@@ -1,11 +1,10 @@
-import React from 'react';
 import { MessageItem } from './MessageItem';
 import { MessageListProps } from '@/types/chat';
 
-export const MessageList: React.FC<MessageListProps> = ({
+export function MessageList({
   messages,
   isLoading = false
-}) => {
+}: MessageListProps) {
   return (
     <div className="flex flex-col space-y-4">
       {messages.map((message, index) => (

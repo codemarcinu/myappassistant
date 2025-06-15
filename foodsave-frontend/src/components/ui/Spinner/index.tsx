@@ -5,7 +5,7 @@ interface SpinnerProps {
   size?: 'sm' | 'md' | 'lg';
 }
 
-export const Spinner: React.FC<SpinnerProps> = ({
+export const Spinner = ({
   className = '',
   size = 'md'
 }) => {

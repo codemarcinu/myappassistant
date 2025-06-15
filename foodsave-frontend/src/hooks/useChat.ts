@@ -1,6 +1,14 @@
+"use client";
+
 import { useState } from 'react';
 import { Message } from '@/types/chat';
 import { ApiService } from '@/services/ApiService';
+
+interface ConversationResponse {
+  response?: string;
+  conversation_state?: Record<string, any>;
+  data?: any;
+}
 
 export function useChat() {
   const [messages, setMessages] = useState<Message[]>([
@@ -11,7 +19,7 @@ export function useChat() {
   ]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [conversationState, setConversationState] = useState({});
+  const [conversationState, setConversationState] = useState<Record<string, any>>({});
 
   const sendMessage = async (content: string) => {
     try {
@@ -20,7 +28,7 @@ export function useChat() {
 
       // Add user message to the chat
       const userMessage: Message = { role: 'user', content };
-      setMessages(prev => [...prev, userMessage]);
+      setMessages((prev: Message[]) => [...prev, userMessage]);
 
       // Send message to the API
       const response = await ApiService.sendChatMessage({
@@ -32,7 +40,7 @@ export function useChat() {
           shopping: false,
           cooking: false,
         }
-      });
+      }) as ConversationResponse;
 
       // Update conversation state
       if (response.conversation_state) {
@@ -46,7 +54,7 @@ export function useChat() {
         data: response.data
       };
 
-      setMessages(prev => [...prev, assistantMessage]);
+      setMessages((prev: Message[]) => [...prev, assistantMessage]);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unknown error occurred');
     } finally {

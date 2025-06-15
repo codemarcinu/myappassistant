@@ -1,16 +1,15 @@
-import React from 'react';
 import { Card } from '../ui/Card';
 import { MessageList } from '../chat/MessageList';
 import { MessageInput } from '../chat/MessageInput';
 import { Message } from '@/types/chat';
 import { CookingChatProps } from '@/types/cooking';
 
-export const CookingChat: React.FC<CookingChatProps> = ({
+export function CookingChat({
   pantryItems,
   onSendMessage,
   messages,
   isLoading = false
-}) => {
+}: CookingChatProps) {
   return (
     <Card className="h-[calc(100vh-200px)] flex flex-col">
       <div className="p-4 border-b">

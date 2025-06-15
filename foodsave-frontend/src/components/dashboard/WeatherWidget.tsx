@@ -1,4 +1,3 @@
-import React from 'react';
 import { Card } from '../ui/Card';
 import { WeatherData } from '@/types/api';
 
@@ -7,10 +6,10 @@ interface WeatherWidgetProps {
   isLoading?: boolean;
 }
 
-export const WeatherWidget: React.FC<WeatherWidgetProps> = ({
+export function WeatherWidget({
   data,
   isLoading = false
-}) => {
+}: WeatherWidgetProps) {
   if (isLoading) {
     return <Card className="p-4 h-40 animate-pulse" />;
   }
@@ -29,4 +28,4 @@ export const WeatherWidget: React.FC<WeatherWidgetProps> = ({
       </div>
     </Card>
   );
-};
+}
