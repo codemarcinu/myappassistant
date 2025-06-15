@@ -22,14 +22,25 @@ class ChefAgent(BaseAgent):
 
     async def process(self, input_data: Any) -> AgentResponse:
         """Main processing method - delegates to generate_recipe_idea"""
+        # Check if input_data is a dict with db and model
+        if isinstance(input_data, dict) and "db" in input_data:
+            db = input_data.get("db")
+            model = input_data.get(
+                "model", "llama3"
+            )  # Default to llama3 if not specified
+            return await self.generate_recipe_idea(db, model)
+        # For backwards compatibility
         return await self.generate_recipe_idea(input_data)
 
-    async def generate_recipe_idea(self, db: Any) -> AgentResponse:
+    async def generate_recipe_idea(
+        self, db: Any, model: str = "llama3"
+    ) -> AgentResponse:
         """
         Generates recipe ideas based on available pantry items.
 
         Args:
             db: Database session
+            model: LLM model to use for generating the recipe (default: llama3)
 
         Returns:
             AgentResponse with recipe suggestion or error message
@@ -59,9 +70,9 @@ class ChefAgent(BaseAgent):
             "UŻYTE SKŁADNIKI: [lista nazw użytych składników]"
         )
 
-        # Call LLM
+        # Call LLM with specified model
         response = await llm_client.chat(
-            model="llama3",
+            model=model,  # Use the model parameter instead of hardcoded value
             messages=[
                 {"role": "system", "content": "Jesteś pomocnym szefem kuchni."},
                 {"role": "user", "content": prompt},

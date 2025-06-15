@@ -16,6 +16,15 @@ class ConversationState:
     original_entities: Optional[Dict[str, Any]] = None
     ambiguous_options: List[Any] = field(default_factory=list)
     cooking_ingredients: List[Dict[str, Any]] = field(default_factory=list)
+    agent_states: Dict[str, bool] = field(
+        default_factory=lambda: {
+            "weather": True,
+            "search": True,
+            "shopping": False,
+            "cooking": False,
+        }
+    )
+    current_model: str = "gemma3:12b"  # Default model to use for LLM operations
 
     def add_message(self, role: str, content: str):
         self.history.append({"role": role, "content": content})
@@ -50,6 +59,8 @@ class ConversationState:
             "cooking_ingredients": self.cooking_ingredients,
             "original_intent": self.original_intent,
             "ambiguous_options": self.ambiguous_options,
+            "agent_states": self.agent_states,
+            "current_model": self.current_model,
         }
         return result
 

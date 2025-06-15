@@ -16,6 +16,7 @@ class OrchestratorRequest(BaseModel):
     task: str
     session_id: Optional[str] = None
     conversation_state: Optional[Dict[str, Any]] = None
+    agent_states: Optional[Dict[str, bool]] = None
 
 
 class AgentResponse(BaseModel):
@@ -43,7 +44,9 @@ async def execute_orchestrator_task(
 
         # The process_command method handles state retrieval and message history
         response_data = await orchestrator.process_command(
-            user_command=request.task, session_id=session_id
+            user_command=request.task,
+            session_id=session_id,
+            agent_states=request.agent_states,
         )
 
         # The state is now returned as part of the orchestrator's response

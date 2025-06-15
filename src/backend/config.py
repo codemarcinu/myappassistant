@@ -13,10 +13,7 @@ class Settings(BaseSettings):
     # Konfiguracja dla klienta Ollama
     OLLAMA_BASE_URL: str = "http://localhost:11434"
     DEFAULT_CODE_MODEL: str = "deepseek-coder-v2:16b"
-    DEFAULT_CHAT_MODEL: str = (
-        "SpeakLeash/bielik-11b-v2.3-instruct:Q6_K"
-        # Model do rozpoznawania intencji w języku polskim
-    )
+    DEFAULT_CHAT_MODEL: str = "gemma3:12b"  # Podstawowy model do użycia konwersacyjnego
     DEFAULT_EMBEDDING_MODEL: str = "nomic-embed-text:latest"
 
     # Konfiguracja bazy danych

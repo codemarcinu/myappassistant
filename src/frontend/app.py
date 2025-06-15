@@ -1,8 +1,9 @@
 import os
 import sys
+from typing import Any, Dict, List
+
 import requests  # type: ignore
 import streamlit as st
-from typing import Any, Dict, List
 
 # Add the 'src' directory to the Python path to allow absolute imports
 sys.path.insert(
@@ -13,24 +14,27 @@ sys.path.insert(
 from src.frontend.ui.components.data_display import data_display  # noqa: E402
 from src.frontend.ui.components.main_chat import main_chat  # noqa: E402
 from src.frontend.ui.components.sidebar import sidebar  # noqa: E402
-from src.frontend.ui.config import Config  # noqa: E402
 from src.frontend.ui.services.api_client import ApiClient  # noqa: E402
 from src.frontend.ui.utils.state import get_state, set_state  # noqa: E402
 
 
-class FoodSaveUI:
-    """Główny kontroler aplikacji FoodSave AI."""
+class AssistantUI:
+    """Główny kontroler aplikacji Asystenta AI."""
 
     def __init__(self) -> None:
         self.api = ApiClient()
         self.agents = {
             "budget": {"name": "Doradca Budżetowy", "icon": "💰"},
+            "weather": {"name": "Pogoda", "icon": "🌤️"},
+            "search": {"name": "Wyszukiwarka", "icon": "🔍"},
+            "shopping": {"name": "Zakupy", "icon": "🛒"},
+            "cooking": {"name": "Gotowanie", "icon": "👨‍🍳"},
         }
         self.init_state()
         st.set_page_config(
             layout="wide",
-            page_title=Config.PAGE_TITLE,
-            page_icon=Config.PAGE_ICON,
+            page_title="AI Assistant",
+            page_icon="🤖",
         )
 
     def init_state(self) -> None:
@@ -53,10 +57,19 @@ class FoodSaveUI:
         get_state("error", "")
 
     def run(self) -> None:
-        active_agent = sidebar(st.session_state.active_agent, self.agents)
+        # Get active agent and agent states from sidebar
+        active_agent, agent_states = sidebar(st.session_state.active_agent, self.agents)
+
+        # Update session state if active agent changed
         if st.session_state.active_agent != active_agent:
             set_state("active_agent", active_agent)
             st.rerun()
+
+        # Store agent states in session state
+        if "agent_states" not in st.session_state:
+            set_state("agent_states", agent_states)
+        elif st.session_state.agent_states != agent_states:
+            set_state("agent_states", agent_states)
         main_content = st.container()
         with main_content:
             st.write("Debug: Rendering tabs")  # Debug line
@@ -84,9 +97,22 @@ class FoodSaveUI:
         set_state("loading", True)
         set_state("error", "")
         st.session_state.messages.append({"role": "user", "content": command})
+
+        # Get active agent states
+        agent_states = st.session_state.get(
+            "agent_states",
+            {
+                "weather": True,
+                "search": True,
+                "shopping": False,
+                "cooking": False,
+            },
+        )
+
         payload = {
             "task": command,
             "conversation_state": st.session_state.conversation_state,
+            "agent_states": agent_states,
         }
         response = self.api.post(
             "/api/v1/agents/execute",
@@ -162,5 +188,5 @@ class FoodSaveUI:
 
 
 if __name__ == "__main__":
-    ui = FoodSaveUI()
+    ui = AssistantUI()
     ui.run()

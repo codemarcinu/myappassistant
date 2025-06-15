@@ -64,12 +64,65 @@ class Orchestrator:
         return {"error": "Unsupported file type"}
 
     async def process_command(
-        self, user_command: str, session_id: str, file_info: Optional[Dict] = None
+        self,
+        user_command: str,
+        session_id: str,
+        file_info: Optional[Dict] = None,
+        agent_states: Optional[Dict[str, bool]] = None,
     ) -> Dict[str, Any]:
         """Main entry point to process a user's text command."""
         state = get_agent_state(session_id)
         state.add_message("user", user_command)
         logger.info(f"Processing command: '{user_command}' for session: {session_id}")
+
+        # Store agent states in conversation state
+        if agent_states:
+            state.agent_states = agent_states
+            logger.info(f"Active agents: {agent_states}")
+
+        # Set appropriate model based on active agents
+        if state.agent_states.get("shopping", False) or state.agent_states.get(
+            "cooking", False
+        ):
+            state.current_model = "SpeakLeash/bielik-11b-v2.3-instruct:Q6_K"
+            logger.info(
+                f"Using Polish model for shopping/cooking: {state.current_model}"
+            )
+        else:
+            state.current_model = "gemma3:12b"
+            logger.info(f"Using default model: {state.current_model}")
+
+        # Check if this is a weather-related query and weather agent is enabled
+        if state.agent_states.get("weather", True) and self._is_weather_query(
+            user_command
+        ):
+            logger.info(f"Processing weather query: '{user_command}'")
+            return await self._process_weather_query(user_command, state)
+
+        # Check if this is a search query and search agent is enabled
+        if state.agent_states.get("search", True) and self._is_search_query(
+            user_command
+        ):
+            logger.info(f"Processing search query: '{user_command}'")
+            return await self._process_search_query(user_command, state)
+
+        # Check if this is a cooking-related query and cooking agent is enabled
+        if state.agent_states.get("cooking", False) and self._is_cooking_query(
+            user_command
+        ):
+            logger.info(
+                f"Processing cooking query: '{user_command}' with model: {state.current_model}"
+            )
+            return await self._process_cooking_query(user_command, state)
+
+        # Check if this is a shopping-related query and shopping agent is enabled
+        if state.agent_states.get("shopping", False) and self._is_shopping_query(
+            user_command
+        ):
+            logger.info(
+                f"Processing shopping query: '{user_command}' with model: {state.current_model}"
+            )
+            return await self._process_shopping_query(user_command, state)
 
         if state.is_awaiting_clarification:
             return await self._handle_clarification(user_command, state)
@@ -253,6 +306,221 @@ class Orchestrator:
             "response": "Coś poszło nie tak z logiką Orchestratora.",
             "state": state.to_dict(),
         }
+
+    def _is_weather_query(self, query: str) -> bool:
+        """Check if this is a weather-related query"""
+        weather_keywords = [
+            "pogoda",
+            "deszcz",
+            "temperatura",
+            "stopni",
+            "śnieg",
+            "burza",
+            "słońce",
+            "zachmurzenie",
+            "ciepło",
+            "zimno",
+            "chłodno",
+            "upał",
+            "prognoza",
+            "meteorolog",
+        ]
+        return any(keyword in query.lower() for keyword in weather_keywords)
+
+    def _is_search_query(self, query: str) -> bool:
+        """Check if this is a search query"""
+        search_keywords = [
+            "wyszukaj",
+            "znajdź",
+            "szukaj",
+            "poszukaj",
+            "google",
+            "internet",
+            "informacje o",
+            "co to jest",
+            "kto to jest",
+            "gdzie jest",
+            "kiedy",
+            "jak",
+        ]
+        return any(keyword in query.lower() for keyword in search_keywords)
+
+    def _is_cooking_query(self, query: str) -> bool:
+        """Check if this is a cooking-related query"""
+        cooking_keywords = [
+            "przepis",
+            "ugotuj",
+            "upiec",
+            "przygotować",
+            "danie",
+            "obiad",
+            "kolacja",
+            "śniadanie",
+            "jedzenie",
+            "posiłek",
+            "kuchnia",
+            "gotowanie",
+            "smażenie",
+            "pieczenie",
+            "dusić",
+        ]
+        return any(keyword in query.lower() for keyword in cooking_keywords)
+
+    def _is_shopping_query(self, query: str) -> bool:
+        """Check if this is a shopping-related query"""
+        shopping_keywords = [
+            "zakupy",
+            "kupić",
+            "sklep",
+            "promocja",
+            "cena",
+            "produkt",
+            "artykuł",
+            "spożywczy",
+            "warzywa",
+            "owoce",
+            "nabiał",
+            "mięso",
+            "pieczywo",
+            "paragon",
+            "lista zakupów",
+        ]
+        return any(keyword in query.lower() for keyword in shopping_keywords)
+
+    async def _process_weather_query(
+        self, query: str, state: ConversationState
+    ) -> Dict[str, Any]:
+        """Process a weather query using the weather agent"""
+        try:
+            weather_agent = self.agent_factory.create_agent("weather")
+            response = await weather_agent.process({"query": query})
+
+            if response.success:
+                return {
+                    "response": response.text,
+                    "data": response.data,
+                    "state": state.to_dict(),
+                }
+            else:
+                return {
+                    "response": response.error
+                    or "Wystąpił problem z uzyskaniem prognozy pogody.",
+                    "state": state.to_dict(),
+                }
+        except Exception as e:
+            logger.error(f"Error processing weather query: {e}")
+            return {
+                "response": "Przepraszam, wystąpił problem z uzyskaniem prognozy pogody.",
+                "state": state.to_dict(),
+            }
+
+    async def _process_search_query(
+        self, query: str, state: ConversationState
+    ) -> Dict[str, Any]:
+        """Process a search query using the search agent"""
+        try:
+            search_agent = self.agent_factory.create_agent("search")
+            response = await search_agent.process({"query": query})
+
+            if response.success:
+                return {
+                    "response": response.text,
+                    "data": response.data,
+                    "state": state.to_dict(),
+                }
+            else:
+                return {
+                    "response": response.error
+                    or "Wystąpił problem z wyszukiwaniem informacji.",
+                    "state": state.to_dict(),
+                }
+        except Exception as e:
+            logger.error(f"Error processing search query: {e}")
+            return {
+                "response": "Przepraszam, wystąpił problem z wyszukiwaniem informacji.",
+                "state": state.to_dict(),
+            }
+
+    async def _process_cooking_query(
+        self, query: str, state: ConversationState
+    ) -> Dict[str, Any]:
+        """Process a cooking query using the chef agent with Polish model"""
+        try:
+            # Create chef agent
+            chef_agent = self.agent_factory.create_agent("chef")
+
+            # Store the current model to use for processing
+            model_to_use = (
+                "SpeakLeash/bielik-11b-v2.3-instruct:Q6_K"  # Polish model for cooking
+            )
+            logger.info(f"Using model for cooking: {model_to_use}")
+
+            # Pass the model information through database context
+            chef_context = {"db": self.db, "model": model_to_use}
+
+            # Process with chef agent
+            response = await chef_agent.process(chef_context)
+
+            if response.success:
+                return {
+                    "response": response.text
+                    or "Oto przepis na podstawie dostępnych składników.",
+                    "data": response.data,
+                    "state": state.to_dict(),
+                }
+            else:
+                return {
+                    "response": response.error
+                    or "Wystąpił problem z generowaniem przepisu.",
+                    "state": state.to_dict(),
+                }
+        except Exception as e:
+            logger.error(f"Error processing cooking query: {e}")
+            return {
+                "response": "Przepraszam, wystąpił problem z generowaniem przepisu.",
+                "state": state.to_dict(),
+            }
+
+    async def _process_shopping_query(
+        self, query: str, state: ConversationState
+    ) -> Dict[str, Any]:
+        """Process a shopping query using Polish model"""
+        try:
+            # For shopping, we use standard intent recognition but with Polish model
+            prompt = get_intent_recognition_prompt(query)
+
+            # Use the Polish model directly
+            from backend.core.llm_client import llm_client
+
+            intent_response = await llm_client.chat(
+                model="SpeakLeash/bielik-11b-v2.3-instruct:Q6_K",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "Jesteś pomocnym asystentem zakupowym.",
+                    },
+                    {"role": "user", "content": prompt},
+                ],
+                stream=False,
+            )
+
+            # Extract the response content
+            if intent_response and "message" in intent_response:
+                intent_content = intent_response["message"]["content"]
+            else:
+                intent_content = "Nie rozumiem polecenia związanego z zakupami."
+
+            # Process the shopping intent
+            return {
+                "response": intent_content,
+                "state": state.to_dict(),
+            }
+        except Exception as e:
+            logger.error(f"Error processing shopping query: {e}")
+            return {
+                "response": "Przepraszam, wystąpił problem z przetwarzaniem zapytania o zakupy.",
+                "state": state.to_dict(),
+            }
 
     async def _handle_clarification(
         self, user_command: str, state: ConversationState

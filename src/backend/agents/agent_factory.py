@@ -1,7 +1,10 @@
 from typing import Dict, Type
 
 from .base_agent import BaseAgent
+from .chef_agent import ChefAgent
 from .ocr_agent import OCRAgent
+from .search_agent import SearchAgent
+from .weather_agent import WeatherAgent
 
 
 class AgentFactory:
@@ -9,6 +12,9 @@ class AgentFactory:
 
     _registry: Dict[str, Type[BaseAgent]] = {
         "ocr": OCRAgent,
+        "weather": WeatherAgent,
+        "search": SearchAgent,
+        "chef": ChefAgent,
         # Dodaj tu kolejne klasy agentów, np. "parser": ParserAgent
     }
 
