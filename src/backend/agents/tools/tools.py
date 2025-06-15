@@ -29,7 +29,9 @@ async def recognize_intent(prompt: str) -> str:
             stream=False,
             options={"temperature": 0.0},
         )
-        return response["message"]["content"]
+        if response and response.get("message"):
+            return response["message"]["content"]
+        return '{"intent": "UNKNOWN"}'
     except Exception as e:
         logger.error(f"Błąd podczas rozpoznawania intencji: {e}")
         return '{"intent": "UNKNOWN"}'
@@ -52,7 +54,9 @@ async def extract_entities(prompt: str) -> str:
             stream=False,
             options={"temperature": 0.0},
         )
-        return response["message"]["content"]
+        if response and response.get("message"):
+            return response["message"]["content"]
+        return "{}"
     except Exception as e:
         logger.error(f"Błąd podczas ekstrakcji encji: {e}")
         return "{}"

@@ -5,6 +5,7 @@ from typing import Any, List, Optional
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
 
 from ..models.shopping import Product, ShoppingTrip
 
@@ -148,7 +149,7 @@ async def find_item_for_action(db: AsyncSession, entities: dict) -> list[Product
                 Product.name.ilike(f"%{produkt_id_data['nazwa']}%")
             )
         result = await db.execute(produkt_query)
-        produkty += result.scalars().all()
+        produkty.extend(result.scalars().all())
         logger.info(
             f"Znaleziono {len(produkty)} pasujących produktów na danym/danych paragonie."
         )
@@ -279,32 +280,38 @@ async def get_summary(db: AsyncSession, query_params: dict) -> List[Any]:
     grupowanie = query_params.get("grupowanie", [])
 
     if metryka == "lista_wszystkiego":
-        stmt = select(ShoppingTrip).order_by(ShoppingTrip.trip_date.desc())
+        stmt = (
+            select(ShoppingTrip)
+            .options(joinedload(ShoppingTrip.products))
+            .order_by(ShoppingTrip.trip_date.desc())
+        )
         result = await db.execute(stmt)
-        return list(result.scalars().all())
+        return list(result.scalars().unique().all())
 
     if metryka == "suma_wydatkow":
         selekcja = [func.sum(Product.unit_price * Product.quantity).label("value")]
-        kolumny_grupujace = []
+        kolumny_grupujace_str = []
+        kolumny_grupujace_sql = []
 
         for g in grupowanie:
             if g == "sklep":
                 kolumna = ShoppingTrip.store_name.label("group")
+                selekcja.append(kolumna)
+                kolumny_grupujace_sql.append(kolumna)
+                kolumny_grupujace_str.append("sklep")
             elif g == "kategoria":
                 kolumna = Product.category.label("group")
-            else:
-                continue
-
-            selekcja.append(kolumna)
-            kolumny_grupujace.append(kolumna)
+                selekcja.append(kolumna)
+                kolumny_grupujace_sql.append(kolumna)
+                kolumny_grupujace_str.append("kategoria")
 
         if not selekcja:
             return []
 
         stmt = select(*selekcja).join(ShoppingTrip, Product.trip_id == ShoppingTrip.id)
 
-        for kol in kolumny_grupujace:
-            stmt = stmt.group_by(kol)
+        if kolumny_grupujace_sql:
+            stmt = stmt.group_by(*kolumny_grupujace_sql)
 
         result = await db.execute(stmt)
         return list(result.all())
@@ -365,3 +372,16 @@ async def add_products_to_trip(
         logger.error(f"Błąd podczas dodawania produktów do paragonu: {e}")
         await db.rollback()
         raise
+
+
+async def get_trips_by_date_range(
+    db: AsyncSession, start_date: date, end_date: date
+) -> List[ShoppingTrip]:
+    """Pobiera zakupy w podanym zakresie dat."""
+    stmt = (
+        select(ShoppingTrip)
+        .where(ShoppingTrip.trip_date.between(start_date, end_date))
+        .order_by(ShoppingTrip.trip_date.desc())
+    )
+    result = await db.execute(stmt)
+    return list(result.scalars().all())

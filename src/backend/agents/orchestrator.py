@@ -1,5 +1,3 @@
-# PRAWIDŁOWA ZAWARTOŚĆ DLA PLIKU orchestrator.py
-
 import logging
 import re
 from datetime import date
@@ -8,20 +6,23 @@ from typing import Any, Dict, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .. import crud
-from ..core.database import AsyncSessionLocal
-from .agent_factory import AgentFactory
-from .prompts import get_entity_extraction_prompt, get_intent_recognition_prompt
-from .state import ConversationState, append_to_history, get_agent_state
-from .tools.date_parser import parse_date_range_with_llm
-from .tools.tools import (
+from backend.agents.agent_factory import AgentFactory
+from backend.agents.prompts import (
+    get_entity_extraction_prompt,
+    get_intent_recognition_prompt,
+)
+from backend.agents.state import ConversationState, append_to_history, get_agent_state
+from backend.agents.tools.date_parser import parse_date_range_with_llm
+from backend.agents.tools.tools import (
     execute_database_action,
     extract_entities,
     find_database_object,
     generate_clarification_question_text,
     recognize_intent,
 )
-from .utils import extract_json_from_text
+from backend.agents.utils import extract_json_from_text
+from backend.core import crud
+from backend.core.database import AsyncSessionLocal
 
 logger = logging.getLogger(__name__)
 
@@ -141,7 +142,7 @@ class Orchestrator:
         if not found_objects:
             logger.info("No objects found.")
             # For CREATE intents, this is the expected path
-            if intent in ["CREATE_ITEM", "CREATE_PURCHASE"]:
+            if intent in ["CREATE_ITEM", "CREATE_PURCHASE", "DODAJ_ZAKUPY"]:
                 success = await execute_database_action(
                     db=self.db,
                     intent=intent,
@@ -259,7 +260,7 @@ class Orchestrator:
                 ]
                 for trip in trips:
                     response_lines.append(
-                        f"- {trip.trip_date}: {trip.store_name} za {trip.total_amount:.2f} zł"
+                        f"- {trip.trip_date}: {trip.store_name} za {trip.total_amount or 0:.2f} zł"
                     )
                 agent_response_text = "\n".join(response_lines)
         else:
@@ -307,6 +308,4 @@ async def get_agent_response(user_message: str, session_id: str) -> Dict[str, An
     # Ta funkcja jest teraz wrapperem, który tworzy sesję i wywołuje metodę Orchestratora
     async with AsyncSessionLocal() as db:
         orchestrator = Orchestrator(db)
-        return await orchestrator.get_agent_response_with_date_parsing(
-            user_message, session_id
-        )
+        return await orchestrator.process_command(user_message, session_id)

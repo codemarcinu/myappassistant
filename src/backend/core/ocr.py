@@ -1,6 +1,6 @@
 import io
 import logging
-from typing import Optional, Tuple, cast
+from typing import Optional, Tuple
 
 import fitz  # Import biblioteki PyMuPDF
 import pytesseract
@@ -46,7 +46,7 @@ def process_pdf_file(file_bytes: bytes) -> Optional[str]:
         for page_num in range(len(pdf_document)):
             page = pdf_document.load_page(page_num)
             # Konwertujemy stronę na obraz (pixmap)
-            pix = page.get_pixmap(matrix=cast(fitz.Matrix, fitz.Matrix(2, 2)))
+            pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))
             # Tworzymy obiekt obrazu PIL z pixmapa
             img_size: Tuple[int, int] = (pix.width, pix.height)
             image = Image.frombytes("RGB", img_size, pix.samples)

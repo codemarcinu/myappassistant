@@ -1,7 +1,7 @@
 from typing import AsyncGenerator
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.orm import declarative_base
+from sqlalchemy.orm import DeclarativeBase
 
 from backend.config import settings
 
@@ -20,9 +20,12 @@ AsyncSessionLocal = async_sessionmaker(
     autocommit=False, autoflush=False, bind=engine, class_=AsyncSession
 )
 
+
 # Tworzymy bazową klasę dla modeli SQLAlchemy. Wszystkie nasze modele
 # (reprezentujące tabele w bazie danych) będą po niej dziedziczyć.
-Base = declarative_base()
+class Base(DeclarativeBase):
+    pass
+
 
 # Osobny engine i sesja dla bazy danych testowej w pamięci
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"

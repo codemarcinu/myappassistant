@@ -1,12 +1,21 @@
+import os
+import sys
 from typing import Any, Dict, List
 
-import streamlit as st
-from ui.components.data_display import data_display
-from ui.components.main_chat import main_chat
-from ui.components.sidebar import sidebar
-from ui.config import Config
-from ui.services.api_client import ApiClient
-from ui.utils.state import get_state, set_state
+# Add the 'src' directory to the Python path to allow absolute imports
+sys.path.insert(
+    0, os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir, os.pardir))
+)
+
+
+import streamlit as st  # noqa: E402
+
+from src.frontend.ui.components.data_display import data_display  # noqa: E402
+from src.frontend.ui.components.main_chat import main_chat  # noqa: E402
+from src.frontend.ui.components.sidebar import sidebar  # noqa: E402
+from src.frontend.ui.config import Config  # noqa: E402
+from src.frontend.ui.services.api_client import ApiClient  # noqa: E402
+from src.frontend.ui.utils.state import get_state, set_state  # noqa: E402
 
 
 class FoodSaveUI:
