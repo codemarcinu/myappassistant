@@ -98,11 +98,19 @@ class FoodSaveUI:
         st.rerun()
 
     def get_products(self) -> List[Dict[str, Any]]:
-        response = self.api.get("/api/pantry/products")
+        response = self.api.get("/api/v1/pantry/products")
         if "error" in response:
             set_state("error", response["error"])
             return []
-        return response
+        # Ensure we're returning a list of products
+        if isinstance(response, list):
+            return response
+        # If the API returns the products wrapped in an object
+        if isinstance(response, dict) and "products" in response:
+            return response["products"]
+        # Return empty list as fallback
+        set_state("error", "Unexpected API response format")
+        return []
 
 
 if __name__ == "__main__":

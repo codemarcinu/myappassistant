@@ -1,11 +1,14 @@
 # PRAWIDŁOWA ZAWARTOŚĆ DLA PLIKU orchestrator.py
 
 import logging
+from datetime import date
 from enum import Enum
 from typing import Any, Dict, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from .. import crud
+from ..core.database import AsyncSessionLocal
 from .agent_factory import AgentFactory
 from .prompts import (get_entity_extraction_prompt,
                       get_intent_recognition_prompt)
@@ -278,7 +281,29 @@ async def get_agent_response(user_message: str, session_id: str) -> Dict[str, An
 
     # 4. Wygeneruj odpowiedź na podstawie wyniku
     if date_range:
-        agent_response_text = f"Zrozumiałem, że pytasz o okres od {date_range['start_date']} do {date_range['end_date']}. Wkrótce będę umiał pobrać dane dla tego zakresu!"
+        start_dt = date.fromisoformat(date_range["start_date"])
+        end_dt = date.fromisoformat(date_range["end_date"])
+
+        # Otwieramy nową sesję do bazy danych
+        async with AsyncSessionLocal() as db:
+            trips = await crud.get_trips_by_date_range(
+                db, start_date=start_dt, end_date=end_dt
+            )
+
+        # Formatujemy wynik
+        if not trips:
+            agent_response_text = (
+                f"Nie znalazłem żadnych zakupów w okresie od {start_dt} do {end_dt}."
+            )
+        else:
+            response_lines = [
+                f"Znalazłem {len(trips)} wypraw na zakupy w podanym okresie:"
+            ]
+            for trip in trips:
+                response_lines.append(
+                    f"- {trip.trip_date}: {trip.store_name} za {trip.total_amount:.2f} zł"
+                )
+            agent_response_text = "\n".join(response_lines)
     else:
         # Wyświetlamy historię w konsoli dla debugowania
         print(f"--- Pełna historia dla sesji '{session_id}' ---")
