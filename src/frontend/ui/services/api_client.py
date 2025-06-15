@@ -63,19 +63,52 @@ class ApiClient:
         """
         try:
             url = f"{self.base_url}{endpoint}"
+
+            # Print debug information
+            print(f"API POST request to: {url}")
+            print(f"Request data: {json}")
+
             with httpx.Client(timeout=self.timeout) as client:
                 response = client.post(url, json=json, data=data)
                 response.raise_for_status()
-                return response.json()
+
+                # Log the response
+                response_data = response.json()
+                print(f"API response status: {response.status_code}")
+                print(f"API response data: {response_data}")
+
+                return response_data
+
         except httpx.HTTPStatusError as e:
-            st.error(f"HTTP error: {e}")
-            return {"error": str(e)}
+            error_msg = f"HTTP error: {e}, Status: {e.response.status_code}"
+            print(error_msg)
+
+            # Try to get response content if available
+            try:
+                error_content = e.response.json()
+                print(f"Error response content: {error_content}")
+                return {"error": f"{error_msg}, Details: {error_content}"}
+            except Exception:
+                return {"error": error_msg}
+
         except httpx.RequestError as e:
-            st.error(f"Request error: {e}")
+            error_msg = f"Request error: {e}"
+            print(error_msg)
             return {"error": f"Nie można połączyć się z API: {str(e)}"}
-        except JSONDecodeError:
-            st.error("Nieprawidłowa odpowiedź z API")
-            return {"error": "Nieprawidłowa odpowiedź z API"}
+
+        except JSONDecodeError as e:
+            error_msg = f"Invalid JSON response: {e}"
+            print(error_msg)
+
+            # Try to get raw response if available
+            try:
+                raw_content = response.text[:200]  # Get the first 200 chars
+                print(f"Raw response content: {raw_content}")
+                return {"error": f"Nieprawidłowa odpowiedź z API: {raw_content}..."}
+            except Exception:
+                return {"error": "Nieprawidłowa odpowiedź z API"}
+
         except Exception as e:
-            st.error(f"Nieznany błąd: {e}")
-            return {"error": str(e)}
+            error_msg = f"Unknown error: {type(e).__name__}: {e}"
+            print(error_msg)
+            return {"error": error_msg}

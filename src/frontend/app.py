@@ -72,13 +72,20 @@ class AssistantUI:
             set_state("agent_states", agent_states)
         main_content = st.container()
         with main_content:
-            st.write("Debug: Rendering tabs")  # Debug line
+            # Debug info displayed at the top
+            with st.expander("Debug Info", expanded=False):
+                st.write("Debug: Rendering tabs")
+                st.write(f"Active agent: {st.session_state.active_agent}")
+                st.write(f"Agent states: {st.session_state.agent_states}")
+                st.write(f"Message count: {len(st.session_state.messages)}")
+                st.write(f"Loading state: {st.session_state.loading}")
+                if st.session_state.error:
+                    st.error(f"Error: {st.session_state.error}")
+
+            # Create tabs
             chat_tab, pantry_tab, receipt_tab = st.tabs(
                 ["Czat z AI", "Moja Spiżarnia", "Paragony"]
             )
-            st.write(
-                f"Debug: Tab count: {len([chat_tab, pantry_tab, receipt_tab])}"
-            )  # Debug line
             with chat_tab:
                 main_chat(
                     st.session_state.messages,
@@ -94,47 +101,81 @@ class AssistantUI:
                 self.handle_receipt_upload()
 
     def handle_command(self, command: str) -> None:
-        set_state("loading", True)
-        set_state("error", "")
-        st.session_state.messages.append({"role": "user", "content": command})
+        """Handle user command and get response from backend."""
+        try:
+            # Set loading state and add user message
+            set_state("loading", True)
+            set_state("error", "")
+            st.session_state.messages.append({"role": "user", "content": command})
 
-        # Get active agent states
-        agent_states = st.session_state.get(
-            "agent_states",
-            {
-                "weather": True,
-                "search": True,
-                "shopping": False,
-                "cooking": False,
-            },
-        )
+            # Log the command for debugging
+            print(f"Processing command: {command}")
 
-        payload = {
-            "task": command,
-            "conversation_state": st.session_state.conversation_state,
-            "agent_states": agent_states,
-        }
-        response = self.api.post(
-            "/api/v1/agents/execute",
-            json=payload,
-        )
-        if "error" in response:
-            set_state("error", response["error"])
-        else:
-            assistant_response_content = response.get(
-                "response", "Przepraszam, wystąpił błąd."
-            )
-            assistant_response_data = response.get("data")
-            st.session_state.conversation_state = response.get("conversation_state", {})
-            st.session_state.messages.append(
+            # Get active agent states
+            agent_states = st.session_state.get(
+                "agent_states",
                 {
-                    "role": "assistant",
-                    "content": assistant_response_content,
-                    "data": assistant_response_data,
-                }
+                    "weather": True,
+                    "search": True,
+                    "shopping": False,
+                    "cooking": False,
+                },
             )
-        set_state("loading", False)
-        st.rerun()
+
+            # Prepare payload
+            payload = {
+                "task": command,
+                "conversation_state": st.session_state.conversation_state,
+                "agent_states": agent_states,
+            }
+
+            # Debug payload
+            print(f"Sending payload: {payload}")
+
+            # Send request to backend
+            response = self.api.post(
+                "/api/v1/agents/execute",
+                json=payload,
+            )
+
+            # Debug response
+            print(f"Received response: {response}")
+
+            # Handle response
+            if "error" in response and response["error"]:
+                set_state("error", f"Backend error: {response['error']}")
+                print(f"Error from backend: {response['error']}")
+            else:
+                # Extract response content or use default error message
+                assistant_response_content = response.get(
+                    "response", "Przepraszam, wystąpił błąd w przetwarzaniu."
+                )
+                assistant_response_data = response.get("data")
+
+                # Update conversation state
+                st.session_state.conversation_state = response.get(
+                    "conversation_state", {}
+                )
+
+                # Add assistant message to chat
+                st.session_state.messages.append(
+                    {
+                        "role": "assistant",
+                        "content": assistant_response_content,
+                        "data": assistant_response_data,
+                    }
+                )
+
+                print(f"Added assistant response: {assistant_response_content}")
+        except Exception as e:
+            # Handle any exceptions
+            error_msg = f"Exception in handle_command: {str(e)}"
+            print(error_msg)
+            set_state("error", error_msg)
+        finally:
+            # Always reset loading state and rerun
+            set_state("loading", False)
+            st.rerun()
 
     def get_products(self) -> List[Dict[str, Any]]:
         response = self.api.get("/api/v1/pantry/products")

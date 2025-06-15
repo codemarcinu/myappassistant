@@ -31,7 +31,7 @@ def main_chat(messages: List[Dict[str, Any]], loading: bool, error: str) -> None
             st.chat_message("user").write(content)
         elif role == "assistant":
             with st.chat_message("assistant"):
-                st.write(content)
+                st.markdown(content)  # Use markdown for better formatting
 
                 # Display any data that came with the message
                 if data:
@@ -39,3 +39,7 @@ def main_chat(messages: List[Dict[str, Any]], loading: bool, error: str) -> None
                         st.json(data)
                     elif isinstance(data, dict) and data:
                         st.json(data)
+
+    # Add debug information
+    if messages:
+        st.caption(f"Debug: {len(messages)} messages in conversation")

@@ -391,26 +391,56 @@ class Orchestrator:
         self, query: str, state: ConversationState
     ) -> Dict[str, Any]:
         """Process a weather query using the weather agent"""
-        try:
-            weather_agent = self.agent_factory.create_agent("weather")
-            response = await weather_agent.process({"query": query})
+        logger.info(f"Processing weather query: '{query}'")
 
+        try:
+            # Create and call the weather agent
+            weather_agent = self.agent_factory.create_agent("weather")
+            logger.info("Weather agent created successfully, processing query")
+
+            response = await weather_agent.process({"query": query})
+            logger.info(f"Weather agent response: {response}")
+
+            # Check for successful response
             if response.success:
+                logger.info(f"Weather query successful: {response.text}")
+
+                # Add a message to the conversation history to ensure it's visible
+                if (
+                    response.text
+                ):  # Check that text is not None before adding to history
+                    state.add_message("assistant", response.text)
+
+                # Return full response with data
                 return {
                     "response": response.text,
                     "data": response.data,
                     "state": state.to_dict(),
                 }
             else:
+                error_msg = (
+                    response.error or "Wystąpił problem z uzyskaniem prognozy pogody."
+                )
+                logger.error(f"Weather agent returned error: {error_msg}")
+
+                # Add error message to conversation history
+                state.add_message("assistant", str(error_msg))
+
                 return {
-                    "response": response.error
-                    or "Wystąpił problem z uzyskaniem prognozy pogody.",
+                    "response": error_msg,
                     "state": state.to_dict(),
                 }
         except Exception as e:
-            logger.error(f"Error processing weather query: {e}")
+            error_msg = (
+                f"Przepraszam, wystąpił problem z uzyskaniem prognozy pogody: {str(e)}"
+            )
+            logger.error(f"Exception in weather processing: {e}", exc_info=True)
+
+            # Add error message to conversation history
+            state.add_message("assistant", str(error_msg))
+
             return {
-                "response": "Przepraszam, wystąpił problem z uzyskaniem prognozy pogody.",
+                "response": error_msg,
                 "state": state.to_dict(),
             }
 

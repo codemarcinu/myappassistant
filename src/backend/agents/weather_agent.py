@@ -81,23 +81,38 @@ class WeatherAgent(BaseAgent):
         )
 
         try:
-            response = await llm_client.chat(
-                model="gemma3:12b",
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "Jesteś pomocnym asystentem, który ekstrahuje lokalizacje z tekstu.",
-                    },
-                    {"role": "user", "content": prompt},
-                ],
-                stream=False,
-            )
+            # Log the extraction attempt
+            logging.info(f"Extracting location from query: '{query}'")
 
-            if not response or not response.get("message"):
-                return "Warszawa"  # Default to Warsaw if extraction fails
+            # Use try/except to catch any LLM errors
+            try:
+                response = await llm_client.chat(
+                    model="gemma3:12b",  # Using Gemma model for location extraction
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": "Jesteś pomocnym asystentem, który ekstrahuje lokalizacje z tekstu.",
+                        },
+                        {"role": "user", "content": prompt},
+                    ],
+                    stream=False,
+                )
 
-            location = response["message"]["content"].strip()
-            return location
+                logging.info(f"LLM response for location extraction: {response}")
+
+                # Check if response has expected structure
+                if not response or not response.get("message"):
+                    logging.warning(
+                        "Invalid LLM response format for location extraction, defaulting to Warsaw"
+                    )
+                    return "Warszawa"  # Default to Warsaw if extraction fails
+
+                location = response["message"]["content"].strip()
+                logging.info(f"Extracted location: '{location}'")
+                return location
+            except Exception as e:
+                logging.error(f"Error in LLM location extraction: {str(e)}")
+                return "Warszawa"  # Default to Warsaw in case of any error
         except Exception as e:
             logger.error(f"Error extracting location: {e}")
             return "Warszawa"  # Default to Warsaw
