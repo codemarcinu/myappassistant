@@ -1,153 +1,92 @@
-# FoodSave AI - Konwersacyjny Asystent Zakupowy v1.0
+# My AI Assistant - Modular Agent System
 
-## Opis
+## Overview
 
-FoodSave AI to zaawansowany system agentowy, który pozwala na zarządzanie domowym budżetem poprzez konwersacje w języku naturalnym. Zamiast klikać w formularze, możesz po prostu napisać, co chcesz zrobić – dodać nowy paragon, poprawić błąd, usunąć wpis czy zapytać o podsumowanie wydatków – a inteligentny agent przetworzy Twoje polecenie i wykona odpowiednie operacje w bazie danych, prezentując wyniki w formie graficznej.
+My AI Assistant is a modular agent-based AI system that combines multiple specialized agents to provide a conversational interface for various tasks including shopping management, cooking assistance, weather information, and web search. The system uses locally-hosted language models via Ollama for privacy and control.
 
-Projekt ten demonstruje budowę kompletnego, interaktywnego systemu AI od podstaw, łącząc nowoczesny backend, lokalne modele językowe (LLM) oraz zaawansowaną logikę agentową zdolną do prowadzenia dialogu.
+## Key Features
 
-## Kluczowe Funkcjonalności
+- **Streamlit Chat Interface**: Interactive, user-friendly UI for conversing with the AI
+- **Multi-Agent Architecture**: Specialized agents for different domains:
+  - **Chef Agent**: Suggests recipes based on available pantry items
+  - **Weather Agent**: Provides weather forecasts for specified locations
+  - **Search Agent**: Looks up information on the web
+  - **OCR Agent**: Processes receipt images
+- **Natural Language Understanding**: Processes complex, multi-threaded commands
+- **Local LLM Integration**: Uses Ollama for running language models locally
+- **Database Storage**: Tracks pantry items, receipts, and user preferences
+- **Receipt Scanning**: OCR for automating receipt entry
 
-- **Interfejs Graficzny**: Interaktywny czat zbudowany w Streamlit
-- **Przetwarzanie Języka Naturalnego (NLU)**: Agent rozumie złożone, wielowątkowe polecenia w języku polskim
-- **Pełna Obsługa CRUD+A**:
-  - **Create**: Dodawanie paragonów z wieloma produktami i automatyczną kategoryzacją
-  - **Read (Analyze)**: Odpowiadanie na pytania analityczne i wizualizacja danych
-  - **Update**: Modyfikacja istniejących wpisów
-  - **Delete**: Usuwanie produktów lub całych paragonów
-- **Obsługa Dialogu i Niejednoznaczności**: Jeśli polecenie jest nieprecyzyjne, agent zadaje pytania doprecyzowujące i rozumie odpowiedzi w kontekście rozmowy
-- **Dynamiczne "Text-to-SQL"**: Agent potrafi tłumaczyć pytania analityczne na ustrukturyzowane zapytania do bazy danych z agregacją i filtrowaniem
-- **Modularna Architektura**: System składa się z niezależnych komponentów (UI, API, Baza Danych, Agenci), co ułatwia jego rozwój
-- **Prywatność i Kontrola**: Cała inteligencja opiera się na modelu językowym uruchomionym lokalnie za pomocą Ollama
+## System Architecture
 
-## Architektura
+### Backend (`src/backend/`)
+- **Agents**: The core intelligence layer
+  - `orchestrator.py`: The main controller routing requests to specialized agents
+  - `agent_factory.py`: Factory pattern for creating agent instances
+  - `base_agent.py`: Base class for all agents
+  - `*_agent.py`: Specialized agents (chef, weather, search, ocr)
+  - `state.py`: Conversation state management
+  - `tools/`: Tools for agent operations
+- **API**: FastAPI-based endpoints
+  - `agents.py`: Agent-related endpoints
+  - `chat.py`: Chat conversation endpoints
+  - `food.py`: Food and pantry endpoints
+  - `receipts.py`: Receipt processing endpoints
+- **Core**: Fundamental backend services
+  - `database.py`: Database connection and models
+  - `llm_client.py`: Client for Ollama LLM communication
+  - `crud.py`: Data access layer
+  - `ocr.py`: OCR processing for receipts
 
-System składa się z następujących komponentów:
+### Frontend (`src/frontend/`)
+- `app.py`: Main Streamlit application
+- **UI Components**:
+  - `main_chat.py`: Chat interface
+  - `sidebar.py`: Application settings sidebar
+  - `data_display.py`: Data visualization components
+- **Services**:
+  - `api_client.py`: Client for communicating with the backend API
 
-### Backend (`backend/`)
-- **Agents** - Logika agentowa z orchestratorem, narzędziami i promptami
-  - `orchestrator.py`: Główny "mózg", który zarządza przepływem
-  - `tools.py`: Zestaw narzędzi do interakcji z bazą i generowania odpowiedzi
-  - `prompts.py`: Centralny magazyn na prompty systemowe
-  - `state.py`: Zarządzanie stanem konwersacji
-- **API** - Interfejs REST API zbudowany na FastAPI
-- **Core** - Podstawowe funkcjonalności
-  - `crud.py`: Niskopoziomowa warstwa dostępu do danych (SQLAlchemy)
-  - `database.py`: Konfiguracja bazy danych
-  - `llm_client.py`: Klient Ollama do komunikacji z modelami LLM
-  - `ocr.py`: Przetwarzanie obrazów paragonów
-- **Models** - Modele danych SQLAlchemy
-  - `shopping.py`: Modele ShoppingTrip i Product
-- **Schemas** - Schematy Pydantic do walidacji
-- **Services** - Warstwa usług biznesowych
+## Setup & Installation
 
-### Frontend
-- **`src/frontend/app.py`** - Główna aplikacja Streamlit z interfejsem użytkownika
-- **`ui/components/`** - Komponenty UI wykorzystywane w aplikacji
-- **`ui/services/`** - Usługi do komunikacji z API
+### Prerequisites
+- Python 3.9+ (recommended: 3.11+)
+- [Ollama](https://ollama.com/) for local language models
+- Poetry for dependency management
 
-### Pozostałe komponenty
-- **`tests/`** - Testy jednostkowe, integracyjne i E2E
-- **`scripts/`** - Skrypty pomocnicze (setup.sh)
-- **`ui/`** - Dodatkowe komponenty interfejsu użytkownika
+### Installation
 
-## Uruchomienie
+1. Clone the repository and install dependencies using Poetry:
+```bash
+# Install Poetry if needed
+pip install poetry
 
-### 1. Przygotuj środowisko i zainstaluj zależności za pomocą Poetry:
-
-```
-# Jeśli nie masz Poetry, zainstaluj globalnie:
-pipx install poetry
-
+# Install dependencies
 poetry install
 
-# Aktywuj środowisko Poetry:
+# Activate the virtual environment
 poetry shell
 ```
 
-### 2. Upewnij się, że serwer Ollama jest uruchomiony z odpowiednim modelem:
-
-```
-ollama run mistral
-```
-
-### 3. Zasil bazę danych:
-
-```
-python scripts/seed_db.py
+2. Set up Ollama and pull the required models:
+```bash
+# Install Ollama following the instructions at https://ollama.com/
+# Then pull the required models:
+ollama pull gemma3:12b
+ollama pull deepseek-coder-v2:16b
+ollama pull nomic-embed-text
 ```
 
-**Uwaga:** Plik `src/backend/core/seed_data.py` zawiera obecnie tylko szkielet funkcji. Przed uruchomieniem skryptu należy zaimplementować logikę zasilania bazy danymi.
-
-### 4. Uruchom backend (w osobnym terminalu):
-
+3. Create a `.env` file in the project root:
 ```
-cd backend
-python -m uvicorn main:app --reload
-```
-
-Backend będzie dostępny pod adresem `http://localhost:8000`
-
-### 5. Uruchom frontend (w osobnym terminalu):
-
-```
-streamlit run frontend_v2.py
-```
-
-Frontend będzie dostępny pod adresem `http://localhost:8501`
-
-## Struktura Bazy Danych
-
-### Tabela `shopping_trips`
-- `id` - Unikalny identyfikator wycieczki zakupowej
-- `store_name` - Nazwa sklepu
-- `date` - Data zakupów
-- `total_amount` - Łączna kwota
-- `created_at` - Data utworzenia rekordu
-
-### Tabela `products`
-- `id` - Unikalny identyfikator produktu
-- `shopping_trip_id` - Klucz obcy do tabeli shopping_trips
-- `name` - Nazwa produktu
-- `unit_price` - Cena jednostkowa produktu
-- `quantity` - Ilość
-- `discount` - Zniżka na produkt
-- `category` - Kategoria produktu (ważna dla funkcji analitycznych)
-- `created_at` - Data utworzenia rekordu
-
-## API Endpoints
-
-### Shopping Trips
-- `GET /shopping-trips/` - Pobierz wszystkie wycieczki zakupowe
-- `POST /shopping-trips/` - Utwórz nową wycieczkę zakupową
-- `GET /shopping-trips/{trip_id}` - Pobierz konkretną wycieczkę
-- `PUT /shopping-trips/{trip_id}` - Zaktualizuj wycieczkę
-- `DELETE /shopping-trips/{trip_id}` - Usuń wycieczkę
-
-### Products
-- `GET /products/` - Pobierz wszystkie produkty
-- `POST /products/` - Dodaj nowy produkt
-- `GET /products/{product_id}` - Pobierz konkretny produkt
-- `PUT /products/{product_id}` - Zaktualizuj produkt
-- `DELETE /products/{product_id}` - Usuń produkt
-
-### Agent Conversation
-- `POST /chat/` - Endpoint do konwersacji z agentem AI
-- `GET /chat/history` - Pobierz historię konwersacji
-
-## Konfiguracja
-
-### Zmienne środowiskowe
-
-Utwórz plik `.env` w głównym katalogu projektu:
-
-```
-# Baza danych
-DATABASE_URL=sqlite:///./foodsave.db
+# Database
+DATABASE_URL=sqlite+aiosqlite:///./shopping.db
 
 # Ollama
 OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_MODEL=mistral
+DEFAULT_CHAT_MODEL=gemma3:12b
+DEFAULT_CODE_MODEL=deepseek-coder-v2:16b
+DEFAULT_EMBEDDING_MODEL=nomic-embed-text:latest
 
 # API
 API_HOST=localhost
@@ -158,282 +97,133 @@ STREAMLIT_SERVER_PORT=8501
 STREAMLIT_SERVER_ADDRESS=localhost
 ```
 
-### Konfiguracja Ollama
-
-```
-# Pobierz i uruchom model Mistral
-ollama pull mistral
-ollama run mistral
-
-# Alternatywnie można użyć других modeli:
-ollama pull llama2
-ollama pull codellama
+4. Initialize the database:
+```bash
+python scripts/seed_db.py
 ```
 
-## Testowanie
+### Running the Application
 
-### Uruchomienie testów
-
-```
-# Wszystkie testy
-poetry run pytest
-
-# Testy jednostkowe
-poetry run pytest tests/unit/
-
-# Testy integracyjne
-poetry run pytest tests/integration/
-
-# Testy E2E
-poetry run pytest tests/e2e/
-
-# Testy z pokryciem
-poetry run pytest --cov=backend --cov-report=html
+1. Start the backend server:
+```bash
+cd src/backend
+uvicorn backend.main:app --reload
 ```
 
-### Uwagi dotyczące testów
-
-Plik testów `src/backend/tests/test_intent_recognition.py` wymaga danych testowych w formacie zawierającym pola "prompt" i "intent" dla każdego przypadku testowego. Natomiast obecny plik `tests/fixtures/test_data.json` zawiera dane w innym formacie. Należy dostosować strukturę danych testowych przed uruchomieniem testów.
-
-### Struktura testów
-
-- `tests/unit/` - Testy jednostkowe dla poszczególnych komponentów
-- `tests/integration/` - Testy integracji między komponentami
-- `tests/e2e/` - Testy end-to-end całego systemu
-- `tests/fixtures/` - Dane testowe i fixtury
-
-## Przykłady Użycia
-
-### Dodawanie paragonu przez czat
-
-```
-Użytkownik: "Dodaj paragon z Biedronki z wczoraj: mleko 4.50zł, chleb 3.20zł, masło 6.80zł"
-
-Agent: "Dodałem paragon z Biedronki z dnia [wczorajsza data]:
-- Mleko: 4,50 zł
-- Chleb: 3,20 zł
-- Masło: 6,80 zł
-Łączna kwota: 14,50 zł"
+2. Start the frontend in a new terminal:
+```bash
+cd src/frontend
+streamlit run app.py
 ```
 
-### Analiza wydatków
+The application will be available at http://localhost:8501
 
+## API Endpoints
+
+### Agent Endpoints
+- `POST /api/v1/agents/execute`: Execute a task with the agent system
+
+### Chat Endpoints
+- `POST /api/v1/chat/`: Send a message to the chat system
+- `GET /api/v1/chat/history`: Get chat history
+
+### Pantry Endpoints
+- `GET /api/v1/pantry/products`: Get all pantry products
+
+### Receipt Endpoints
+- `POST /api/v1/receipts/upload`: Upload and process a receipt image
+
+## Example Usage
+
+### Asking for Weather
 ```
-Użytkownik: "Ile wydałem w tym miesiącu na nabiał?"
-
-Agent: "W tym miesiącu wydałeś 67,40 zł na nabiał:
-- Mleko: 31,50 zł (7 produktów)
-- Masło: 20,40 zł (3 produkty)
-- Ser: 15,50 zł (2 produkty)"
-```
-
-### Modyfikacja danych
-
-```
-Użytkownik: "Zmień cenę mleka z ostatniego paragonu na 4.20zł"
-
-Agent: "Zmieniłem cenę mleka z 4,50 zł na 4,20 zł w paragonie z Biedronki z [data].
-Nowa łączna kwota paragonu: 14,20 zł"
-```
-
-## Rozwój i Wkład
-
-### Uruchomienie w trybie deweloperskim
-
-```
-# Backend z hot reload
-cd backend
-uvicorn main:app --reload --log-level debug
-
-# Frontend z hot reload
-streamlit run frontend_v2.py --server.runOnSave true
+User: "Jaka jest pogoda w Warszawie?"
+Assistant: "Obecnie w Warszawie jest 22°C, częściowo zachmurzenie.
+Wiatr wieje z prędkością 15 km/h, a wilgotność wynosi 65%."
 ```
 
-### Pre-commit hooks
-
+### Getting a Recipe Suggestion
 ```
-# Instalacja pre-commit hooks
-poetry run pre-commit install
+User: "Co mogę ugotować z produktów, które mam w spiżarni?"
+Assistant: "Na podstawie produktów w Twojej spiżarni, proponuję:
 
-# Ręczne uruchomienie na wszystkich plikach
-poetry run pre-commit run --all-files
-```
+PRZEPIS: Szybki makaron z sosem pomidorowym
 
-### Dodawanie nowych funkcjonalności
+Składniki:
+- 200g makaronu penne
+- 1 puszka pomidorów krojonych
+- 2 ząbki czosnku
+- 1 łyżka oliwy z oliwek
+- Sól i pieprz do smaku
+- Garść świeżej bazylii
 
-1. **Nowy agent**: Dodaj logikę w `backend/agents/`
-2. **Nowe API endpoint**: Rozszerz `backend/api/`
-3. **Nowy model danych**: Dodaj w `backend/models/`
-4. **Nowe narzędzie agenta**: Rozszerz `backend/agents/tools.py`
-5. **Nowy prompt**: Dodaj w `backend/agents/prompts.py`
+Przygotowanie:
+1. Ugotuj makaron al dente według instrukcji na opakowaniu.
+2. Na patelni rozgrzej oliwę, dodaj posiekany czosnek i smaż przez 30 sekund.
+3. Dodaj pomidory z puszki, sól i pieprz, gotuj na małym ogniu przez 10 minut.
+4. Odcedź makaron i dodaj do sosu, wymieszaj.
+5. Podawaj posypane świeżą bazylią.
 
-## Mapa Drogowa
-
-### Kamień Milowy 1: Dalszy Rozwój UI (W toku)
-
-- ✅ Podstawowy interfejs czatu
-- ✅ Wyświetlanie danych produktów
-- ❌ Możliwość usuwania wpisów bezpośrednio z tabeli w UI
-- ❌ Możliwość edycji wpisów bezpośrednio z tabeli w UI
-- ❌ Dodanie przycisków do typowych akcji ("Szybkie Akcje")
-- ❌ Bardziej zaawansowane wykresy (np. kołowe `st.pyplot`)
-
-### Kamień Milowy 2: Rozszerzenie Inteligencji Agenta (Priorytet)
-
-- ✅ Podstawowe rozpoznawanie intencji
-- ✅ Ekstrakcja encji
-- ✅ Zarządzanie stanu konwersacji
-- ✅ Obsługa niejednoznaczności poprzez pytania doprecyzowujące
-- ❌ Wdrożenie pełnej, wieloturowej pamięci konwersacyjnej
-- ❌ Nauczenie agenta obsługi złożonych filtrów analitycznych (np. przedziały dat: "w zeszłym tygodniu", "w maju")
-- ❌ Ukończenie i przetestowanie wszystkich operacji CRUD w przepływie konwersacyjnym
-
-### Kamień Milowy 3: Przygotowanie do Produkcji
-
-- ❌ Implementacja uwierzytelniania użytkowników
-- ✅ Konteneryzacja aplikacji (Docker) - podstawowa
-- ❌ Przejście na produkcyjną bazę danych (PostgreSQL)
-- ❌ Monitoring i logowanie
-- ❌ Testy wydajnościowe
-
-### Kamień Milowy 4: Rozszerzenie Funkcjonalności
-
-- ❌ Integracja z systemami płatności (BLIK, przelewy)
-- ❌ Automatyczne kategoryzowanie produktów
-- ❌ Generowanie raportów PDF
-- ❌ Powiadomienia o przekroczeniu budżetu
-- ✅ OCR do przetwarzania paragonów - podstawowa implementacja
-
-### Kamień Milowy 5: Optymalizacja i Skalowanie
-
-- ❌ Optymalizacja zapytań do bazy danych
-- ❌ Implementacja cachowania
-- ❌ Testy wydajnościowe
-- ❌ Monitoring i logowanie
-- ❌ Deployment na produkcję
-
-## Rozwiązywanie Problemów
-
-### Częste Problemy
-
-**Problem**: Ollama nie odpowiada
-```
-# Sprawdź status Ollama
-ollama list
-ollama ps
-
-# Uruchom ponownie
-ollama serve
+Czy przygotowałeś to danie? To pozwoli mi zaktualizować stan spiżarni."
 ```
 
-**Problem**: Błąd bazy danych
+### OCR Receipt Processing
 ```
-# Usuń i odtwórz bazę
-rm foodsave.db
-python seed_db.py
-```
+[User uploads a receipt image]
+Assistant: "Pomyślnie przetworzono paragon! Rozpoznane produkty:
+- Mleko 3,2% 1L: 3.99 zł
+- Chleb pszenny: 4.50 zł
+- Ser żółty 300g: 8.99 zł
+- Pomidory 0.5kg: 4.29 zł
 
-**Problem**: Frontend nie łączy się z backendem
-```
-# Sprawdź czy backend działa
-curl http://localhost:8000/docs
-
-# Sprawdź porty w .env
+Łączna kwota: 21.77 zł. Czy chcesz, żebym dodał te produkty do Twojej spiżarni?"
 ```
 
-### Logi
+## Development
 
-```
-# Logi backendu
-tail -f backend/logs/app.log
+### Running Tests
+```bash
+# Run all tests
+pytest
 
-# Logi Streamlit
-streamlit run frontend_v2.py --logger.level=debug
-```
-
-## Wymagania Systemowe
-
-### Minimalne Wymagania
-- **Python**: 3.9+ (z wyłączeniem 3.9.7)
-- **RAM**: 4GB (minimum)
-- **Dysk**: 2GB wolnego miejsca
-- **Procesor**: Dual-core 2.0GHz
-- **System**: Windows 10, macOS 10.14, Ubuntu 18.04+
-
-### Zalecane Wymagania
-- **Python**: 3.11+
-- **RAM**: 8GB
-- **Dysk**: 5GB wolnego miejsca (dla modeli LLM)
-- **Procesor**: Quad-core 3.0GHz
-- **GPU**: Opcjonalnie dla przyspieszenia LLM
-
-### Zależności Systemowe
-- **Poetry**: Do zarządzania zależnościami Python
-- **Ollama**: Dla lokalnych modeli LLM
-- **SQLite**: Domyślna baza danych (wbudowana w Python)
-- **Git**: Do klonowania repozytorium
-
-## Zarządzanie Zależnościami
-
-Projekt korzysta z Poetry do zarządzania zależnościami. Zalecane komendy:
-
-```
-# Instalacja zależności
-poetry install
-
-# Instalacja tylko zależności produkcyjnych
-poetry install --no-dev
-
-# Dodawanie nowego pakietu
-poetry add NAZWA_PAKIETU
-
-# Dodawanie pakietu deweloperskiego
-poetry add --dev NAZWA_PAKIETU
-
-# Aktualizacja zależności
-poetry update
-
-# Aktywacja środowiska
-poetry shell
-
-# Uruchomienie komendy w środowisku
-poetry run python script.py
-
-# Eksport requirements.txt do deployu
-poetry export -f requirements.txt --output requirements.txt --without-hashes
+# Run specific test categories
+pytest tests/unit/
+pytest tests/integration/
+pytest tests/e2e/
 ```
 
-**Uwaga**: Nie edytuj pliku requirements.txt ręcznie! Jeśli go potrzebujesz, generuj go automatycznie z Poetry.
+### Development Mode
+```bash
+# Backend with hot reload
+cd src/backend
+uvicorn backend.main:app --reload --log-level debug
 
-## Licencja
-
-MIT License - zobacz plik LICENSE dla szczegółów.
-
-## Kontakt i Wsparcie
-
-- **GitHub Issues**: Zgłaszanie błędów i propozycji funkcjonalności
-- **Dokumentacja**: Szczegółowa dokumentacja w katalogu `docs/`
-- **Wiki**: Dodatkowe przewodniki i tutoriale
-
-## Changelog
-
-### v1.0.0 (Aktualna)
-- ✅ Podstawowy system agentowy
-- ✅ Interfejs Streamlit
-- ✅ Backend FastAPI
-- ✅ Integracja z Ollama
-- ✅ Podstawowe operacje CRUD
-- ✅ OCR dla paragonów
-
-### Planowane w v1.1.0
-- Uwierzytelnianie użytkowników
-- Ulepszone UI z edycją w tabeli
-- Zaawansowana analityka czasowa
-- Eksport do PDF
-
-### Planowane w v2.0.0
-- Integracja płatności
-- Mobilna aplikacja
-- Wielojęzyczność
-- Synchronizacja w chmurze
+# Frontend with hot reload
+cd src/frontend
+streamlit run app.py --server.runOnSave true
 ```
+
+## Project Status
+
+### Current Implementation
+- ✅ Multi-agent orchestration system
+- ✅ Streamlit chat interface
+- ✅ FastAPI backend with database integration
+- ✅ Local LLM integration via Ollama
+- ✅ Recipe suggestion based on pantry items
+- ✅ Weather information retrieval
+- ✅ OCR for receipt processing
+- ✅ Basic conversation state management
+
+### Upcoming Features
+- ❌ Advanced analytics for shopping patterns
+- ❌ Budget tracking and visualization
+- ❌ Automated categorization of products
+- ❌ Meal planning and shopping list generation
+- ❌ User authentication system
+- ❌ Mobile-friendly responsive design
+- ❌ Improved conversation memory
+
+## License
+
+MIT License - see the LICENSE file for details.
