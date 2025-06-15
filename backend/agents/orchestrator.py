@@ -8,10 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from . import tools
 from .agent_factory import AgentFactory
-from .prompts import (
-    get_entity_extraction_prompt,
-    get_intent_recognition_prompt,
-)
+from .prompts import get_entity_extraction_prompt, get_intent_recognition_prompt
 from .state import ConversationState
 from .utils import extract_json_from_text
 
