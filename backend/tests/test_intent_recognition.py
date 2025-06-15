@@ -1,12 +1,12 @@
 import asyncio
 import json
+import os
 
 import pytest
-from tests.fixtures.test_data import TEST_DATA
 
-from ..agents.prompts import get_intent_recognition_prompt
-from ..config import settings
-from ..core.llm_client import llm_client
+from backend.agents.prompts import get_intent_recognition_prompt
+from backend.config import settings
+from backend.core.llm_client import llm_client
 
 # Prompt systemowy pozostaje ten sam - prosty i klarowny.
 SYSTEM_PROMPT = (
@@ -18,6 +18,13 @@ SYSTEM_PROMPT = (
     "Nie dodawaj żadnego tekstu przed ani po obiekcie JSON. Twoja odpowiedź musi być "
     "wyłącznie poprawnym składniowo JSON-em.\n"
 )
+
+# Ladowanie danych testowych bezposrednio z pliku JSON
+TEST_DATA_PATH = os.path.join(
+    os.path.dirname(__file__), "..", "..", "tests", "fixtures", "test_data.json"
+)
+with open(TEST_DATA_PATH, "r") as f:
+    TEST_DATA = json.load(f)
 
 
 async def test_intent_recognition(user_prompt: str) -> None:

@@ -1,9 +1,9 @@
 import asyncio
 import json
+import os
 from typing import Any, List
 
 import pytest
-from tests.fixtures.test_data import TEST_DATA
 
 from backend.agents.prompts import get_entity_extraction_prompt
 from backend.agents.tools import generate_clarification_question_text
@@ -13,6 +13,13 @@ from backend.core import crud
 from backend.core.database import AsyncSessionLocal
 from backend.core.llm_client import llm_client
 from backend.models.shopping import Product, ShoppingTrip
+
+# Ladowanie danych testowych bezposrednio z pliku JSON
+TEST_DATA_PATH = os.path.join(
+    os.path.dirname(__file__), "..", "..", "tests", "fixtures", "test_data.json"
+)
+with open(TEST_DATA_PATH, "r") as f:
+    TEST_DATA = json.load(f)
 
 
 def extract_json_from_text(text: str) -> str:
@@ -195,23 +202,23 @@ async def test_entity_extraction_parametrized(intent: str, user_prompt: str) -> 
         async with AsyncSessionLocal() as db:
             znalezione_obiekty = []
             if intent == "CZYTAJ_PODSUMOWANIE":
-                # ... reszta funkcji bez zmian
                 pass
             elif intent == "DODAJ_ZAKUPY":
-                # ... reszta funkcji bez zmian
                 pass
-            elif intent in ["UPDATE_ITEM", "DELETE_ITEM"]:
+            elif intent in ["UPDATE_ITEM", "DELETE_ITEM", "READ_ITEM"]:
                 znalezione_obiekty = await crud.find_item_for_action(
                     db, entities=parsed_json
                 )
-            elif intent in ["UPDATE_PURCHASE", "DELETE_PURCHASE"]:
+            elif intent in ["UPDATE_PURCHASE", "DELETE_PURCHASE", "READ_PURCHASE"]:
                 znalezione_obiekty = await crud.find_purchase_for_action(
                     db, entities=parsed_json
                 )
 
             if intent not in ["CZYTAJ_PODSUMOWANIE", "DODAJ_ZAKUPY"]:
                 if len(znalezione_obiekty) > 1:
-                    pytanie = generate_clarification_question_text(znalezione_obiekty)
+                    pytanie = generate_clarification_question_text(
+                        znalezione_obiekty
+                    )
                     assert pytanie is not None
 
     except Exception as e:
