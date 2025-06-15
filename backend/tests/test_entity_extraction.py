@@ -21,6 +21,7 @@ TEST_DATA_PATH = os.path.join(
 with open(TEST_DATA_PATH, "r") as f:
     TEST_DATA = json.load(f)
 
+
 # --- NOWA FUNKCJA GENERUJĄCA PYTANIE ---
 def generate_clarification_question(options: List[Any]) -> str:
     """
@@ -74,13 +75,12 @@ async def test_entity_extraction(intent: str, user_prompt: str) -> None:
         )
 
         raw_response = response["message"]["content"]
-        cleaned_json_string = extract_json_from_text(raw_response)
+        parsed_json = extract_json_from_text(raw_response)
 
-        if not cleaned_json_string:
+        if not parsed_json:
             print("Błąd: Nie znaleziono obiektu JSON w odpowiedzi modelu.")
             return
 
-        parsed_json = json.loads(cleaned_json_string)
         print("Krok 1: Ekstrakcja danych z LLM zakończona sukcesem.")
         print(json.dumps(parsed_json, indent=2, ensure_ascii=False))
 
@@ -169,10 +169,9 @@ async def test_entity_extraction_parametrized(intent: str, user_prompt: str) -> 
         )
 
         raw_response = response["message"]["content"]
-        cleaned_json_string = extract_json_from_text(raw_response)
+        parsed_json = extract_json_from_text(raw_response)
 
-        assert cleaned_json_string is not None, "Nie znaleziono JSON w odpowiedzi"
-        parsed_json = json.loads(cleaned_json_string)
+        assert parsed_json is not None, "Nie znaleziono JSON w odpowiedzi"
         print("Krok 1: Ekstrakcja danych z LLM zakończona sukcesem.")
         print(json.dumps(parsed_json, indent=2, ensure_ascii=False))
 
