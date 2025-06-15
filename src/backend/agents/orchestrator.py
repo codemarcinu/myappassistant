@@ -10,13 +10,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .. import crud
 from ..core.database import AsyncSessionLocal
 from .agent_factory import AgentFactory
-from .prompts import (get_entity_extraction_prompt,
-                      get_intent_recognition_prompt)
+from .prompts import get_entity_extraction_prompt, get_intent_recognition_prompt
 from .state import ConversationState, append_to_history, get_agent_state
-from .tools.tools import (execute_database_action, extract_entities,
-                          find_database_object,
-                          generate_clarification_question_text,
-                          recognize_intent)
+from .tools.tools import (
+    execute_database_action,
+    extract_entities,
+    find_database_object,
+    generate_clarification_question_text,
+    recognize_intent,
+)
 from .utils import extract_json_from_text
 
 logger = logging.getLogger(__name__)
