@@ -1,0 +1,103 @@
+import { useState, useCallback, useEffect } from 'react';
+import { Product, Receipt } from '@/types/shopping';
+import { ApiService } from '@/services/ApiService';
+
+export function useShopping() {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [receipts, setReceipts] = useState<Receipt[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch products
+  const fetchProducts = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const data = await ApiService.getProducts();
+
+      // Ensure we're dealing with an array of products
+      if (Array.isArray(data)) {
+        setProducts(data);
+      } else if (data && typeof data === 'object' && Array.isArray(data.products)) {
+        setProducts(data.products);
+      } else {
+        throw new Error('Unexpected data format from API');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch products');
+      console.error('Error fetching products:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // Upload receipt
+  const uploadReceipt = useCallback(async (file: File) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const result = await ApiService.uploadReceipt(file);
+
+      // Refresh products after upload
+      await fetchProducts();
+
+      return result;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to upload receipt');
+      console.error('Error uploading receipt:', err);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [fetchProducts]);
+
+  // Delete product
+  const deleteProduct = useCallback(async (id: string) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      await ApiService.delete(`/api/v1/pantry/products/${id}`);
+      setProducts(products => products.filter(product => product.id !== id));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete product');
+      console.error('Error deleting product:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // Update product
+  const updateProduct = useCallback(async (id: string, updates: Partial<Product>) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const updatedProduct = await ApiService.patch(`/api/v1/pantry/products/${id}`, updates);
+      setProducts(products =>
+        products.map(product =>
+          product.id === id ? { ...product, ...updatedProduct } : product
+        )
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update product');
+      console.error('Error updating product:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // Load initial data
+  useEffect(() => {
+    fetchProducts();
+  }, [fetchProducts]);
+
+  return {
+    products,
+    receipts,
+    isLoading,
+    error,
+    fetchProducts,
+    uploadReceipt,
+    deleteProduct,
+    updateProduct,
+  };
+}
