@@ -7,6 +7,13 @@ from ..core import crud
 from ..core.database import AsyncSessionLocal
 from ..core.llm_client import llm_client
 from ..models.shopping import Product, ShoppingTrip
+import pytest
+from sqlalchemy import select, and_
+from sqlalchemy.ext.asyncio import AsyncSession
+from backend.agents.state import ConversationState
+from backend.agents.orchestrator import Orchestrator
+from backend.core.database import AsyncSessionLocal, get_test_db
+from backend.core.seed_data import seed_database, seed_test_data
 
 # --- Funkcje pomocnicze, które już znamy ---
 
@@ -172,3 +179,91 @@ async def run_dialogue_simulation():
 
 if __name__ == "__main__":
     asyncio.run(run_dialogue_simulation())
+
+@pytest.fixture
+async def db_session() -> AsyncSession:
+    """Pytest fixture to provide a test database session and handle setup/teardown."""
+    session = await get_test_db()
+    await seed_test_data(session)
+    try:
+        yield session
+    finally:
+        await session.close()
+
+
+@pytest.mark.asyncio
+class TestFullDialogue:
+    async def test_add_new_item_dialogue(self, db_session: AsyncSession):
+        """
+        Tests a full dialogue for adding a new item where the item does not exist.
+        """
+        state = ConversationState(session_id="test_session")
+        orchestrator = Orchestrator(db=db_session, state=state)
+
+        command = "dodaj parówki za 12 zł do wczorajszych zakupów"
+        result = await orchestrator.process_command(command)
+
+        assert result["response"] == "Gotowe, dodałem nowy wpis do bazy."
+
+        # Verify the item was actually added
+        query = select(Product).where(Product.name == "Parówki")
+        db_result = await db_session.execute(query)
+        added_product = db_result.scalars().first()
+
+        assert added_product is not None
+        assert added_product.price == 12.00
+
+    async def test_update_item_dialogue(self, db_session: AsyncSession):
+        """
+        Tests a full dialogue for updating an existing, unique item.
+        """
+        state = ConversationState(session_id="test_update_session")
+        orchestrator = Orchestrator(db=db_session, state=state)
+
+        # Pre-condition check: ensure the milk price is 3.50
+        pre_query = select(Product).where(Product.name == "Mleko")
+        pre_result = await db_session.execute(pre_query)
+        pre_product = pre_result.scalars().first()
+        assert pre_product.price == 3.50
+
+        # Execute the update command
+        command = "zmień cenę mleka z wczoraj na 4.99"
+        result = await orchestrator.process_command(command)
+
+        # Assert the response from the orchestrator
+        assert result["response"] == "Zaktualizowałem wpis."
+
+        # Verify the price was updated in the database
+        await db_session.refresh(pre_product)  # Refresh the object state
+        assert pre_product.price == 4.99
+
+    async def test_delete_item_dialogue(self, db_session: AsyncSession):
+        """
+        Tests a full dialogue for deleting an existing, unique item.
+        """
+        state = ConversationState(session_id="test_delete_session")
+        orchestrator = Orchestrator(db=db_session, state=state)
+
+        # Pre-condition check: ensure the bread from yesterday exists
+        pre_query = (
+            select(Product)
+            .join(Product.shopping_trip)
+            .where(Product.name == "Chleb", ShoppingTrip.store == "Lidl")
+        )
+        pre_result = await db_session.execute(pre_query)
+        product_to_delete = pre_result.scalars().first()
+        assert product_to_delete is not None
+        product_id_to_delete = product_to_delete.id
+
+        # Execute the delete command
+        command = "usuń chleb z wczorajszych zakupów w lidlu"
+        result = await orchestrator.process_command(command)
+
+        # Assert the response from the orchestrator
+        assert result["response"] == "Usunąłem wpis."
+
+        # Verify the item was deleted from the database
+        post_query = select(Product).where(Product.id == product_id_to_delete)
+        post_result = await db_session.execute(post_query)
+        deleted_product = post_result.scalars().first()
+        assert deleted_product is None

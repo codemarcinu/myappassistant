@@ -1,11 +1,13 @@
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 # Importujemy instancję orchestratora
-from ..agents.orchestrator import IntentType, orchestrator
+from ..agents.orchestrator import IntentType, Orchestrator
 from ..agents.state import ConversationState
+from .food import get_db
+from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter()
 
@@ -24,7 +26,10 @@ class AgentResponse(BaseModel):
 
 
 @router.post("/orchestrator/execute", response_model=AgentResponse)
-async def execute_orchestrator_task(request: OrchestratorRequest):
+async def execute_orchestrator_task(
+    request: OrchestratorRequest,
+    db: AsyncSession = Depends(get_db),
+):
     """
     Główny endpoint do zlecania zadań.
     Orchestrator sam decyduje, który agent wykona zadanie.
@@ -40,8 +45,10 @@ async def execute_orchestrator_task(request: OrchestratorRequest):
         # Dodajemy wiadomość użytkownika do historii
         state.add_message("user", request.task)
 
-        # Przetwarzamy polecenie
-        response = await orchestrator.process_command(request.task, state)
+        # Zakładamy, że masz dostęp do instancji db (np. przez Depends lub w inny sposób)
+        # Tutaj musisz przekazać odpowiednią instancję db
+        orchestrator = Orchestrator(db=db, state=state)
+        response = await orchestrator.process_command(request.task)
 
         # Dodajemy odpowiedź asystenta do historii
         if isinstance(response, str):

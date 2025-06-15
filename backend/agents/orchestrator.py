@@ -2,6 +2,7 @@
 
 import logging
 from typing import Any, Dict, Optional
+from enum import Enum
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,6 +19,15 @@ from .utils import extract_json_from_text, sanitize_prompt
 
 logger = logging.getLogger(__name__)
 
+class IntentType(Enum):
+    DODAJ_ZAKUPY = "DODAJ_ZAKUPY"
+    CZYTAJ_PODSUMOWANIE = "CZYTAJ_PODSUMOWANIE"
+    UPDATE_ITEM = "UPDATE_ITEM"
+    DELETE_ITEM = "DELETE_ITEM"
+    UPDATE_PURCHASE = "UPDATE_PURCHASE"
+    DELETE_PURCHASE = "DELETE_PURCHASE"
+    PROCESS_FILE = "PROCESS_FILE"
+    UNKNOWN = "UNKNOWN"
 
 class Orchestrator:
     def __init__(self, db: AsyncSession, state: ConversationState):
@@ -50,7 +60,10 @@ class Orchestrator:
         intent = extract_json_from_text(intent_response).get("intent", "UNKNOWN")
 
         if intent == "UNKNOWN":
-            return {"response": "Nie zrozumiałem polecenia.", "state": self.state.to_dict()}
+            return {
+                "response": "Nie zrozumiałem polecenia.",
+                "state": self.state.to_dict(),
+            }
 
         # Extract entities
         entity_prompt = get_entity_extraction_prompt(user_command, intent)
@@ -66,9 +79,7 @@ class Orchestrator:
                 options=found_objects
             )
             self.state.set_clarification_mode(
-                intent=intent,
-                entities=entities,
-                options=found_objects
+                intent=intent, entities=entities, options=found_objects
             )
             return {
                 "response": clarification_question,
@@ -93,16 +104,18 @@ class Orchestrator:
                     entities=entities,
                 )
                 if success:
-                    action_word = "Zaktualizowałem" if "UPDATE" in intent else "Usunąłem"
+                    action_word = (
+                        "Zaktualizowałem" if "UPDATE" in intent else "Usunąłem"
+                    )
                     response_text = f"{action_word} wpis."
                 else:
                     response_text = "Wystąpił błąd podczas modyfikacji danych."
-                
+
                 return {"response": response_text, "state": self.state.to_dict()}
 
             # For READ or other intents, just return the found object's data
             return {
-                "response": f"Znalazłem szukany wpis.",
+                "response": "Znalazłem szukany wpis.",
                 "data": [single_object.to_dict()],
                 "state": self.state.to_dict(),
             }
@@ -129,22 +142,22 @@ class Orchestrator:
 
             # For ANALYZE intents
             if intent == "ANALYZE":
-                 summary_data = await tools.execute_database_action(
+                summary_data = await tools.execute_database_action(
                     intent=intent,
                     target_object=None,
                     entities=entities,
                 )
-                 return {
+                return {
                     "response": "Oto analiza Twoich wydatków.",
                     "data": summary_data,
-                    "state": self.state.to_dict()
+                    "state": self.state.to_dict(),
                 }
 
             return {
                 "response": "Nie znalazłem w bazie pasujących wpisów.",
                 "state": self.state.to_dict(),
             }
-        
+
         # Fallback - should ideally not be reached
         return {
             "response": "Coś poszło nie tak z logiką Orchestratora.",
@@ -157,7 +170,11 @@ class Orchestrator:
         # For now, a simple 'yes' confirms the first option.
         # A more robust solution would parse the user's choice.
         if "tak" in user_command.lower() or "pierwszy" in user_command.lower():
-            if not self.state.ambiguous_options or not self.state.original_intent or not self.state.original_entities:
+            if (
+                not self.state.ambiguous_options
+                or not self.state.original_intent
+                or not self.state.original_entities
+            ):
                 self.state.reset()
                 return {
                     "response": "Wystąpił błąd podczas przetwarzania odpowiedzi.",
@@ -188,5 +205,5 @@ class Orchestrator:
             }
 
 
-# Tworzymy instancję orkiestratora
-orchestrator = Orchestrator()
+# Tworzymy instancję orkiestratora tylko w kodzie, gdzie mamy db i state!
+# orchestrator = Orchestrator()

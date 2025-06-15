@@ -1,6 +1,7 @@
 import asyncio
 import json
 from typing import Any, List
+import pytest
 
 from ..agents.prompts import get_entity_extraction_prompt
 from ..config import settings
@@ -8,6 +9,9 @@ from ..core import crud
 from ..core.database import AsyncSessionLocal
 from ..core.llm_client import llm_client
 from ..models.shopping import Product, ShoppingTrip
+from ..agents.tools import generate_clarification_question
+from ..agents.utils import extract_json_from_text
+from tests.fixtures.test_data import TEST_DATA
 
 
 def extract_json_from_text(text: str) -> str:
@@ -145,6 +149,72 @@ async def test_entity_extraction(intent: str, user_prompt: str) -> None:
 
     except Exception as e:
         print(f"Wystąpił krytyczny błąd: {e}")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "intent, user_prompt",
+    [(item["intent"], item["prompt"]) for item in TEST_DATA],
+)
+async def test_entity_extraction_parametrized(intent: str, user_prompt: str) -> None:
+    """
+    Testuje pełny przepływ: ekstrakcję, wyszukiwanie i podejmowanie decyzji,
+    w tym generowanie pytania doprecyzowującego.
+    """
+    print(f"\n--- Testuję polecenie: '{user_prompt}' (Intencja: {intent}) ---")
+
+    try:
+        # Krok 1: Ekstrakcja encji z LLM
+        prompt = get_entity_extraction_prompt(user_prompt, intent)
+        messages = [
+            {
+                "role": "system",
+                "content": "Jesteś precyzyjnym systemem ekstrakcji encji. Zawsze zwracaj tylko JSON.",
+            },
+            {"role": "user", "content": prompt},
+        ]
+
+        response = await llm_client.chat(
+            model=settings.DEFAULT_CHAT_MODEL,
+            messages=messages,
+            stream=False,
+            options={"temperature": 0.0},
+        )
+
+        raw_response = response["message"]["content"]
+        cleaned_json_string = extract_json_from_text(raw_response)
+
+        assert cleaned_json_string is not None, "Nie znaleziono JSON w odpowiedzi"
+        parsed_json = json.loads(cleaned_json_string)
+        print("Krok 1: Ekstrakcja danych z LLM zakończona sukcesem.")
+        print(json.dumps(parsed_json, indent=2, ensure_ascii=False))
+
+        # Krok 2: Wyszukiwanie w bazie i logika decyzyjna
+        print("\nKrok 2: Wyszukiwanie rekordów w bazie danych...")
+        async with AsyncSessionLocal() as db:
+            znalezione_obiekty = []
+            if intent == "CZYTAJ_PODSUMOWANIE":
+                # ... reszta funkcji bez zmian
+                pass
+            elif intent == "DODAJ_ZAKUPY":
+                # ... reszta funkcji bez zmian
+                pass
+            elif intent in ["UPDATE_ITEM", "DELETE_ITEM"]:
+                znalezione_obiekty = await crud.find_item_for_action(
+                    db, entities=parsed_json
+                )
+            elif intent in ["UPDATE_PURCHASE", "DELETE_PURCHASE"]:
+                znalezione_obiekty = await crud.find_purchase_for_action(
+                    db, entities=parsed_json
+                )
+
+            if intent not in ["CZYTAJ_PODSUMOWANIE", "DODAJ_ZAKUPY"]:
+                if len(znalezione_obiekty) > 1:
+                    pytanie = generate_clarification_question(znalezione_obiekty)
+                    assert pytanie is not None
+
+    except Exception as e:
+        pytest.fail(f"Wystąpił krytyczny błąd: {e}")
 
 
 async def run_tests():
