@@ -49,7 +49,7 @@ class ConversationState:
             "is_cooking_confirmation": self.is_cooking_confirmation,
             "cooking_ingredients": self.cooking_ingredients,
             "original_intent": self.original_intent,
-            "ambiguous_options": self.ambiguous_options
+            "ambiguous_options": self.ambiguous_options,
         }
         return result
 

@@ -86,7 +86,7 @@ class Orchestrator:
                 "zaproponuj przepis",
                 "co zrobić z",
                 "pomysł na obiad",
-                "przepis na"
+                "przepis na",
             ]
             if any(phrase in user_command.lower() for phrase in cooking_phrases):
                 intent = "COOKING"
@@ -188,7 +188,7 @@ class Orchestrator:
                 try:
                     recipe = chef_response.data.get("recipe", "")
                     used_ingredients = chef_response.data.get("used_ingredients", [])
-                    
+
                     if not recipe or not used_ingredients:
                         return {
                             "response": "Nie udało się wygenerować przepisu.",
@@ -217,12 +217,15 @@ class Orchestrator:
                     target_object=None,
                     entities={"ingredients": state.cooking_ingredients},
                 )
-                
+
                 state.reset()
-                
+
                 return {
-                    "response": "Świetnie! Zaktualizowałem stan spiżarni o zużyte składniki." if success
-                              else "Nie udało się zaktualizować stanu spiżarni.",
+                    "response": (
+                        "Świetnie! Zaktualizowałem stan spiżarni o zużyte składniki."
+                        if success
+                        else "Nie udało się zaktualizować stanu spiżarni."
+                    ),
                     "state": state.to_dict(),
                 }
 

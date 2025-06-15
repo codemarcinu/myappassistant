@@ -78,10 +78,13 @@ class ShoppingTrip(ShoppingTripBase):
     products: List[Product] = []
 
     model_config = ConfigDict(from_attributes=True)
+
+
 class ShoppingTripSummary(BaseModel):
     """
     Schema for the summary of a shopping trip.
     """
+
     total_products: int
     total_cost: float
 

@@ -12,13 +12,13 @@ async def upload_receipt(file: UploadFile = File(...)):
     try:
         # Read file content
         file_bytes = await file.read()
-        
+
         # Determine file type
         content_type = file.content_type
         if not content_type:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Missing content type header"
+                detail="Missing content type header",
             )
         if content_type.startswith("image/"):
             file_type = "image"
@@ -27,7 +27,7 @@ async def upload_receipt(file: UploadFile = File(...)):
         else:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Unsupported file type. Only images and PDFs are supported."
+                detail="Unsupported file type. Only images and PDFs are supported.",
             )
 
         # Process with OCRAgent
@@ -37,16 +37,12 @@ async def upload_receipt(file: UploadFile = File(...)):
 
         if not result.success:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=result.error
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=result.error
             )
 
         return JSONResponse(
             status_code=status.HTTP_200_OK,
-            content={
-                "text": result.text,
-                "message": result.message
-            }
+            content={"text": result.text, "message": result.message},
         )
 
     except HTTPException:
@@ -54,5 +50,5 @@ async def upload_receipt(file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error processing receipt: {str(e)}"
+            detail=f"Error processing receipt: {str(e)}",
         )

@@ -9,6 +9,7 @@ from backend.core.llm_client import llm_client
 
 class RecipeSuggestion(BaseModel):
     """Model for recipe suggestion response"""
+
     recipe: str
     used_ingredients: List[Dict[str, Any]]
 
@@ -26,29 +27,28 @@ class ChefAgent(BaseAgent):
     async def generate_recipe_idea(self, db: Any) -> AgentResponse:
         """
         Generates recipe ideas based on available pantry items.
-        
+
         Args:
             db: Database session
-            
+
         Returns:
             AgentResponse with recipe suggestion or error message
         """
         # Get available products from pantry
         products = await get_available_products_from_pantry(db)
-        
+
         if not products:
             return AgentResponse(
                 success=True,
                 text="Twoja spiżarnia jest pusta!",
-                message="Pantry is empty"
+                message="Pantry is empty",
             )
 
         # Prepare list of available products for the prompt
         product_list = "\n".join(
-            f"- {product.name} (ID: {product.id})" 
-            for product in products
+            f"- {product.name} (ID: {product.id})" for product in products
         )
-        
+
         # Create LLM prompt
         prompt = (
             "Mam następujące produkty w spiżarni:\n"
@@ -64,32 +64,27 @@ class ChefAgent(BaseAgent):
             model="llama3",
             messages=[
                 {"role": "system", "content": "Jesteś pomocnym szefem kuchni."},
-                {"role": "user", "content": prompt}
+                {"role": "user", "content": prompt},
             ],
-            stream=False
+            stream=False,
         )
 
         if not response or not response.get("message"):
-            return AgentResponse(
-                success=False,
-                error="Failed to get response from LLM"
-            )
+            return AgentResponse(success=False, error="Failed to get response from LLM")
 
         # Parse LLM response
         llm_output = response["message"]["content"]
         recipe = ""
         used_ingredients = []
-        
+
         # Extract recipe and used ingredients
         if "PRZEPIS:" in llm_output and "UŻYTE SKŁADNIKI:" in llm_output:
             parts = llm_output.split("UŻYTE SKŁADNIKI:")
             recipe = parts[0].replace("PRZEPIS:", "").strip()
             ingredient_names = [
-                name.strip() 
-                for name in parts[1].split(",")
-                if name.strip()
+                name.strip() for name in parts[1].split(",") if name.strip()
             ]
-            
+
             # Map ingredient names back to product IDs
             used_ingredients = [
                 {"id": product.id, "name": product.name}
@@ -103,9 +98,6 @@ class ChefAgent(BaseAgent):
 
         return AgentResponse(
             success=True,
-            data={
-                "recipe": recipe,
-                "used_ingredients": used_ingredients
-            },
-            text=recipe
+            data={"recipe": recipe, "used_ingredients": used_ingredients},
+            text=recipe,
         )
