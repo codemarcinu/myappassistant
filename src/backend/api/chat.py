@@ -1,10 +1,13 @@
 from typing import Any, Dict, cast
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..agents.orchestrator import Orchestrator
 from ..config import settings
+from ..core.database import get_db
 from ..core.llm_client import llm_client
 
 # APIRouter działa jak "mini-aplikacja" FastAPI, grupując endpointy
@@ -14,6 +17,16 @@ router = APIRouter()
 class ChatRequest(BaseModel):
     prompt: str
     model: str | None = None  # Pole opcjonalne
+
+
+class MemoryChatRequest(BaseModel):
+    message: str
+    session_id: str  # Kluczowe do śledzenia i odróżniania konwersacji
+
+
+class MemoryChatResponse(BaseModel):
+    reply: str
+    history_length: int
 
 
 async def chat_response_generator(prompt: str, model: str):
@@ -46,3 +59,25 @@ async def chat_with_model(request: ChatRequest):
     model_to_use = request.model or settings.DEFAULT_CODE_MODEL
     generator = chat_response_generator(request.prompt, model_to_use)
     return StreamingResponse(generator, media_type="text/plain")
+
+
+@router.post("/memory_chat", response_model=MemoryChatResponse)
+async def chat_with_memory(
+    request: MemoryChatRequest, db: AsyncSession = Depends(get_db)
+):
+    """
+    Endpoint do prowadzenia rozmowy z agentem, który zapamiętuje historię konwersacji.
+    Każda konwersacja jest identyfikowana przez session_id.
+    """
+    orchestrator = Orchestrator(db)
+    response_data = await orchestrator.process_command(
+        user_command=request.message, session_id=request.session_id
+    )
+
+    # Assuming the response_data contains a "state" dictionary with a "history_length"
+    history_length = response_data.get("state", {}).get("history_length", 0)
+
+    return MemoryChatResponse(
+        reply=response_data.get("response", "No response from agent."),
+        history_length=history_length,
+    )

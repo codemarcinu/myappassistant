@@ -1,63 +1,68 @@
+# Skopiuj i wklej ten kod jako całą zawartość pliku state.py
+
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
 
 @dataclass
 class ConversationState:
-    current_intent: Optional[str] = None
+    """Represents the state of a conversation."""
+
+    session_id: str
     history: List[Dict[str, Any]] = field(default_factory=list)
     is_awaiting_clarification: bool = False
-    ambiguous_options: Optional[List[Any]] = None
     original_intent: Optional[str] = None
     original_entities: Optional[Dict[str, Any]] = None
+    ambiguous_options: List[Any] = field(default_factory=list)
 
-    def add_message(self, role: str, content: str, data: Any = None) -> None:
-        message = {"role": role, "content": content}
-        if data is not None:
-            message["data"] = data
-        self.history.append(message)
-
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "current_intent": self.current_intent,
-            "history": self.history,
-            "is_awaiting_clarification": self.is_awaiting_clarification,
-            "ambiguous_options": self.ambiguous_options,
-            "original_intent": self.original_intent,
-            "original_entities": self.original_entities,
-        }
-
-    @classmethod
-    def from_dict(cls, data: Optional[Dict[str, Any]]) -> "ConversationState":
-        if not data:
-            return cls()
-        return cls(
-            current_intent=data.get("current_intent"),
-            history=data.get("history", []),
-            is_awaiting_clarification=data.get("is_awaiting_clarification", False),
-            ambiguous_options=data.get("ambiguous_options"),
-            original_intent=data.get("original_intent"),
-            original_entities=data.get("original_entities"),
-        )
+    def add_message(self, role: str, content: str):
+        self.history.append({"role": role, "content": content})
 
     def set_clarification_mode(
         self, intent: str, entities: Dict[str, Any], options: List[Any]
-    ) -> None:
+    ):
         self.is_awaiting_clarification = True
-        self.ambiguous_options = options
         self.original_intent = intent
         self.original_entities = entities
+        self.ambiguous_options = options
 
-    def reset(self) -> None:
+    def reset(self):
         self.is_awaiting_clarification = False
-        self.ambiguous_options = None
         self.original_intent = None
         self.original_entities = None
+        self.ambiguous_options = []
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "session_id": self.session_id,
+            "history_length": len(self.history),
+            "is_awaiting_clarification": self.is_awaiting_clarification,
+        }
 
 
-def get_agent_state(agent_id: str) -> dict:
-    return {}
+# In-memory storage for demonstration purposes.
+# In a real application, this would be replaced with Redis, a database, etc.
+_agent_states: Dict[str, ConversationState] = {}
 
 
-def save_agent_state(agent_id: str, state: dict) -> None:
-    pass
+def get_agent_state(agent_id: str) -> ConversationState:
+    """
+    Retrieve the agent state from storage for a given agent_id.
+    If no state exists, a new one is created.
+    """
+    if agent_id not in _agent_states:
+        _agent_states[agent_id] = ConversationState(session_id=agent_id)
+    return _agent_states[agent_id]
+
+
+def save_agent_state(agent_id: str, state: ConversationState) -> None:
+    """Save the updated agent state to storage."""
+    _agent_states[agent_id] = state
+
+
+def append_to_history(agent_id: str, message: Dict[str, Any]) -> ConversationState:
+    """Append a new message to the conversation history and save the state."""
+    state = get_agent_state(agent_id)
+    state.history.append(message)
+    save_agent_state(agent_id, state)
+    return state
