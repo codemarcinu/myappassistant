@@ -1,5 +1,5 @@
 # w pliku backend/models/shopping.py
-from sqlalchemy import Column, Date, Float, ForeignKey, Integer, String
+from sqlalchemy import Boolean, Column, Date, Float, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
 from ..core.database import Base  # Importujemy naszą klasę bazową z kroku 2
@@ -29,6 +29,8 @@ class Product(Base):
     unit_price = Column(Float, nullable=True)
     discount = Column(Float, default=0.0)
     category = Column(String, nullable=True)  # New field for product category
+    expiration_date = Column(Date, nullable=True)
+    is_consumed = Column(Boolean, default=False, nullable=False)
 
     # Klucz obcy - każdy produkt musi należeć do jakiegoś paragonu.
     trip_id = Column(Integer, ForeignKey("shopping_trips.id"), nullable=False)

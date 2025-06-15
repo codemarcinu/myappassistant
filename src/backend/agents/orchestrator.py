@@ -35,6 +35,8 @@ class IntentType(Enum):
     UPDATE_PURCHASE = "UPDATE_PURCHASE"
     DELETE_PURCHASE = "DELETE_PURCHASE"
     PROCESS_FILE = "PROCESS_FILE"
+    COOKING = "COOKING"
+    MARK_PRODUCTS_CONSUMED = "MARK_PRODUCTS_CONSUMED"
     UNKNOWN = "UNKNOWN"
 
 
@@ -76,6 +78,18 @@ class Orchestrator:
         intent_prompt = get_intent_recognition_prompt(user_command)
         intent_response = await recognize_intent(intent_prompt)
         intent = extract_json_from_text(intent_response).get("intent", "UNKNOWN")
+
+        # Check for cooking-related phrases if intent is UNKNOWN
+        if intent == "UNKNOWN":
+            cooking_phrases = [
+                "co mogę ugotować",
+                "zaproponuj przepis",
+                "co zrobić z",
+                "pomysł na obiad",
+                "przepis na"
+            ]
+            if any(phrase in user_command.lower() for phrase in cooking_phrases):
+                intent = "COOKING"
 
         if intent == "UNKNOWN":
             return {
@@ -159,6 +173,58 @@ class Orchestrator:
                         "response": "Nie udało mi się dodać wpisu, brakowało potrzebnych danych.",
                         "state": state.to_dict(),
                     }
+
+            # Handle cooking intent
+            if intent == "COOKING":
+                chef_agent = self.agent_factory.create_agent("chef")
+                chef_response = await chef_agent.process(self.db)
+
+                if not chef_response.success or not chef_response.data:
+                    return {
+                        "response": "Nie udało się wygenerować przepisu.",
+                        "state": state.to_dict(),
+                    }
+
+                try:
+                    recipe = chef_response.data.get("recipe", "")
+                    used_ingredients = chef_response.data.get("used_ingredients", [])
+                    
+                    if not recipe or not used_ingredients:
+                        return {
+                            "response": "Nie udało się wygenerować przepisu.",
+                            "state": state.to_dict(),
+                        }
+
+                    # Store used ingredients in state for confirmation
+                    state.set_cooking_state(used_ingredients)
+
+                    return {
+                        "response": f"{recipe}\n\nCzy przygotowałeś to danie? To pozwoli mi zaktualizować stan spiżarni.",
+                        "state": state.to_dict(),
+                    }
+                except (KeyError, AttributeError):
+                    return {
+                        "response": "Wystąpił błąd podczas przetwarzania przepisu.",
+                        "state": state.to_dict(),
+                    }
+
+            # Handle cooking confirmation
+            if state.is_cooking_confirmation and "tak" in user_command.lower():
+                # Mark ingredients as consumed
+                success = await execute_database_action(
+                    db=self.db,
+                    intent="MARK_PRODUCTS_CONSUMED",
+                    target_object=None,
+                    entities={"ingredients": state.cooking_ingredients},
+                )
+                
+                state.reset()
+                
+                return {
+                    "response": "Świetnie! Zaktualizowałem stan spiżarni o zużyte składniki." if success
+                              else "Nie udało się zaktualizować stanu spiżarni.",
+                    "state": state.to_dict(),
+                }
 
             # For ANALYZE intents
             if intent == "ANALYZE":

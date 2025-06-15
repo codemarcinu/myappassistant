@@ -11,9 +11,11 @@ class ConversationState:
     session_id: str
     history: List[Dict[str, Any]] = field(default_factory=list)
     is_awaiting_clarification: bool = False
+    is_cooking_confirmation: bool = False
     original_intent: Optional[str] = None
     original_entities: Optional[Dict[str, Any]] = None
     ambiguous_options: List[Any] = field(default_factory=list)
+    cooking_ingredients: List[Dict[str, Any]] = field(default_factory=list)
 
     def add_message(self, role: str, content: str):
         self.history.append({"role": role, "content": content})
@@ -26,18 +28,30 @@ class ConversationState:
         self.original_entities = entities
         self.ambiguous_options = options
 
+    def set_cooking_state(self, ingredients: List[Dict[str, Any]]):
+        """Set state for cooking confirmation flow."""
+        self.is_cooking_confirmation = True
+        self.cooking_ingredients = ingredients
+
     def reset(self):
         self.is_awaiting_clarification = False
+        self.is_cooking_confirmation = False
         self.original_intent = None
         self.original_entities = None
         self.ambiguous_options = []
+        self.cooking_ingredients = []
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
+        result = {
             "session_id": self.session_id,
             "history_length": len(self.history),
             "is_awaiting_clarification": self.is_awaiting_clarification,
+            "is_cooking_confirmation": self.is_cooking_confirmation,
+            "cooking_ingredients": self.cooking_ingredients,
+            "original_intent": self.original_intent,
+            "ambiguous_options": self.ambiguous_options
         }
+        return result
 
 
 # In-memory storage for demonstration purposes.

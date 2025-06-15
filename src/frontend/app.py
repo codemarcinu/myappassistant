@@ -1,5 +1,7 @@
 import os
 import sys
+import requests  # type: ignore
+import streamlit as st
 from typing import Any, Dict, List
 
 # Add the 'src' directory to the Python path to allow absolute imports
@@ -7,9 +9,7 @@ sys.path.insert(
     0, os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir, os.pardir))
 )
 
-
-import streamlit as st  # noqa: E402
-
+# Import app-specific modules after path setup
 from src.frontend.ui.components.data_display import data_display  # noqa: E402
 from src.frontend.ui.components.main_chat import main_chat  # noqa: E402
 from src.frontend.ui.components.sidebar import sidebar  # noqa: E402
@@ -59,7 +59,13 @@ class FoodSaveUI:
             st.rerun()
         main_content = st.container()
         with main_content:
-            chat_tab, pantry_tab = st.tabs(["Czat z AI", "Moja Spiżarnia"])
+            st.write("Debug: Rendering tabs")  # Debug line
+            chat_tab, pantry_tab, receipt_tab = st.tabs(
+                ["Czat z AI", "Moja Spiżarnia", "Paragony"]
+            )
+            st.write(
+                f"Debug: Tab count: {len([chat_tab, pantry_tab, receipt_tab])}"
+            )  # Debug line
             with chat_tab:
                 main_chat(
                     st.session_state.messages,
@@ -71,6 +77,8 @@ class FoodSaveUI:
             with pantry_tab:
                 products = self.get_products()
                 data_display(products)
+            with receipt_tab:
+                self.handle_receipt_upload()
 
     def handle_command(self, command: str) -> None:
         set_state("loading", True)
@@ -116,6 +124,41 @@ class FoodSaveUI:
         # Return empty list as fallback
         set_state("error", "Unexpected API response format")
         return []
+
+    def handle_receipt_upload(self) -> None:
+        """Handles receipt image upload and processing."""
+        uploaded_file = st.file_uploader(
+            "Wgraj paragon",
+            type=["jpg", "jpeg", "png", "pdf"],
+            accept_multiple_files=False,
+        )
+
+        if uploaded_file is not None:
+            with st.spinner("Przetwarzam paragon..."):
+                try:
+                    files = {
+                        "file": (
+                            uploaded_file.name,
+                            uploaded_file.getvalue(),
+                            uploaded_file.type,
+                        )
+                    }
+                    response = requests.post(
+                        "http://localhost:8000/api/v1/receipts/upload", files=files
+                    )
+
+                    if response.status_code == 200:
+                        result = response.json()
+                        st.success("Pomyślnie przetworzono paragon!")
+                        st.text_area(
+                            "Wyodrębniony tekst:", value=result["text"], height=300
+                        )
+                    else:
+                        st.error(
+                            f"Błąd przetwarzania: {response.json().get('detail', 'Nieznany błąd')}"
+                        )
+                except Exception as e:
+                    st.error(f"Wystąpił błąd: {str(e)}")
 
 
 if __name__ == "__main__":

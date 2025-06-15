@@ -135,3 +135,33 @@ def generate_clarification_question_text(options: List[Any]) -> str:
     return "Znalazłem kilka pasujących opcji. Proszę, wybierz jedną:\n" + "\n".join(
         formatted_options
     )
+
+
+async def get_available_products_from_pantry(db: AsyncSession) -> List[Product]:
+    """
+    Gets all available products from pantry (not consumed and not expired).
+    Returns list of Product objects.
+    """
+    try:
+        return await crud.get_available_products(db)
+    except SQLAlchemyError as e:
+        logger.error(f"Error getting available products: {e}")
+        return []
+    except Exception as e:
+        logger.error(f"Unexpected error getting available products: {e}")
+        return []
+
+
+async def mark_products_as_consumed(db: AsyncSession, product_ids: List[int]) -> bool:
+    """
+    Marks specified products as consumed.
+    Returns True if successful, False otherwise.
+    """
+    try:
+        return await crud.mark_products_consumed(db, product_ids)
+    except SQLAlchemyError as e:
+        logger.error(f"Error marking products as consumed: {e}")
+        return False
+    except Exception as e:
+        logger.error(f"Unexpected error marking products as consumed: {e}")
+        return False

@@ -3,7 +3,7 @@ import re
 from datetime import date, timedelta
 from typing import Any, List, Optional
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
@@ -385,3 +385,68 @@ async def get_trips_by_date_range(
     )
     result = await db.execute(stmt)
     return list(result.scalars().all())
+
+
+async def get_available_products(db: AsyncSession) -> List[Product]:
+    """
+    Gets all products that are not consumed and not expired.
+    Returns list of Product objects.
+    """
+    today = date.today()
+    stmt = (
+        select(Product)
+        .where(
+            (Product.is_consumed.is_(False))
+            & (
+                (Product.expiration_date.is_(None))
+                | (Product.expiration_date >= today)
+            )
+        )
+        .order_by(Product.expiration_date.asc())
+    )
+    result = await db.execute(stmt)
+    return list(result.scalars().all())
+
+
+async def mark_products_consumed(db: AsyncSession, product_ids: List[int]) -> bool:
+    """
+    Marks multiple products as consumed by their IDs.
+    Returns True if successful, False otherwise.
+    """
+    try:
+        stmt = (
+            update(Product).where(Product.id.in_(product_ids)).values(is_consumed=True)
+        )
+        await db.execute(stmt)
+        await db.commit()
+        return True
+    except Exception as e:
+        logger.error(f"Error marking products as consumed: {e}")
+        await db.rollback()
+        return False
+
+
+async def get_shopping_trip_summary(db: AsyncSession, trip_id: int) -> Optional[dict]:
+    """
+    Calculates the summary for a specific shopping trip, including the total
+    number of products and the sum of their costs.
+    """
+    stmt = (
+        select(
+            func.count(Product.id).label("total_products"),
+            func.sum(Product.unit_price * Product.quantity).label("total_cost"),
+        )
+        .join(ShoppingTrip)
+        .where(ShoppingTrip.id == trip_id)
+        .group_by(ShoppingTrip.id)
+    )
+
+    result = await db.execute(stmt)
+    summary = result.first()
+
+    if summary:
+        return {
+            "total_products": summary.total_products,
+            "total_cost": summary.total_cost or 0.0,
+        }
+    return None

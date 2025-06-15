@@ -11,6 +11,7 @@ from sqlalchemy.sql import text
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from backend.api import agents, chat, food, pantry, upload
+from backend.api.v1.endpoints import receipts
 from backend.config import settings
 from backend.core.database import AsyncSessionLocal, Base, engine
 from backend.core.migrations import run_migrations
@@ -95,6 +96,7 @@ api_v1.include_router(agents.router, tags=["Agents"])
 api_v1.include_router(food.router)
 api_v1.include_router(upload.router, tags=["Upload"])
 api_v1.include_router(pantry.router, tags=["Pantry"])
+api_v1.include_router(receipts.router)
 
 app.include_router(api_v1, prefix="/api/v1")
 

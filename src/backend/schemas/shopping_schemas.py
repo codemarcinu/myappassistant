@@ -12,6 +12,8 @@ class ProductBase(BaseModel):
     name: str
     quantity: float = 1.0
     unit_price: Optional[float] = None
+    expiration_date: Optional[date] = None
+    is_consumed: bool = False
 
 
 # Schemat używany przy tworzeniu nowego produktu (nie znamy jeszcze jego ID)
@@ -74,5 +76,13 @@ class ShoppingTripUpdate(BaseModel):
 class ShoppingTrip(ShoppingTripBase):
     id: int
     products: List[Product] = []
+
+    model_config = ConfigDict(from_attributes=True)
+class ShoppingTripSummary(BaseModel):
+    """
+    Schema for the summary of a shopping trip.
+    """
+    total_products: int
+    total_cost: float
 
     model_config = ConfigDict(from_attributes=True)
