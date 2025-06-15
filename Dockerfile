@@ -11,13 +11,16 @@ WORKDIR /app
 
 # Copy requirements file
 COPY pyproject.toml poetry.lock ./
-RUN pip install poetry && poetry config virtualenvs.create false && poetry install --no-root --only main
+RUN pip install poetry && \
+    poetry config virtualenvs.create false && \
+    poetry lock && \
+    poetry install --no-root --only main
 
 # Copy the backend directory
-COPY ./backend ./backend
+COPY ./src/backend ./backend
 
 # Expose port 8000
 EXPOSE 8000
 
 # Command to run the application
-CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "src.backend.main:app", "--host", "0.0.0.0", "--port", "8000"]

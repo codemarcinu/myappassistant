@@ -1,19 +1,19 @@
 import logging
 from contextlib import asynccontextmanager
 
+from api import agents, chat, food, pantry, upload
+from config import settings
+from core.database import AsyncSessionLocal, Base, engine
+from core.migrations import run_migrations
+from core.seed_data import seed_database
 from fastapi import APIRouter, BackgroundTasks, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.errors import RateLimitExceeded
+from slowapi import Limiter
+from slowapi.middleware import SlowAPIMiddleware
 from slowapi.util import get_remote_address
+from sqlalchemy.sql import text
 from starlette.middleware.base import BaseHTTPMiddleware
-
-from .api import agents, chat, food, pantry, upload
-from .config import settings
-from .core.database import AsyncSessionLocal, Base, engine
-from .core.migrations import run_migrations
-from .core.seed_data import seed_database
 
 # --- Rate limiting ---
 limiter = Limiter(key_func=get_remote_address)
@@ -36,9 +36,10 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI, conn=None):
-    # Create tables async with engine.begin() as conn:
-    await conn.run_sync(Base.metadata.create_all)
+async def lifespan(app: FastAPI):
+    # Create tables
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
     # Run migrations
     await run_migrations()
     # Seed the database
@@ -70,7 +71,7 @@ app.add_middleware(
 app.add_middleware(LoggingMiddleware)
 app.add_middleware(AuthMiddleware)
 app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
 
 
 # --- Exception Handlers ---
@@ -117,7 +118,7 @@ async def ready_check():
     """Readiness check (np. sprawdzenie połączenia z bazą)."""
     try:
         async with engine.connect() as conn:
-            await conn.execute("SELECT 1")
+            await conn.execute(text("SELECT 1"))
         return {"status": "ready"}
     except Exception as e:
         return JSONResponse(
