@@ -1,6 +1,5 @@
 import pytest
 
-from backend.agents.base_agent import AgentResponse
 from backend.agents.ocr_agent import OCRAgent, OCRAgentInput
 
 

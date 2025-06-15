@@ -1,23 +1,23 @@
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import declarative_base
 
-from backend.config import settings
-
 # Adres URL do naszej bazy danych. Używamy SQLite, która zapisze bazę
-# do pliku o nazwie 'foodsave.db' w głównym katalogu projektu.
-DATABASE_URL = "sqlite+aiosqlite:///./foodsave.db"
+# danych w pliku na dysku.
+DATABASE_URL = "sqlite+aiosqlite:///./shopping.db"
 
-# Tworzymy 'silnik' bazy danych z poolingiem.
+# Tworzymy silnik SQLAlchemy, który będzie zarządzał połączeniami do bazy danych.
 engine = create_async_engine(
-    DATABASE_URL, echo=True, pool_size=10, max_overflow=20, future=True
+    DATABASE_URL,
+    pool_pre_ping=True,
+    echo=False,  # Ustaw na True, aby widzieć zapytania SQL
 )
 
-# Tworzymy 'fabrykę' sesji. Sesja to nasz główny punkt kontaktu z bazą danych.
+# Tworzymy fabrykę sesji, która będzie tworzyć nowe sesje bazy danych.
 AsyncSessionLocal = async_sessionmaker(
-    bind=engine, expire_on_commit=False, autoflush=False, class_=AsyncSession
+    autocommit=False, autoflush=False, bind=engine, class_=AsyncSession
 )
 
-# Tworzymy bazową klasę dla naszych modeli. Wszystkie nasze modele
+# Tworzymy bazową klasę dla modeli SQLAlchemy. Wszystkie nasze modele
 # (reprezentujące tabele w bazie danych) będą po niej dziedziczyć.
 Base = declarative_base()
 
@@ -28,10 +28,12 @@ AsyncTestSessionLocal = async_sessionmaker(
     autocommit=False, autoflush=False, bind=test_engine, class_=AsyncSession
 )
 
+
 async def get_db() -> AsyncSession:
     """Dependency to get a database session."""
     async with AsyncSessionLocal() as session:
         yield session
+
 
 async def get_test_db() -> AsyncSession:
     """Dependency to get a test database session."""

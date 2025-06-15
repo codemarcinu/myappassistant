@@ -216,9 +216,7 @@ async def test_entity_extraction_parametrized(intent: str, user_prompt: str) -> 
 
             if intent not in ["CZYTAJ_PODSUMOWANIE", "DODAJ_ZAKUPY"]:
                 if len(znalezione_obiekty) > 1:
-                    pytanie = generate_clarification_question_text(
-                        znalezione_obiekty
-                    )
+                    pytanie = generate_clarification_question_text(znalezione_obiekty)
                     assert pytanie is not None
 
     except Exception as e:
