@@ -95,7 +95,7 @@ async def not_found_handler(request: Request, exc):
 
 # --- API Versioning ---
 api_v1 = APIRouter()
-api_v1.include_router(chat.router, tags=["Chat"])
+api_v1.include_router(chat.router, prefix="/chat", tags=["Chat"])
 api_v1.include_router(agents.router, tags=["Agents"])
 api_v1.include_router(food.router)
 api_v1.include_router(upload.router, tags=["Upload"])

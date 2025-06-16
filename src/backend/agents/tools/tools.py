@@ -1,12 +1,12 @@
 import logging
 from typing import Any, Dict, List
 
+import ollama
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession  # type: ignore
 
 from backend.config import settings
 from backend.core import crud
-from backend.core.llm_client import llm_client
 from backend.models.shopping import Product, ShoppingTrip
 
 logger = logging.getLogger(__name__)
@@ -17,7 +17,7 @@ async def recognize_intent(prompt: str) -> str:
     Narzędzie, które rozpoznaje intencję użytkownika na podstawie promptu.
     """
     try:
-        response = await llm_client.chat(
+        response = await ollama.AsyncClient().chat(
             model=settings.DEFAULT_CODE_MODEL,  # Use faster model for this task
             messages=[
                 {
@@ -42,7 +42,7 @@ async def extract_entities(prompt: str) -> str:
     Narzędzie, które ekstrahuje encje z promptu.
     """
     try:
-        response = await llm_client.chat(
+        response = await ollama.AsyncClient().chat(
             model=settings.DEFAULT_CODE_MODEL,  # Use faster model for this task
             messages=[
                 {
