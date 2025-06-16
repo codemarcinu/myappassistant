@@ -6,7 +6,7 @@ My AI Assistant is a modular agent-based AI system that combines multiple specia
 
 ## Key Features
 
-- **Streamlit Chat Interface**: Interactive, user-friendly UI for conversing with the AI
+- **Next.js Frontend**: Nowoczesny, interaktywny interfejs użytkownika zbudowany w oparciu o Next.js.
 - **Multi-Agent Architecture**: Specialized agents for different domains:
   - **Chef Agent**: Suggests recipes based on available pantry items
   - **Weather Agent**: Provides weather forecasts for specified locations
@@ -38,14 +38,10 @@ My AI Assistant is a modular agent-based AI system that combines multiple specia
   - `crud.py`: Data access layer
   - `ocr.py`: OCR processing for receipts
 
-### Frontend (`src/frontend/`)
-- `app.py`: Main Streamlit application
-- **UI Components**:
-  - `main_chat.py`: Chat interface
-  - `sidebar.py`: Application settings sidebar
-  - `data_display.py`: Data visualization components
-- **Services**:
-  - `api_client.py`: Client for communicating with the backend API
+### Frontend (`foodsave-frontend/`)
+- **Next.js Application**: Główna aplikacja frontendu.
+- **Components**: Reużywalne komponenty UI.
+- **Services**: Logika biznesowa i komunikacja z API.
 
 ## Setup & Installation
 
@@ -93,8 +89,6 @@ API_HOST=localhost
 API_PORT=8000
 
 # Frontend
-STREAMLIT_SERVER_PORT=8501
-STREAMLIT_SERVER_ADDRESS=localhost
 ```
 
 4. Initialize the database:
@@ -112,11 +106,11 @@ uvicorn backend.main:app --reload
 
 2. Start the frontend in a new terminal:
 ```bash
-cd src/frontend
-streamlit run app.py
+cd foodsave-frontend
+npm run dev
 ```
 
-The application will be available at http://localhost:8501
+The application will be available at http://localhost:3000
 
 ## API Endpoints
 
@@ -199,15 +193,15 @@ cd src/backend
 uvicorn backend.main:app --reload --log-level debug
 
 # Frontend with hot reload
-cd src/frontend
-streamlit run app.py --server.runOnSave true
+cd foodsave-frontend
+npm run dev
 ```
 
 ## Project Status
 
 ### Current Implementation
 - ✅ Multi-agent orchestration system
-- ✅ Streamlit chat interface
+- ✅ Next.js chat interface
 - ✅ FastAPI backend with database integration
 - ✅ Local LLM integration via Ollama
 - ✅ Recipe suggestion based on pantry items
