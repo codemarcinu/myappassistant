@@ -1,6 +1,10 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://backend:8000';
+const IS_SERVER = typeof window === 'undefined';
+
+const API_BASE_URL = IS_SERVER
+  ? process.env.INTERNAL_API_BASE_URL || 'http://backend:8000'
+  : process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
 
 class ApiServiceClass {
   private client: AxiosInstance;
@@ -118,12 +122,40 @@ class ApiServiceClass {
   // Specific API methods
 
   // Send chat message
-  public async sendChatMessage(payload: {
-    task: string;
-    conversation_state?: Record<string, any>;
-    agent_states?: Record<string, boolean>;
-  }) {
-    return this.post('/api/v1/agents/execute', payload);
+  public async sendChatMessage(
+    payload: {
+      message: string;
+      session_id: string;
+      agent_states?: Record<string, boolean>;
+    },
+    onStream: (chunk: any) => void
+  ): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/api/v1/chat/memory_chat`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.body) {
+      throw new Error('Response body is null');
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+      const chunkStr = decoder.decode(value, { stream: true });
+      // In ndjson, each line is a separate JSON object
+      chunkStr.split('\n').filter(line => line.trim()).forEach(line => {
+        onStream(JSON.parse(line));
+      });
+    }
   }
 
   // Upload receipt

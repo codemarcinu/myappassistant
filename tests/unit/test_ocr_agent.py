@@ -9,7 +9,7 @@ async def test_ocr_agent_image_success(monkeypatch):
     monkeypatch.setattr(
         "backend.agents.ocr_agent.process_image_file", lambda x: "mocked text"
     )
-    input_data = OCRAgentInput(file_bytes=b"abc", file_type="image/png")
+    input_data = OCRAgentInput(file_bytes=b"abc", file_type="image")
     response = await agent.process(input_data)
     assert response.success
-    assert response.data["text"] == "mocked text"
+    assert response.text == "mocked text"

@@ -18,7 +18,7 @@ async def recognize_intent(prompt: str) -> str:
     """
     try:
         response = await llm_client.chat(
-            model=settings.DEFAULT_CHAT_MODEL,
+            model=settings.DEFAULT_CODE_MODEL,  # Use faster model for this task
             messages=[
                 {
                     "role": "system",
@@ -43,7 +43,7 @@ async def extract_entities(prompt: str) -> str:
     """
     try:
         response = await llm_client.chat(
-            model=settings.DEFAULT_CHAT_MODEL,
+            model=settings.DEFAULT_CODE_MODEL,  # Use faster model for this task
             messages=[
                 {
                     "role": "system",
@@ -94,6 +94,9 @@ async def execute_database_action(
             categorization_agent = agent_factory.create_agent("categorization")
 
             for product in entities.get("produkty", []):
+                if not product.get("nazwa"):
+                    logger.warning(f"Skipping product without a name: {product}")
+                    continue
                 if not product.get("kategoria"):
                     response = await categorization_agent.process(
                         {"product_name": product["nazwa"]}
@@ -178,3 +181,22 @@ async def mark_products_as_consumed(db: AsyncSession, product_ids: List[int]) ->
     except Exception as e:
         logger.error(f"Unexpected error marking products as consumed: {e}")
         return False
+
+
+def get_current_date() -> str:
+    """
+    Narzędzie, które zwraca aktualną datę i dzień tygodnia.
+    """
+    import datetime
+    import locale
+
+    try:
+        # Ustawienie polskiej lokalizacji dla nazw dni tygodnia
+        locale.setlocale(locale.LC_TIME, "pl_PL.UTF-8")
+    except locale.Error:
+        logger.warning(
+            "Could not set locale to pl_PL.UTF-8. Day names may be in English."
+        )
+
+    now = datetime.datetime.now()
+    return now.strftime("Dzisiaj jest %A, %d %B %Y.")

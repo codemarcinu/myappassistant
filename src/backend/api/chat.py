@@ -61,23 +61,45 @@ async def chat_with_model(request: ChatRequest):
     return StreamingResponse(generator, media_type="text/plain")
 
 
-@router.post("/memory_chat", response_model=MemoryChatResponse)
+async def memory_chat_generator(request: MemoryChatRequest, db: AsyncSession):
+    """
+    Generator for streaming responses from the orchestrator.
+    """
+    try:
+        orchestrator = Orchestrator(db)
+        # The orchestrator now returns a dictionary or a streaming generator
+        response_data = await orchestrator.process_command(
+            user_command=request.message, session_id=request.session_id
+        )
+
+        # Check if the response is a streaming generator
+        if hasattr(response_data, "__aiter__"):
+            async for chunk in response_data:
+                yield chunk
+        # If it's a regular dictionary response, yield it as a single chunk
+        elif isinstance(response_data, dict):
+            import json
+
+            yield json.dumps(response_data)
+
+    except Exception as e:
+        import json
+
+        error_response = {
+            "response": "Wystąpił błąd serwera podczas przetwarzania zapytania.",
+            "state": {},
+        }
+        yield json.dumps(error_response)
+
+
+@router.post("/memory_chat")
 async def chat_with_memory(
     request: MemoryChatRequest, db: AsyncSession = Depends(get_db)
 ):
     """
-    Endpoint do prowadzenia rozmowy z agentem, który zapamiętuje historię konwersacji.
-    Każda konwersacja jest identyfikowana przez session_id.
+    Endpoint for conversing with an agent that remembers conversation history.
+    Each conversation is identified by a session_id.
+    Supports streaming responses.
     """
-    orchestrator = Orchestrator(db)
-    response_data = await orchestrator.process_command(
-        user_command=request.message, session_id=request.session_id
-    )
-
-    # Assuming the response_data contains a "state" dictionary with a "history_length"
-    history_length = response_data.get("history_length", 0)
-
-    return MemoryChatResponse(
-        reply=response_data.get("response", "No response from agent."),
-        history_length=history_length,
-    )
+    generator = memory_chat_generator(request, db)
+    return StreamingResponse(generator, media_type="application/x-ndjson")

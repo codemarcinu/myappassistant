@@ -9,7 +9,7 @@ import { MessageInput } from '@/components/chat/MessageInput';
 import { useChat } from '@/hooks/useChat';
 
 export default function ChatPage() {
-  const { messages, isLoading, error, sendMessage } = useChat();
+  const { messages, isLoading, error, sendMessage } = useChat('general');
 
   return (
     <div className="relative h-[calc(100vh-100px)]">

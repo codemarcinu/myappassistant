@@ -8,7 +8,7 @@ from backend.agents.tools.tools import recognize_intent
 
 # Ladowanie danych testowych bezposrednio z pliku JSON
 TEST_DATA_PATH = os.path.join(
-    os.path.dirname(__file__), "..", "..", "..", "tests", "fixtures", "test_data.json"
+    os.path.dirname(__file__), "..", "fixtures", "test_data.json"
 )
 with open(TEST_DATA_PATH, "r") as f:
     TEST_DATA = json.load(f)

@@ -13,7 +13,8 @@ class LLMClient:
     """
 
     def __init__(self):
-        logging.info("Inicjalizacja klienta LLM...")
+        logging.info("Inicjalizacja asynchronicznego klienta LLM...")
+        self.client = ollama.AsyncClient()
 
     def _format_response(self, content: str, as_error: bool = False) -> Dict[str, Any]:
         """
@@ -109,7 +110,7 @@ class LLMClient:
             messages = self._create_messages(prompt, system_prompt)
 
             # Wywołujemy ollama.chat bez typowania messages aby uniknąć błędów
-            response = ollama.chat(model=model, messages=messages)  # type: ignore
+            response = self.client.chat(model=model, messages=messages)  # type: ignore
 
             # Bezpiecznie pobieramy zawartość
             return self._get_safe_content(response)
@@ -152,13 +153,13 @@ class LLMClient:
             )
 
             # Wywołujemy ollama.chat bez typowania messages aby uniknąć błędów
-            stream = ollama.chat(
+            stream = await self.client.chat(
                 model=model,
                 messages=msg_list,  # type: ignore
                 stream=True,
             )
 
-            for chunk in stream:
+            async for chunk in stream:
                 if isinstance(chunk, dict):
                     # Pobierz treść z chunk["message"]["content"] jeśli istnieje
                     content = chunk.get("message", {}).get("content", "")
@@ -203,21 +204,13 @@ class LLMClient:
             logging.info(f"[{request_id}] Sending request to Ollama model: {model}")
             logging.debug(f"[{request_id}] Messages: {messages}")
 
-            if stream:
-                # Dla trybu strumieniowego zwracamy generator
-                return self.generate_stream(model=model, messages=messages)
-            else:
-                # Wywołujemy ollama.chat bez typowania messages aby uniknąć błędów
-                response = ollama.chat(
-                    model=model,
-                    messages=messages,  # type: ignore
-                    options=options or {},  # type: ignore
-                )
-
-                logging.debug(
-                    f"[{request_id}] Received response from Ollama: {response}"
-                )
-                return response
+            # Pass the stream parameter directly to the async ollama client
+            return self.client.chat(
+                model=model,
+                messages=messages,  # type: ignore
+                stream=stream,
+                options=options or {},  # type: ignore
+            )
         except Exception as e:
             logging.error(
                 f"[{request_id}] Błąd podczas komunikacji z Ollama: {e}", exc_info=True
@@ -241,7 +234,7 @@ class LLMClient:
         logging.info(f"[{request_id}] Generating embedding with model: {model}")
 
         try:
-            response = ollama.embeddings(model=model, prompt=text)
+            response = await self.client.embeddings(model=model, prompt=text)
             return list(response["embedding"])
         except Exception as e:
             logging.error(

@@ -1,4 +1,5 @@
 import io
+from unittest.mock import AsyncMock, patch
 
 from fastapi.testclient import TestClient
 from PIL import Image
@@ -17,15 +18,16 @@ def create_dummy_image_bytes() -> bytes:
     return buf.read()
 
 
-def test_upload_endpoint_image():
+@patch("backend.api.upload.Orchestrator.process_file", new_callable=AsyncMock)
+def test_upload_endpoint_image(mock_process_file):
     """Testuje endpoint /upload z plikiem obrazu."""
+    mock_process_file.return_value = {"response": "File processed successfully"}
     image_bytes = create_dummy_image_bytes()
     files = {"file": ("test.png", image_bytes, "image/png")}
-    response = client.post("/api/v1/upload", files=files)
+    data = {"session_id": "test-session"}
+    response = client.post("/api/v1/upload", files=files, data=data)
 
     assert response.status_code == 200
-    data = response.json()
-    assert "text" in data
-    assert data["content_type"] == "image/png"
-    # W tym przypadku Tesseract może zwrócić pusty string, co jest ok
-    assert isinstance(data["text"], str)
+    response_data = response.json()
+    assert "response" in response_data
+    assert response_data["response"] == "File processed successfully"

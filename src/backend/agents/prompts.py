@@ -165,3 +165,25 @@ def get_categorization_prompt(product_name: str) -> str:
     Zwróć odpowiedź w formacie JSON, zawierający:
     - "category": wybrana kategoria
     """
+
+
+def get_react_prompt(query: str) -> str:
+    """
+    Creates a ReAct-style prompt for the master agent to decide which tool to use.
+    """
+    return f"""
+You are a master assistant AI that can delegate tasks to specialized agents.
+Your available tools are:
+- "weather": Use for any questions about the weather, forecast, temperature, etc.
+- "search": Use for general knowledge questions, searching the internet, or finding information.
+- "rag": Use for questions about the content of the provided documents or knowledge base.
+- "date": Use for questions about the current date, day of the week, time, etc.
+- "conversation": Use for simple conversational responses, greetings, or when no other tool is appropriate.
+
+Based on the user's query, decide which tool is the most appropriate to use.
+Respond with a JSON object containing the "tool" and "tool_input". The "tool_input" should be the query for the specialized agent.
+
+User query: "{query}"
+
+JSON response:
+"""

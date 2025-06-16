@@ -1,3 +1,4 @@
+import ReactMarkdown from 'react-markdown';
 import { Card } from '../ui/Card';
 import { Message } from '@/types/chat';
 
@@ -17,14 +18,15 @@ export function MessageItem({ message }: MessageItemProps) {
           {isUser ? '👤' : '🤖'}
         </div>
         <Card className={`p-3 mx-2 ${isUser ? 'bg-blue-100' : 'bg-gray-100'}`}>
-          <div className="text-sm">{message.content}</div>
+          <div className="prose prose-sm max-w-none">
+            <ReactMarkdown>{message.content}</ReactMarkdown>
+          </div>
           {message.data && (
             <div className="mt-2 text-xs p-2 bg-white rounded">
               <pre className="whitespace-pre-wrap overflow-auto">
                 {typeof message.data === 'object'
                   ? JSON.stringify(message.data, null, 2)
-                  : String(message.data)
-                }
+                  : String(message.data)}
               </pre>
             </div>
           )}
@@ -32,4 +34,4 @@ export function MessageItem({ message }: MessageItemProps) {
       </div>
     </div>
   );
-};
+}

@@ -11,7 +11,7 @@ import { useChat } from '@/hooks/useChat';
 
 export default function ShoppingPage() {
   const { products, isLoading: shoppingLoading, error: shoppingError, uploadReceipt, deleteProduct, updateProduct } = useShopping();
-  const { messages, isLoading: chatLoading, error: chatError, sendMessage } = useChat();
+  const { messages, isLoading: chatLoading, error: chatError, sendMessage } = useChat('shopping');
 
   const isLoading = shoppingLoading || chatLoading;
   const error = shoppingError || chatError;

@@ -473,7 +473,7 @@ async def get_conversation_by_session_id(
         .options(selectinload(Conversation.messages))
         .where(Conversation.session_id == session_id)
     )
-    return result.scalars().first()
+    return result.scalars().one_or_none()
 
 
 async def create_conversation(db: AsyncSession, session_id: str) -> Conversation:

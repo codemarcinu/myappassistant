@@ -18,6 +18,7 @@ from backend.agents.tools.tools import (
     extract_entities,
     find_database_object,
     generate_clarification_question_text,
+    get_current_date,
     recognize_intent,
 )
 from backend.agents.utils import extract_json_from_text
@@ -49,22 +50,23 @@ class Orchestrator:
         self.agent_factory = AgentFactory()
 
     async def process_file(
-        self, file_content: bytes, filename: str, session_id: str
+        self, file_bytes: bytes, filename: str, session_id: str, content_type: str
     ) -> Dict[str, Any]:
         """Processes an uploaded file (e.g., a receipt image) using an appropriate agent."""
-        # Simple factory based on file type
-        if filename.lower().endswith((".png", ".jpg", ".jpeg")):
-            ocr_agent = self.agent_factory.create_agent("ocr")
-            ocr_response = await ocr_agent.process({"file_content": file_content})
+        file_type = "image" if content_type.startswith("image/") else "pdf"
 
-            # Integrate the OCR response into the conversation
-            ocr_text = ocr_response.text
-            user_command = (
-                f"Przetworzono plik '{filename}'. Rozpoznany tekst: {ocr_text}"
-            )
-            return await self.process_command(user_command, session_id)
+        ocr_agent = self.agent_factory.create_agent("ocr")
+        ocr_response = await ocr_agent.process(
+            {"file_bytes": file_bytes, "file_type": file_type}
+        )
 
-        return {"error": "Unsupported file type"}
+        if not ocr_response.success:
+            return {"error": ocr_response.error or "Failed to process file with OCR."}
+
+        # Integrate the OCR response into the conversation
+        ocr_text = ocr_response.text
+        user_command = f"Przetworzono plik '{filename}'. Rozpoznany tekst: {ocr_text}"
+        return await self.process_command(user_command, session_id)
 
     async def process_command(
         self,
@@ -103,77 +105,52 @@ class Orchestrator:
             state.current_model = "gemma3:12b"
             logger.info(f"Using default model: {state.current_model}")
 
-        # Check if this is a weather-related query and weather agent is enabled
+        # --- Start of Refactored Logic ---
+
+        # High-priority keyword-based routing for specific agents
         if state.agent_states.get("weather", True) and self._is_weather_query(
             user_command
         ):
-            logger.info(f"Processing weather query: '{user_command}'")
+            logger.info(f"Routing to Weather Agent for: '{user_command}'")
             return await self._process_weather_query(user_command, state)
 
-        # Check if this is a search query and search agent is enabled
         if state.agent_states.get("search", True) and self._is_search_query(
             user_command
         ):
-            logger.info(f"Processing search query: '{user_command}'")
+            logger.info(f"Routing to Search Agent for: '{user_command}'")
             return await self._process_search_query(user_command, state)
 
-        # Check if this is a cooking-related query and cooking agent is enabled
         if state.agent_states.get("cooking", False) and self._is_cooking_query(
             user_command
         ):
-            logger.info(
-                f"Processing cooking query: '{user_command}' with model: {state.current_model}"
-            )
+            logger.info(f"Routing to Chef Agent for: '{user_command}'")
             return await self._process_cooking_query(user_command, state)
 
-        # Check if this is a shopping-related query and shopping agent is enabled
-        if state.agent_states.get("shopping", False) and self._is_shopping_query(
-            user_command
-        ):
-            logger.info(
-                f"Processing shopping query: '{user_command}' with model: {state.current_model}"
-            )
-            return await self._process_shopping_query(user_command, state)
-
         if self._is_meal_plan_query(user_command):
-            logger.info(f"Processing meal plan query: '{user_command}'")
+            logger.info(f"Routing to Meal Planner Agent for: '{user_command}'")
             return await self._process_meal_plan_query(user_command, state)
 
         if self._is_analyze_query(user_command):
-            logger.info(f"Processing analyze query: '{user_command}'")
+            logger.info(f"Routing to Analytics Agent for: '{user_command}'")
             return await self._process_analyze_query(user_command, state)
 
-        if self._is_rag_query(user_command):
-            logger.info(f"Processing RAG query: '{user_command}'")
-            return await self._process_rag_query(user_command, state)
+        if self._is_date_query(user_command):
+            logger.info(f"Routing to Date Tool for: '{user_command}'")
+            date_response = get_current_date()
+            return {"response": date_response, "state": state.to_dict()}
 
-        if state.is_awaiting_clarification:
-            return await self._handle_clarification(user_command, state)
+        # --- Fallback to Intent Recognition Logic ---
 
-        # Recognize intent
+        logger.info("No specific agent triggered, falling back to intent recognition.")
+
+        # 1. Recognize Intent
         intent_prompt = get_intent_recognition_prompt(user_command)
         intent_response = await recognize_intent(intent_prompt)
-        intent = extract_json_from_text(intent_response).get("intent", "UNKNOWN")
+        intent_data = extract_json_from_text(intent_response)
+        intent = intent_data.get("intent", "UNKNOWN")
+        logger.info(f"Recognized Intent: {intent}")
 
-        # Check for cooking-related phrases if intent is UNKNOWN
-        if intent == "UNKNOWN":
-            cooking_phrases = [
-                "co mogę ugotować",
-                "zaproponuj przepis",
-                "co zrobić z",
-                "pomysł na obiad",
-                "przepis na",
-            ]
-            if any(phrase in user_command.lower() for phrase in cooking_phrases):
-                intent = "COOKING"
-
-        if intent == "UNKNOWN":
-            return {
-                "response": "Nie zrozumiałem polecenia.",
-                "state": state.to_dict(),
-            }
-
-        # Extract entities
+        # 2. Extract Entities
         entity_prompt = get_entity_extraction_prompt(user_command, intent)
         entities_response = await extract_entities(entity_prompt)
         entities = extract_json_from_text(entities_response)
@@ -330,6 +307,59 @@ class Orchestrator:
             "state": state.to_dict(),
         }
 
+    async def _process_general_query(
+        self, query: str, state: ConversationState
+    ) -> Dict[str, Any]:
+        """
+        Processes a general query using an LLM to decide which tool to use.
+        This replaces the keyword-based if/elif chain.
+        """
+        from backend.agents.prompts import get_react_prompt
+
+        react_prompt = get_react_prompt(query)
+
+        from backend.core.llm_client import llm_client
+
+        try:
+            response = await llm_client.chat(
+                model=state.current_model,
+                messages=[{"role": "user", "content": react_prompt}],
+                stream=False,
+                options={"temperature": 0.0},
+            )
+
+            if not response or not response.get("message"):
+                raise ValueError("Invalid response from LLM")
+
+            tool_choice_str = response["message"]["content"]
+            tool_choice = extract_json_from_text(tool_choice_str)
+
+            tool_name = tool_choice.get("tool")
+            tool_input = tool_choice.get("tool_input", query)
+
+            logger.info(
+                f"LLM decided to use tool: {tool_name} with input: {tool_input}"
+            )
+
+            if tool_name == "weather":
+                return await self._process_weather_query(tool_input, state)
+            elif tool_name == "search":
+                return await self._process_search_query(tool_input, state)
+            elif tool_name == "rag":
+                return await self._process_rag_query(tool_input, state)
+            else:  # Default to a conversational response
+                return {
+                    "response": "Nie bardzo rozumiem, czy możesz doprecyzować?",
+                    "state": state.to_dict(),
+                }
+
+        except Exception as e:
+            logger.error(f"Error processing general query with ReAct prompt: {e}")
+            return {
+                "response": "Przepraszam, mam problem z przetworzeniem Twojego zapytania.",
+                "state": state.to_dict(),
+            }
+
     def _is_weather_query(self, query: str) -> bool:
         """Check if this is a weather-related query"""
         weather_keywords = [
@@ -430,12 +460,8 @@ class Orchestrator:
             meal_planner_agent = self.agent_factory.create_agent("meal_planner")
             response = await meal_planner_agent.process({"db": self.db})
 
-            if response.success:
-                return {
-                    "response": response.text,
-                    "data": response.data,
-                    "state": state.to_dict(),
-                }
+            if response.success and response.text_stream:
+                return response.text_stream
             else:
                 return {
                     "response": response.error
@@ -489,6 +515,17 @@ class Orchestrator:
                 "state": state.to_dict(),
             }
 
+    def _is_date_query(self, query: str) -> bool:
+        """Check if this is a date-related query."""
+        date_keywords = [
+            "który dzisiaj",
+            "jaki jest dzień",
+            "jaka jest data",
+            "dzień tygodnia",
+            "dzisiaj jest",
+        ]
+        return any(keyword in query.lower() for keyword in date_keywords)
+
     def _is_rag_query(self, query: str) -> bool:
         """Check if this is a RAG-related query"""
         rag_keywords = [
@@ -537,25 +574,16 @@ class Orchestrator:
             weather_agent = self.agent_factory.create_agent("weather")
             logger.info("Weather agent created successfully, processing query")
 
-            response = await weather_agent.process({"query": query})
+            response = await weather_agent.process(
+                {"query": query, "model": state.current_model}
+            )
             logger.info(f"Weather agent response: {response}")
 
             # Check for successful response
-            if response.success:
-                logger.info(f"Weather query successful: {response.text}")
-
-                # Add a message to the conversation history to ensure it's visible
-                if (
-                    response.text
-                ):  # Check that text is not None before adding to history
-                    state.add_message("assistant", response.text)
-
-                # Return full response with data
-                return {
-                    "response": response.text,
-                    "data": response.data,
-                    "state": state.to_dict(),
-                }
+            if response.success and response.text_stream:
+                logger.info("Weather query successful, returning stream.")
+                # The response is the stream itself
+                return response.text_stream
             else:
                 error_msg = (
                     response.error or "Wystąpił problem z uzyskaniem prognozy pogody."
@@ -589,14 +617,12 @@ class Orchestrator:
         """Process a search query using the search agent"""
         try:
             search_agent = self.agent_factory.create_agent("search")
-            response = await search_agent.process({"query": query})
+            response = await search_agent.process(
+                {"query": query, "model": state.current_model}
+            )
 
-            if response.success:
-                return {
-                    "response": response.text,
-                    "data": response.data,
-                    "state": state.to_dict(),
-                }
+            if response.success and response.text_stream:
+                return response.text_stream
             else:
                 return {
                     "response": response.error
@@ -619,9 +645,7 @@ class Orchestrator:
             chef_agent = self.agent_factory.create_agent("chef")
 
             # Store the current model to use for processing
-            model_to_use = (
-                "SpeakLeash/bielik-11b-v2.3-instruct:Q6_K"  # Polish model for cooking
-            )
+            model_to_use = state.current_model
             logger.info(f"Using model for cooking: {model_to_use}")
 
             # Pass the model information through database context
@@ -630,13 +654,8 @@ class Orchestrator:
             # Process with chef agent
             response = await chef_agent.process(chef_context)
 
-            if response.success:
-                return {
-                    "response": response.text
-                    or "Oto przepis na podstawie dostępnych składników.",
-                    "data": response.data,
-                    "state": state.to_dict(),
-                }
+            if response.success and response.text_stream:
+                return response.text_stream
             else:
                 return {
                     "response": response.error
@@ -662,7 +681,7 @@ class Orchestrator:
             from backend.core.llm_client import llm_client
 
             intent_response = await llm_client.chat(
-                model="SpeakLeash/bielik-11b-v2.3-instruct:Q6_K",
+                model=state.current_model,
                 messages=[
                     {
                         "role": "system",

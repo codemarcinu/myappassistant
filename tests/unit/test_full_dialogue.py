@@ -7,13 +7,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.agents.orchestrator import Orchestrator
-from backend.agents.state import ConversationState
+from backend.config import settings
+from backend.core import crud
+from backend.core.database import AsyncSessionLocal
 from backend.core.llm_client import llm_client
-from backend.database import AsyncSessionLocal
 from backend.models.shopping import Product, ShoppingTrip
-
-from ..config import settings
-from ..core import crud
 
 # --- Funkcje pomocnicze, które już znamy ---
 
@@ -182,13 +180,10 @@ if __name__ == "__main__":
 
 
 @pytest.fixture
-async def db_session() -> AsyncSession:
+async def db_session():
     """Pytest fixture to provide a test database session and handle setup/teardown."""
-    session = AsyncSessionLocal()
-    try:
+    async with AsyncSessionLocal() as session:
         yield session
-    finally:
-        await session.close()
 
 
 @pytest.mark.asyncio
@@ -197,11 +192,11 @@ class TestFullDialogue:
         """
         Tests a full dialogue for adding a new item where the item does not exist.
         """
-        state = ConversationState()
-        orchestrator = Orchestrator(db=db_session, state=state)
+        orchestrator = Orchestrator(db=db_session)
 
         command = "dodaj parówki za 12 zł do wczorajszych zakupów"
-        result = await orchestrator.process_command(command)
+        # The session_id is now passed to process_command
+        result = await orchestrator.process_command(command, "test_session_add")
 
         assert result["response"] == "Gotowe, dodałem nowy wpis do bazy."
 
@@ -217,8 +212,7 @@ class TestFullDialogue:
         """
         Tests a full dialogue for updating an existing, unique item.
         """
-        state = ConversationState()
-        orchestrator = Orchestrator(db=db_session, state=state)
+        orchestrator = Orchestrator(db=db_session)
 
         # Pre-condition check: ensure the milk price is 3.50
         pre_query = select(Product).where(Product.name == "Mleko")
@@ -228,7 +222,7 @@ class TestFullDialogue:
 
         # Execute the update command
         command = "zmień cenę mleka z wczoraj na 4.99"
-        result = await orchestrator.process_command(command)
+        result = await orchestrator.process_command(command, "test_session_update")
 
         # Assert the response from the orchestrator
         assert result["response"] == "Zaktualizowałem wpis."
@@ -241,14 +235,13 @@ class TestFullDialogue:
         """
         Tests a full dialogue for deleting an existing, unique item.
         """
-        state = ConversationState()
-        orchestrator = Orchestrator(db=db_session, state=state)
+        orchestrator = Orchestrator(db=db_session)
 
         # Pre-condition check: ensure the bread from yesterday exists
         pre_query = (
             select(Product)
-            .join(Product.shopping_trip)
-            .where(Product.name == "Chleb", ShoppingTrip.store == "Lidl")
+            .join(ShoppingTrip, Product.trip_id == ShoppingTrip.id)
+            .where(Product.name == "Chleb", ShoppingTrip.store_name == "Lidl")
         )
         pre_result = await db_session.execute(pre_query)
         product_to_delete = pre_result.scalars().first()
@@ -257,7 +250,7 @@ class TestFullDialogue:
 
         # Execute the delete command
         command = "usuń chleb z wczorajszych zakupów w lidlu"
-        result = await orchestrator.process_command(command)
+        result = await orchestrator.process_command(command, "test_session_delete")
 
         # Assert the response from the orchestrator
         assert result["response"] == "Usunąłem wpis."

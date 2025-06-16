@@ -1,5 +1,7 @@
 import logging
-from typing import Any, Dict, List
+from typing import Any, AsyncGenerator, Dict, List
+
+import httpx
 
 from backend.agents.base_agent import AgentResponse, BaseAgent
 from backend.core.llm_client import llm_client
@@ -19,6 +21,7 @@ class SearchAgent(BaseAgent):
         if isinstance(input_data, dict):
             try:
                 query = input_data.get("query", "")
+                model = input_data.get("model", "gemma3:12b")  # Default model
                 if not query:
                     return AgentResponse(
                         success=False,
@@ -29,21 +32,26 @@ class SearchAgent(BaseAgent):
                 # Get search results
                 search_results = await self._perform_search(query)
                 if not search_results:
+
+                    async def empty_stream():
+                        if False:
+                            yield
+
                     return AgentResponse(
-                        success=False,
-                        error=f"Nie znaleziono wyników dla zapytania: {query}",
-                        text=f"Nie znaleziono wyników dla zapytania: {query}",
+                        success=True,
+                        text=f"Brak wyników dla zapytania: {query}",
+                        text_stream=empty_stream(),
                     )
 
                 # Format search results using LLM
-                formatted_response = await self._format_search_results(
-                    query, search_results
+                response_stream = self._format_search_results(
+                    query, search_results, model
                 )
 
                 return AgentResponse(
                     success=True,
                     data={"query": query, "results": search_results},
-                    text=formatted_response,
+                    text_stream=response_stream,
                     message=f"Wyniki wyszukiwania dla: {query}",
                 )
             except Exception as e:
@@ -63,42 +71,67 @@ class SearchAgent(BaseAgent):
     async def _perform_search(self, query: str) -> List[Dict[str, str]]:
         """Perform a search using DuckDuckGo API"""
         try:
-            # In a real implementation, we would call the DuckDuckGo API
-            # For demo purposes, we'll simulate the API response
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    self.search_url,
+                    params={
+                        "q": query,
+                        "format": "json",
+                        "no_html": 1,
+                        "no_redirect": 1,
+                    },
+                    timeout=10.0,
+                )
+                response.raise_for_status()
+                data = response.json()
+                logger.debug(f"Search API response for '{query}': {data}")
 
-            # This is a mock implementation - in a real scenario we would use:
-            # async with httpx.AsyncClient() as client:
-            #     response = await client.get(
-            #         self.search_url,
-            #         params={"q": query, "format": "json", "no_html": 1, "no_redirect": 1}
-            #     )
-            #     data = response.json()
+                # Extract relevant fields from the response
+                results = []
+                if "Results" in data:
+                    for r in data["Results"]:
+                        if r.get("Text") and r.get("FirstURL"):
+                            results.append(
+                                {
+                                    "title": r.get("Text"),
+                                    "url": r.get("FirstURL"),
+                                    "snippet": r.get("Result", ""),
+                                }
+                            )
+                if "RelatedTopics" in data:
+                    for r in data["RelatedTopics"]:
+                        if r.get("Text") and r.get("FirstURL"):
+                            results.append(
+                                {
+                                    "title": r.get("Text"),
+                                    "url": r.get("FirstURL"),
+                                    "snippet": r.get("Result", ""),
+                                }
+                            )
 
-            # For demo purposes, return mock results
-            mock_results = [
-                {
-                    "title": f"Result 1 for {query}",
-                    "url": f"https://example.com/result1?q={query}",
-                    "snippet": f"This is a sample search result for {query}. It contains information related to your search query.",
-                },
-                {
-                    "title": f"Result 2 for {query}",
-                    "url": f"https://example.com/result2?q={query}",
-                    "snippet": f"Another search result related to {query}. This result provides additional context and information.",
-                },
-                {
-                    "title": f"Result 3 for {query}",
-                    "url": f"https://example.com/result3?q={query}",
-                    "snippet": f"A third search result for {query} with more details and information from various sources.",
-                },
-            ]
+                if not results:
+                    # Fallback to simple result if no structured data found
+                    if "AbstractText" in data and data["AbstractText"]:
+                        results.append(
+                            {
+                                "title": data.get("Heading", "Wynik wyszukiwania"),
+                                "url": data.get("AbstractURL", ""),
+                                "snippet": data["AbstractText"],
+                            }
+                        )
 
-            return mock_results
+                return results
+        except httpx.HTTPStatusError as e:
+            logger.error(f"HTTP error performing search for '{query}': {e}")
+            return []
+        except httpx.RequestError as e:
+            logger.error(f"Network error performing search for '{query}': {e}")
+            return []
         except Exception as e:
-            logger.error(f"Error performing search: {e}")
+            logger.error(f"Error performing search for '{query}': {e}", exc_info=True)
             return []
 
-    async def _extract_search_query(self, user_input: str) -> str:
+    async def _extract_search_query(self, user_input: str, model: str) -> str:
         """Extract search query from user input using LLM"""
         prompt = (
             f"Przeanalizuj poniższą wiadomość użytkownika i wyodrębnij zapytanie wyszukiwania:\n\n"
@@ -108,7 +141,7 @@ class SearchAgent(BaseAgent):
 
         try:
             response = await llm_client.chat(
-                model="gemma3:12b",
+                model=model,
                 messages=[
                     {
                         "role": "system",
@@ -129,8 +162,8 @@ class SearchAgent(BaseAgent):
             return user_input
 
     async def _format_search_results(
-        self, query: str, results: List[Dict[str, str]]
-    ) -> str:
+        self, query: str, results: List[Dict[str, str]], model: str
+    ) -> AsyncGenerator[str, None]:
         """Format search results into a user-friendly response using LLM"""
         try:
             # Create a summary of search results for the LLM
@@ -152,8 +185,8 @@ class SearchAgent(BaseAgent):
                 f"informacje z wyników i podaj źródła (URL):\n\n{results_summary}"
             )
 
-            response = await llm_client.chat(
-                model="gemma3:12b",
+            async for chunk in llm_client.generate_stream(
+                model=model,
                 messages=[
                     {
                         "role": "system",
@@ -161,13 +194,9 @@ class SearchAgent(BaseAgent):
                     },
                     {"role": "user", "content": prompt},
                 ],
-                stream=False,
-            )
+            ):
+                yield chunk["message"]["content"]
 
-            if not response or not response.get("message"):
-                return results_summary
-
-            return response["message"]["content"]
         except Exception as e:
             logger.error(f"Error formatting search results: {e}")
 
@@ -178,4 +207,4 @@ class SearchAgent(BaseAgent):
                 formatted_result += f"   {result.get('url', '')}\n"
                 formatted_result += f"   {result.get('snippet', 'Brak opisu')}\n\n"
 
-            return formatted_result
+            yield formatted_result

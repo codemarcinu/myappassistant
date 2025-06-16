@@ -70,45 +70,36 @@ class ChefAgent(BaseAgent):
             "UŻYTE SKŁADNIKI: [lista nazw użytych składników]"
         )
 
-        # Call LLM with specified model
-        response = await llm_client.chat(
-            model=model,  # Use the model parameter instead of hardcoded value
-            messages=[
-                {"role": "system", "content": "Jesteś pomocnym szefem kuchni."},
-                {"role": "user", "content": prompt},
-            ],
-            stream=False,
-        )
+        async def response_generator():
+            # Call LLM with specified model and stream the response
+            full_response = ""
+            async for chunk in llm_client.generate_stream(
+                model=model,
+                messages=[
+                    {"role": "system", "content": "Jesteś pomocnym szefem kuchni."},
+                    {"role": "user", "content": prompt},
+                ],
+            ):
+                content = chunk["message"]["content"]
+                full_response += content
+                yield content
 
-        if not response or not response.get("message"):
-            return AgentResponse(success=False, error="Failed to get response from LLM")
-
-        # Parse LLM response
-        llm_output = response["message"]["content"]
-        recipe = ""
-        used_ingredients = []
-
-        # Extract recipe and used ingredients
-        if "PRZEPIS:" in llm_output and "UŻYTE SKŁADNIKI:" in llm_output:
-            parts = llm_output.split("UŻYTE SKŁADNIKI:")
-            recipe = parts[0].replace("PRZEPIS:", "").strip()
-            ingredient_names = [
-                name.strip() for name in parts[1].split(",") if name.strip()
-            ]
-
-            # Map ingredient names back to product IDs
-            used_ingredients = [
-                {"id": product.id, "name": product.name}
-                for product in products
-                if product.name in ingredient_names
-            ]
-        else:
-            # Fallback if format not followed
-            recipe = llm_output
+            # After streaming, parse the full response to extract used ingredients
             used_ingredients = []
+            if "UŻYTE SKŁADNIKI:" in full_response:
+                parts = full_response.split("UŻYTE SKŁADNIKI:")
+                ingredient_names = [
+                    name.strip() for name in parts[1].split(",") if name.strip()
+                ]
+                used_ingredients = [
+                    {"id": p.id, "name": p.name}
+                    for p in products
+                    if p.name in ingredient_names
+                ]
+            print(f"Used ingredients identified: {used_ingredients}")
 
         return AgentResponse(
             success=True,
-            data={"recipe": recipe, "used_ingredients": used_ingredients},
-            text=recipe,
+            text_stream=response_generator(),
+            message="Recipe stream started.",
         )
