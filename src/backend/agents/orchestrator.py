@@ -4,14 +4,14 @@ from datetime import date
 from enum import Enum
 from typing import Any, Dict, Optional
 
-from sqlalchemy.ext.asyncio import AsyncSession  # type: ignore
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.agents.agent_factory import AgentFactory
 from backend.agents.prompts import (
     get_entity_extraction_prompt,
     get_intent_recognition_prompt,
 )
-from backend.agents.state import ConversationState, append_to_history, get_agent_state
+from backend.agents.state import ConversationState
 from backend.agents.tools.date_parser import parse_date_range_with_llm
 from backend.agents.tools.tools import (
     execute_database_action,
@@ -37,6 +37,9 @@ class IntentType(Enum):
     PROCESS_FILE = "PROCESS_FILE"
     COOKING = "COOKING"
     MARK_PRODUCTS_CONSUMED = "MARK_PRODUCTS_CONSUMED"
+    MEAL_PLAN = "MEAL_PLAN"
+    ANALYZE = "ANALYZE"
+    RAG = "RAG"
     UNKNOWN = "UNKNOWN"
 
 
@@ -71,8 +74,16 @@ class Orchestrator:
         agent_states: Optional[Dict[str, bool]] = None,
     ) -> Dict[str, Any]:
         """Main entry point to process a user's text command."""
-        state = get_agent_state(session_id)
-        state.add_message("user", user_command)
+        conversation = await crud.get_conversation_by_session_id(self.db, session_id)
+        if not conversation:
+            conversation = await crud.create_conversation(self.db, session_id)
+
+        await crud.add_message_to_conversation(
+            self.db, conversation.id, "user", user_command
+        )
+
+        state = ConversationState(session_id=session_id)
+        # TODO: Load state from conversation history
         logger.info(f"Processing command: '{user_command}' for session: {session_id}")
 
         # Store agent states in conversation state
@@ -123,6 +134,18 @@ class Orchestrator:
                 f"Processing shopping query: '{user_command}' with model: {state.current_model}"
             )
             return await self._process_shopping_query(user_command, state)
+
+        if self._is_meal_plan_query(user_command):
+            logger.info(f"Processing meal plan query: '{user_command}'")
+            return await self._process_meal_plan_query(user_command, state)
+
+        if self._is_analyze_query(user_command):
+            logger.info(f"Processing analyze query: '{user_command}'")
+            return await self._process_analyze_query(user_command, state)
+
+        if self._is_rag_query(user_command):
+            logger.info(f"Processing RAG query: '{user_command}'")
+            return await self._process_rag_query(user_command, state)
 
         if state.is_awaiting_clarification:
             return await self._handle_clarification(user_command, state)
@@ -387,6 +410,122 @@ class Orchestrator:
         ]
         return any(keyword in query.lower() for keyword in shopping_keywords)
 
+    def _is_meal_plan_query(self, query: str) -> bool:
+        """Check if this is a meal plan-related query"""
+        meal_plan_keywords = [
+            "zaplanuj posiłki",
+            "plan posiłków",
+            "co na obiad",
+            "co na kolację",
+            "co na śniadanie",
+            "jadłospis",
+        ]
+        return any(keyword in query.lower() for keyword in meal_plan_keywords)
+
+    async def _process_meal_plan_query(
+        self, query: str, state: ConversationState
+    ) -> Dict[str, Any]:
+        """Process a meal plan query using the meal planner agent"""
+        try:
+            meal_planner_agent = self.agent_factory.create_agent("meal_planner")
+            response = await meal_planner_agent.process({"db": self.db})
+
+            if response.success:
+                return {
+                    "response": response.text,
+                    "data": response.data,
+                    "state": state.to_dict(),
+                }
+            else:
+                return {
+                    "response": response.error
+                    or "Wystąpił problem z planowaniem posiłków.",
+                    "state": state.to_dict(),
+                }
+        except Exception as e:
+            logger.error(f"Error processing meal plan query: {e}")
+            return {
+                "response": "Przepraszam, wystąpił problem z planowaniem posiłków.",
+                "state": state.to_dict(),
+            }
+
+    def _is_analyze_query(self, query: str) -> bool:
+        """Check if this is an analyze-related query"""
+        analyze_keywords = [
+            "analizuj",
+            "podsumuj",
+            "pokaż wydatki",
+            "ile wydałem",
+            "statystyki",
+        ]
+        return any(keyword in query.lower() for keyword in analyze_keywords)
+
+    async def _process_analyze_query(
+        self, query: str, state: ConversationState
+    ) -> Dict[str, Any]:
+        """Process an analyze query using the analytics agent"""
+        try:
+            analytics_agent = self.agent_factory.create_agent("analytics")
+            # TODO: Extract query params from the query
+            response = await analytics_agent.process(
+                {"db": self.db, "query_params": {}}
+            )
+
+            if response.success:
+                return {
+                    "response": response.text,
+                    "data": response.data,
+                    "state": state.to_dict(),
+                }
+            else:
+                return {
+                    "response": response.error or "Wystąpił problem z analizą danych.",
+                    "state": state.to_dict(),
+                }
+        except Exception as e:
+            logger.error(f"Error processing analyze query: {e}")
+            return {
+                "response": "Przepraszam, wystąpił problem z analizą danych.",
+                "state": state.to_dict(),
+            }
+
+    def _is_rag_query(self, query: str) -> bool:
+        """Check if this is a RAG-related query"""
+        rag_keywords = [
+            "co to jest",
+            "wyjaśnij",
+            "powiedz mi o",
+            "czym jest",
+        ]
+        return any(keyword in query.lower() for keyword in rag_keywords)
+
+    async def _process_rag_query(
+        self, query: str, state: ConversationState
+    ) -> Dict[str, Any]:
+        """Process a RAG query using the RAG agent"""
+        try:
+            rag_agent = self.agent_factory.create_agent("rag")
+            response = await rag_agent.process({"query": query})
+
+            if response.success:
+                return {
+                    "response": response.text,
+                    "data": response.data,
+                    "state": state.to_dict(),
+                }
+            else:
+                return {
+                    "response": response.error
+                    or "Wystąpił problem z odpowiedzią na pytanie.",
+                    "state": state.to_dict(),
+                }
+        except Exception as e:
+            logger.error(f"Error processing RAG query: {e}")
+            return {
+                "response": "Przepraszam, wystąpił problem z odpowiedzią na pytanie.",
+                "state": state.to_dict(),
+            }
+
     async def _process_weather_query(
         self, query: str, state: ConversationState
     ) -> Dict[str, Any]:
@@ -603,10 +742,16 @@ class Orchestrator:
         Processes a user message, using conversation memory and date parsing tools.
         """
         # 1. Add user message to history
-        append_to_history(session_id, {"role": "user", "content": user_message})
+        conversation = await crud.get_conversation_by_session_id(self.db, session_id)
+        if not conversation:
+            conversation = await crud.create_conversation(self.db, session_id)
+        await crud.add_message_to_conversation(
+            self.db, conversation.id, "user", user_message
+        )
 
         # 2. Get current conversation state
-        current_state = get_agent_state(session_id)
+        # TODO: This should be loaded from the conversation history
+        current_state = ConversationState(session_id=session_id)
         history = current_state.history
 
         date_range = parse_date_range_with_llm(user_message)
@@ -634,8 +779,8 @@ class Orchestrator:
             agent_response_text = f"Nie znalazłem w Twojej wiadomości informacji o dacie. Powiedziałeś: '{user_message}'."
 
         # 5. Add agent's response to history
-        append_to_history(
-            session_id, {"role": "assistant", "content": agent_response_text}
+        await crud.add_message_to_conversation(
+            self.db, conversation.id, "assistant", agent_response_text
         )
 
         return {"response": agent_response_text, "history_length": len(history)}
@@ -648,23 +793,29 @@ async def get_memory_agent_response(
     Główna funkcja, która przetwarza wiadomość użytkownika,
     korzystając z pamięci konwersacyjnej.
     """
-    # 1. Dodaj nową wiadomość użytkownika do historii
-    append_to_history(session_id, {"role": "user", "content": user_message})
+    async with AsyncSessionLocal() as db:
+        conversation = await crud.get_conversation_by_session_id(db, session_id)
+        if not conversation:
+            conversation = await crud.create_conversation(db, session_id)
 
-    # 2. Pobierz aktualny stan konwersacji (już z nową wiadomością)
-    current_state = get_agent_state(session_id)
-    history = current_state.history
+        await crud.add_message_to_conversation(
+            db, conversation.id, "user", user_message
+        )
 
-    # TODO: W tym miejscu w przyszłości umieścimy logikę LLM.
-    agent_response_text = (
-        f"Zapamiętałem, że napisałeś: '{user_message}'. "
-        f"Łączna liczba wiadomości w historii: {len(history)}."
-    )
+        # TODO: W tym miejscu w przyszłości umieścimy logikę LLM.
+        agent_response_text = (
+            f"Zapamiętałem, że napisałeś: '{user_message}'. "
+            f"Łączna liczba wiadomości w historii: {len(conversation.messages)}."
+        )
 
-    # 3. Dodaj odpowiedź agenta do historii
-    append_to_history(session_id, {"role": "assistant", "content": agent_response_text})
+        await crud.add_message_to_conversation(
+            db, conversation.id, "assistant", agent_response_text
+        )
 
-    return {"response": agent_response_text, "history_length": len(history)}
+        return {
+            "response": agent_response_text,
+            "history_length": len(conversation.messages),
+        }
 
 
 async def get_agent_response(user_message: str, session_id: str) -> Dict[str, Any]:

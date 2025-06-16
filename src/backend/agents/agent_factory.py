@@ -1,8 +1,12 @@
 from typing import Dict, Type
 
+from .analytics_agent import AnalyticsAgent
 from .base_agent import BaseAgent
+from .categorization_agent import CategorizationAgent
 from .chef_agent import ChefAgent
+from .meal_planner_agent import MealPlannerAgent
 from .ocr_agent import OCRAgent
+from .rag_agent import RAGAgent
 from .search_agent import SearchAgent
 from .weather_agent import WeatherAgent
 
@@ -15,6 +19,10 @@ class AgentFactory:
         "weather": WeatherAgent,
         "search": SearchAgent,
         "chef": ChefAgent,
+        "meal_planner": MealPlannerAgent,
+        "categorization": CategorizationAgent,
+        "analytics": AnalyticsAgent,
+        "rag": RAGAgent,
         # Dodaj tu kolejne klasy agentów, np. "parser": ParserAgent
     }
 

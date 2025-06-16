@@ -75,7 +75,7 @@ async def chat_with_memory(
     )
 
     # Assuming the response_data contains a "state" dictionary with a "history_length"
-    history_length = response_data.get("state", {}).get("history_length", 0)
+    history_length = response_data.get("history_length", 0)
 
     return MemoryChatResponse(
         reply=response_data.get("response", "No response from agent."),

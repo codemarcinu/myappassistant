@@ -1,3 +1,5 @@
+from typing import Any
+
 # Dodajemy główny prompt systemowy z zabezpieczeniami
 MAIN_SYSTEM_PROMPT = """
 Jesteś agentem AI aplikacji FoodSave. Twoim jedynym zadaniem jest analiza tekstu w celu
@@ -120,3 +122,46 @@ def get_resolver_prompt(
     base_prompt += f"\n\nOdpowiedź użytkownika do analizy:\n{user_reply}"
 
     return base_prompt
+
+
+def get_meal_plan_prompt(available_products: list[dict[str, Any]]) -> str:
+    """Generuje prompt do stworzenia planu posiłków na podstawie dostępnych produktów."""
+    product_list = ", ".join([p["name"] for p in available_products])
+    return f"""
+    Jesteś inteligentnym asystentem planowania posiłków. Twoim zadaniem jest stworzenie
+    planu posiłków na najbliższe 3 dni, wykorzystując dostępne składniki.
+    Jeśli brakuje jakichś składników do przygotowania posiłków, dodaj je do listy zakupów.
+
+    Dostępne składniki: {product_list}
+
+    Zwróć odpowiedź w formacie JSON, zawierający:
+    - "meal_plan": lista obiektów, gdzie każdy obiekt to jeden dzień i zawiera:
+        - "day": "Poniedziałek", "Wtorek", etc.
+        - "breakfast": nazwa śniadania
+        - "lunch": nazwa obiadu
+        - "dinner": nazwa kolacji
+    - "shopping_list": lista produktów do kupienia
+    """
+
+
+def get_categorization_prompt(product_name: str) -> str:
+    """Generuje prompt do kategoryzacji produktu."""
+    return f"""
+    Jesteś inteligentnym asystentem kategoryzacji. Twoim zadaniem jest przypisanie
+    produktu do jednej z predefiniowanych kategorii.
+
+    Nazwa produktu: {product_name}
+
+    Dostępne kategorie:
+    - Owoce i warzywa
+    - Nabiał
+    - Mięso i wędliny
+    - Pieczywo
+    - Produkty sypkie
+    - Słodycze i przekąski
+    - Napoje
+    - Inne
+
+    Zwróć odpowiedź w formacie JSON, zawierający:
+    - "category": wybrana kategoria
+    """

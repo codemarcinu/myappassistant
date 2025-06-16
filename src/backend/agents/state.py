@@ -63,31 +63,3 @@ class ConversationState:
             "current_model": self.current_model,
         }
         return result
-
-
-# In-memory storage for demonstration purposes.
-# In a real application, this would be replaced with Redis, a database, etc.
-_agent_states: Dict[str, ConversationState] = {}
-
-
-def get_agent_state(agent_id: str) -> ConversationState:
-    """
-    Retrieve the agent state from storage for a given agent_id.
-    If no state exists, a new one is created.
-    """
-    if agent_id not in _agent_states:
-        _agent_states[agent_id] = ConversationState(session_id=agent_id)
-    return _agent_states[agent_id]
-
-
-def save_agent_state(agent_id: str, state: ConversationState) -> None:
-    """Save the updated agent state to storage."""
-    _agent_states[agent_id] = state
-
-
-def append_to_history(agent_id: str, message: Dict[str, Any]) -> ConversationState:
-    """Append a new message to the conversation history and save the state."""
-    state = get_agent_state(agent_id)
-    state.history.append(message)
-    save_agent_state(agent_id, state)
-    return state

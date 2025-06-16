@@ -88,6 +88,19 @@ async def execute_database_action(
     """
     try:
         if intent in ["DODAJ_ZAKUPY", "CREATE_ITEM", "CREATE_PURCHASE"]:
+            from backend.agents.agent_factory import AgentFactory
+
+            agent_factory = AgentFactory()
+            categorization_agent = agent_factory.create_agent("categorization")
+
+            for product in entities.get("produkty", []):
+                if not product.get("kategoria"):
+                    response = await categorization_agent.process(
+                        {"product_name": product["nazwa"]}
+                    )
+                    if response.success and response.data:
+                        product["kategoria"] = response.data.get("category")
+
             await crud.create_shopping_trip(db, data=entities)
             return True
         elif intent == "ADD_PRODUCTS_TO_TRIP":

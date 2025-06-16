@@ -1,17 +1,12 @@
 import logging
 import re
 from datetime import date, timedelta
-from typing import Any, Dict, List, Optional, TypeVar
+from typing import Any, Dict, List, Optional
 
 from sqlalchemy import func, select, update
 
+from ..models.conversation import Conversation, Message
 from ..models.shopping import Product, ShoppingTrip
-
-# Define AsyncSession as a type variable to avoid import errors
-
-
-# Define a type alias for AsyncSession if it can't be imported
-AsyncSession = TypeVar("AsyncSession")
 
 logger = logging.getLogger(__name__)
 
@@ -418,7 +413,7 @@ async def get_trips_by_date_range(
 ) -> List[ShoppingTrip]:
     """Pobiera zakupy w podanym zakresie dat."""
     stmt = (
-        select([*ShoppingTrip.__table__.columns])
+        select(*ShoppingTrip.__table__.columns)
         .where(ShoppingTrip.trip_date.between(start_date, end_date))
         .order_by(ShoppingTrip.trip_date.desc())
     )
@@ -495,3 +490,45 @@ async def get_shopping_trip_summary(db: Any, trip_id: int) -> Optional[Dict[str,
             "total_cost": summary.total_cost or 0.0,
         }
     return None
+
+
+async def get_conversation_by_session_id(
+    db: Any, session_id: str
+) -> Conversation | None:
+    """
+    Asynchronously retrieves a conversation from the database by session_id.
+    """
+    result = await db.execute(
+        select(*Conversation.__table__.columns).where(
+            Conversation.session_id == session_id
+        )
+    )
+    return result.scalars().first()
+
+
+async def create_conversation(db: Any, session_id: str) -> Conversation:
+    """
+    Asynchronously creates a new conversation in the database.
+    """
+    conversation = Conversation(session_id=session_id)
+    db.add(conversation)
+    await db.commit()
+    await db.refresh(conversation)
+    return conversation
+
+
+async def add_message_to_conversation(
+    db: Any, conversation_id: int, role: str, content: str
+) -> Message:
+    """
+    Asynchronously adds a new message to a conversation in the database.
+    """
+    message = Message(
+        conversation_id=conversation_id,
+        role=role,
+        content=content,
+    )
+    db.add(message)
+    await db.commit()
+    await db.refresh(message)
+    return message

@@ -226,6 +226,29 @@ class LLMClient:
                 f"Wystąpił błąd podczas komunikacji z modelem: {e}", as_error=True
             )
 
+    async def embed(self, model: str, text: str) -> List[float]:
+        """
+        Generates embeddings for a given text.
+
+        Args:
+            model: The name of the model to use.
+            text: The text to embed.
+
+        Returns:
+            A list of floats representing the embedding.
+        """
+        request_id = str(uuid.uuid4())[:8]
+        logging.info(f"[{request_id}] Generating embedding with model: {model}")
+
+        try:
+            response = ollama.embeddings(model=model, prompt=text)
+            return list(response["embedding"])
+        except Exception as e:
+            logging.error(
+                f"[{request_id}] Error generating embedding: {e}", exc_info=True
+            )
+            return []
+
 
 # Inicjalizacja pojedynczej instancji klienta
 llm_client = LLMClient()
