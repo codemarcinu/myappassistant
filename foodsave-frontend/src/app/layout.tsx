@@ -1,3 +1,4 @@
+import * as React from 'react';
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
@@ -9,17 +10,35 @@ export const metadata: Metadata = {
   description: 'Twój osobisty asystent do zarządzania zakupami i gotowaniem',
 };
 
-import { MainLayout } from '@/components/layout/MainLayout';
+import { SidebarNavigation } from '@/components/navigation/SidebarNavigation';
+import { BottomNavigation } from '@/components/navigation/BottomNavigation';
 
 export default function RootLayout({
   children,
 }: {
-  children: any;
+  children: React.ReactNode;
 }) {
   return (
     <html lang="pl">
       <body className={inter.className}>
-        <MainLayout>{children}</MainLayout>
+        <div className="flex">
+          {/* Desktop Sidebar */}
+          <div className="hidden md:block">
+            <SidebarNavigation />
+          </div>
+
+          {/* Main Content */}
+          <main className="flex-1">
+            <div className="p-4">
+              {children}
+            </div>
+          </main>
+        </div>
+
+        {/* Mobile Bottom Navigation */}
+        <div className="md:hidden">
+          <BottomNavigation />
+        </div>
       </body>
     </html>
   );

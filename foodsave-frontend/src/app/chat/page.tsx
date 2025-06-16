@@ -1,7 +1,9 @@
 'use client';
 
 import React from 'react';
-import { Card } from '@/components/ui/Card';
+import { MaterialCard } from '@/components/ui/MaterialCard';
+import { FloatingActionButton } from '@/components/ui/FloatingActionButton';
+import { MessageCircle } from 'lucide-react';
 import { MessageList } from '@/components/chat/MessageList';
 import { MessageInput } from '@/components/chat/MessageInput';
 import { useChat } from '@/hooks/useChat';
@@ -10,11 +12,10 @@ export default function ChatPage() {
   const { messages, isLoading, error, sendMessage } = useChat();
 
   return (
-    <>
-      <h1 className="text-3xl font-bold mb-6">Asystent AI</h1>
-
-      <Card className="h-[calc(100vh-150px)] flex flex-col">
+    <div className="relative h-[calc(100vh-100px)]">
+      <MaterialCard className="h-full flex flex-col">
         <div className="p-4 border-b">
+          <h1 className="text-xl font-bold">Asystent AI</h1>
           {error && (
             <div className="mt-2 p-2 bg-red-100 text-red-700 rounded">
               {error}
@@ -33,7 +34,13 @@ export default function ChatPage() {
             placeholder="Zadaj pytanie lub opisz swój problem..."
           />
         </div>
-      </Card>
-    </>
+      </MaterialCard>
+      <FloatingActionButton
+        onClick={() => { /* TODO: Implement new chat functionality */ }}
+        icon={MessageCircle}
+        label="Nowy czat"
+        variant="extended"
+      />
+    </div>
   );
 }

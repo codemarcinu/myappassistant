@@ -2,200 +2,125 @@
 
 ## Overview
 
-My AI Assistant is a modular agent-based AI system that combines multiple specialized agents to provide a conversational interface for various tasks including shopping management, cooking assistance, weather information, and web search. The system uses locally-hosted language models via Ollama for privacy and control.
+My AI Assistant is a modular, agent-based AI system designed to provide a conversational interface for various household tasks. It combines multiple specialized agents to manage shopping, assist with cooking, provide weather updates, and perform web searches. The system leverages locally-hosted language models via Ollama to ensure user privacy and data control.
 
 ## Key Features
 
-- **Next.js Frontend**: Nowoczesny, interaktywny interfejs użytkownika zbudowany w oparciu o Next.js.
-- **Multi-Agent Architecture**: Specialized agents for different domains:
-  - **Chef Agent**: Suggests recipes based on available pantry items
-  - **Weather Agent**: Provides weather forecasts for specified locations
-  - **Search Agent**: Looks up information on the web
-  - **OCR Agent**: Processes receipt images
-- **Natural Language Understanding**: Processes complex, multi-threaded commands
-- **Local LLM Integration**: Uses Ollama for running language models locally
-- **Database Storage**: Tracks pantry items, receipts, and user preferences
-- **Receipt Scanning**: OCR for automating receipt entry
+- **Multi-Agent Architecture**: A robust system of specialized agents for different domains:
+  - **Chef Agent**: Suggests recipes based on available pantry items.
+  - **Weather Agent**: Provides real-time weather forecasts.
+  - **Search Agent**: Fetches information from the web.
+  - **OCR Agent**: Extracts data from receipt images.
+- **Next.js Frontend**: A modern, interactive user interface built with Next.js and TypeScript.
+- **Natural Language Understanding**: Capable of processing complex, multi-threaded commands.
+- **Local LLM Integration**: Utilizes Ollama for running language models locally, ensuring privacy.
+- **Database Storage**: Tracks pantry items, receipts, and user preferences using a local database.
+- **Receipt Scanning**: Automates receipt entry through advanced OCR technology.
 
 ## System Architecture
 
+The project is a monorepo containing two main components: a FastAPI backend and a Next.js frontend.
+
 ### Backend (`src/backend/`)
-- **Agents**: The core intelligence layer
-  - `orchestrator.py`: The main controller routing requests to specialized agents
-  - `agent_factory.py`: Factory pattern for creating agent instances
-  - `base_agent.py`: Base class for all agents
-  - `*_agent.py`: Specialized agents (chef, weather, search, ocr)
-  - `state.py`: Conversation state management
-  - `tools/`: Tools for agent operations
-- **API**: FastAPI-based endpoints
-  - `agents.py`: Agent-related endpoints
-  - `chat.py`: Chat conversation endpoints
-  - `food.py`: Food and pantry endpoints
-  - `receipts.py`: Receipt processing endpoints
-- **Core**: Fundamental backend services
-  - `database.py`: Database connection and models
-  - `llm_client.py`: Client for Ollama LLM communication
-  - `crud.py`: Data access layer
-  - `ocr.py`: OCR processing for receipts
+
+The backend is built with Python and FastAPI, handling the core logic and agent orchestration.
+
+- **Agents (`src/backend/agents/`)**: The intelligence layer of the system.
+  - `orchestrator.py`: The central controller that routes requests to the appropriate specialized agent.
+  - `agent_factory.py`: A factory for creating agent instances.
+  - `base_agent.py`: The base class for all agents.
+  - `*_agent.py`: Specialized agents for cooking, weather, search, and OCR.
+- **API (`src/backend/api/`)**: FastAPI endpoints for communication with the frontend.
+- **Core (`src/backend/core/`)**: Fundamental services like database management, LLM client, and OCR processing.
 
 ### Frontend (`foodsave-frontend/`)
-- **Next.js Application**: Główna aplikacja frontendu.
-- **Components**: Reużywalne komponenty UI.
-- **Services**: Logika biznesowa i komunikacja z API.
+
+The frontend is a modern web application built with Next.js and TypeScript.
+
+- **App Router (`foodsave-frontend/src/app/`)**: Manages application routing and pages.
+- **Components (`foodsave-frontend/src/components/`)**: Reusable React components, organized by feature.
+- **Services (`foodsave-frontend/src/services/`)**: Handles business logic and API communication.
+- **Hooks (`foodsave-frontend/src/hooks/`)**: Custom React hooks for state management and side effects.
+
+## Technology Stack
+
+- **Backend**: Python, FastAPI, SQLAlchemy
+- **Frontend**: Next.js, React, TypeScript, Tailwind CSS
+- **AI**: Ollama, LangChain
+- **Database**: SQLite (default), compatible with PostgreSQL
+- **DevOps**: Docker, Poetry
 
 ## Setup & Installation
 
 ### Prerequisites
-- Python 3.9+ (recommended: 3.11+)
+
+- Python 3.9+ (3.11+ recommended)
+- Node.js 18.x or higher
 - [Ollama](https://ollama.com/) for local language models
-- Poetry for dependency management
+- [Poetry](https://python-poetry.org/) for Python dependency management
 
-### Installation
+### Installation Steps
 
-1. Clone the repository and install dependencies using Poetry:
-```bash
-# Install Poetry if needed
-pip install poetry
+1.  **Clone the repository:**
+    ```bash
+    git clone <repository-url>
+    cd <repository-directory>
+    ```
 
-# Install dependencies
-poetry install
+2.  **Set up the Backend:**
+    ```bash
+    # Install Python dependencies
+    poetry install
 
-# Activate the virtual environment
-poetry shell
-```
+    # Activate the virtual environment
+    poetry shell
+    ```
 
-2. Set up Ollama and pull the required models:
-```bash
-# Install Ollama following the instructions at https://ollama.com/
-# Then pull the required models:
-ollama pull gemma3:12b
-ollama pull deepseek-coder-v2:16b
-ollama pull nomic-embed-text
-```
+3.  **Set up the Frontend:**
+    ```bash
+    # Navigate to the frontend directory
+    cd foodsave-frontend
 
-3. Create a `.env` file in the project root:
-```
-# Database
-DATABASE_URL=sqlite+aiosqlite:///./shopping.db
+    # Install Node.js dependencies
+    npm install
+    ```
 
-# Ollama
-OLLAMA_BASE_URL=http://localhost:11434
-DEFAULT_CHAT_MODEL=gemma3:12b
-DEFAULT_CODE_MODEL=deepseek-coder-v2:16b
-DEFAULT_EMBEDDING_MODEL=nomic-embed-text:latest
+4.  **Configure Environment Variables:**
+    Create a `.env` file in the project root by copying `.env.example` and customize the variables.
+    ```bash
+    cp .env.example .env
+    ```
 
-# API
-API_HOST=localhost
-API_PORT=8000
+5.  **Set up Ollama:**
+    Install Ollama from the [official website](https://ollama.com/) and pull the required models:
+    ```bash
+    ollama pull gemma3:12b
+    ollama pull deepseek-coder-v2:16b
+    ollama pull nomic-embed-text
+    ```
 
-# Frontend
-```
-
-4. Initialize the database:
-```bash
-python scripts/seed_db.py
-```
+6.  **Initialize the Database:**
+    ```bash
+    # Make sure you are in the root directory with the Poetry shell activated
+    python scripts/seed_db.py
+    ```
 
 ### Running the Application
 
-1. Start the backend server:
-```bash
-cd src/backend
-uvicorn backend.main:app --reload
-```
+1.  **Start the Backend Server:**
+    ```bash
+    # From the project root, with Poetry shell activated
+    uvicorn src.backend.main:app --reload --host 0.0.0.0 --port 8000
+    ```
 
-2. Start the frontend in a new terminal:
-```bash
-cd foodsave-frontend
-npm run dev
-```
+2.  **Start the Frontend Development Server:**
+    In a new terminal, navigate to the frontend directory:
+    ```bash
+    cd foodsave-frontend
+    npm run dev
+    ```
 
-The application will be available at http://localhost:3000
-
-## API Endpoints
-
-### Agent Endpoints
-- `POST /api/v1/agents/execute`: Execute a task with the agent system
-
-### Chat Endpoints
-- `POST /api/v1/chat/`: Send a message to the chat system
-- `GET /api/v1/chat/history`: Get chat history
-
-### Pantry Endpoints
-- `GET /api/v1/pantry/products`: Get all pantry products
-
-### Receipt Endpoints
-- `POST /api/v1/receipts/upload`: Upload and process a receipt image
-
-## Example Usage
-
-### Asking for Weather
-```
-User: "Jaka jest pogoda w Warszawie?"
-Assistant: "Obecnie w Warszawie jest 22°C, częściowo zachmurzenie.
-Wiatr wieje z prędkością 15 km/h, a wilgotność wynosi 65%."
-```
-
-### Getting a Recipe Suggestion
-```
-User: "Co mogę ugotować z produktów, które mam w spiżarni?"
-Assistant: "Na podstawie produktów w Twojej spiżarni, proponuję:
-
-PRZEPIS: Szybki makaron z sosem pomidorowym
-
-Składniki:
-- 200g makaronu penne
-- 1 puszka pomidorów krojonych
-- 2 ząbki czosnku
-- 1 łyżka oliwy z oliwek
-- Sól i pieprz do smaku
-- Garść świeżej bazylii
-
-Przygotowanie:
-1. Ugotuj makaron al dente według instrukcji na opakowaniu.
-2. Na patelni rozgrzej oliwę, dodaj posiekany czosnek i smaż przez 30 sekund.
-3. Dodaj pomidory z puszki, sól i pieprz, gotuj na małym ogniu przez 10 minut.
-4. Odcedź makaron i dodaj do sosu, wymieszaj.
-5. Podawaj posypane świeżą bazylią.
-
-Czy przygotowałeś to danie? To pozwoli mi zaktualizować stan spiżarni."
-```
-
-### OCR Receipt Processing
-```
-[User uploads a receipt image]
-Assistant: "Pomyślnie przetworzono paragon! Rozpoznane produkty:
-- Mleko 3,2% 1L: 3.99 zł
-- Chleb pszenny: 4.50 zł
-- Ser żółty 300g: 8.99 zł
-- Pomidory 0.5kg: 4.29 zł
-
-Łączna kwota: 21.77 zł. Czy chcesz, żebym dodał te produkty do Twojej spiżarni?"
-```
-
-## Development
-
-### Running Tests
-```bash
-# Run all tests
-pytest
-
-# Run specific test categories
-pytest tests/unit/
-pytest tests/integration/
-pytest tests/e2e/
-```
-
-### Development Mode
-```bash
-# Backend with hot reload
-cd src/backend
-uvicorn backend.main:app --reload --log-level debug
-
-# Frontend with hot reload
-cd foodsave-frontend
-npm run dev
-```
+The application will be available at `http://localhost:3000`.
 
 ## Project Status
 
@@ -220,4 +145,4 @@ npm run dev
 
 ## License
 
-MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
