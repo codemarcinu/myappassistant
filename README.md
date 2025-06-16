@@ -58,24 +58,24 @@ graph TD
     User[User] --> Frontend[Next.js Frontend]
     Frontend --> API[FastAPI Backend]
     API --> EO[Enhanced Orchestrator]
-    
+
     EO --> Memory[Memory Manager]
     EO --> Intent[Intent Recognition]
-    
+
     EO --> ERAG[Enhanced RAG Agent]
     EO --> EWA[Enhanced Weather Agent]
     EO --> Search[Search Agent]
     EO --> Chef[Chef Agent]
     EO --> Other[Other Specialized Agents]
-    
+
     ERAG --> EVS[Enhanced Vector Store]
     ERAG --> HLLM[Hybrid LLM Client]
-    
+
     subgraph "Knowledge Base"
         EVS --> FAISS[FAISS Index]
         EVS --> Documents[Document Storage]
     end
-    
+
     subgraph "External Services"
         EWA --> Weather[Weather APIs]
         Search --> WebSearch[Web Search]
@@ -120,7 +120,7 @@ graph TD
     ```bash
     # Use the provided rebuild script to build Docker containers
     ./rebuild.sh
-    
+
     # Or manually build and run using docker-compose
     docker-compose up --build
     ```
@@ -143,8 +143,8 @@ graph TD
 5.  **Set up Ollama:**
     Install Ollama from the [official website](https://ollama.com/) and pull the required models:
     ```bash
-    ollama pull llama3:8b
-    ollama pull deepseek-coder:7b
+    ollama pull gemma3:latest
+    ollama pull SpeakLeash/bielik-11b-v2.3-instruct:Q6_K
     ollama pull nomic-embed-text
     ```
     
