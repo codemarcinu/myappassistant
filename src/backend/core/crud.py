@@ -4,6 +4,8 @@ from datetime import date, timedelta
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy import func, select, update
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from ..models.conversation import Conversation, Message
 from ..models.shopping import Product, ShoppingTrip
@@ -99,12 +101,12 @@ def parse_human_date(date_string: str, today: Optional[date] = None) -> Optional
 
 
 async def find_purchase_for_action(
-    db: Any, entities: Dict[str, Any]
+    db: AsyncSession, entities: Dict[str, Any]
 ) -> List[ShoppingTrip]:
     """
     Wyszukuje w bazie danych paragony na podstawie "ludzkich" identyfikatorów. Zwraca listę!
     """
-    paragon_query = select([*ShoppingTrip.__table__.columns])
+    paragon_query = select(ShoppingTrip)
     paragon_id_data = entities.get("paragon_identyfikator", {})
 
     if paragon_id_data:
@@ -129,7 +131,9 @@ async def find_purchase_for_action(
     return znalezione_paragony
 
 
-async def find_item_for_action(db: Any, entities: Dict[str, Any]) -> List[Product]:
+async def find_item_for_action(
+    db: AsyncSession, entities: Dict[str, Any]
+) -> List[Product]:
     """
     Wyszukuje w bazie danych artykuły na podstawie "ludzkich" identyfikatorów. Zwraca listę!
     """
@@ -142,9 +146,7 @@ async def find_item_for_action(db: Any, entities: Dict[str, Any]) -> List[Produc
     produkty = []
     produkt_id_data = entities.get("produkt_identyfikator", {})
     for paragon in znalezione_paragony:
-        produkt_query = select([*Product.__table__.columns]).where(
-            Product.trip_id == paragon.id
-        )
+        produkt_query = select(Product).where(Product.trip_id == paragon.id)
         if produkt_id_data and produkt_id_data.get("nazwa"):
             produkt_query = produkt_query.where(
                 Product.name.ilike(f"%{produkt_id_data['nazwa']}%")
@@ -158,7 +160,7 @@ async def find_item_for_action(db: Any, entities: Dict[str, Any]) -> List[Produc
 
 
 async def execute_action(
-    db: Any,
+    db: AsyncSession,
     intent: str,
     target_object: Any,
     operations: Optional[List[Dict[str, Any]]] = None,
@@ -228,7 +230,7 @@ async def execute_action(
     return False
 
 
-async def create_shopping_trip(db: Any, data: Dict[str, Any]) -> ShoppingTrip:
+async def create_shopping_trip(db: AsyncSession, data: Dict[str, Any]) -> ShoppingTrip:
     """
     Tworzy nowy wpis o zakupach wraz z listą produktów w jednej transakcji.
     WERSJA OSTATECZNA z mapowaniem pól.
@@ -277,7 +279,7 @@ async def create_shopping_trip(db: Any, data: Dict[str, Any]) -> ShoppingTrip:
         raise
 
 
-async def get_summary(db: Any, query_params: Dict[str, Any]) -> List[Any]:
+async def get_summary(db: AsyncSession, query_params: Dict[str, Any]) -> List[Any]:
     """
     Na podstawie planu zapytania z LLM, dynamicznie buduje i wykonuje
     zapytanie analityczne SQLAlchemy. WERSJA FINALNA.
@@ -287,22 +289,12 @@ async def get_summary(db: Any, query_params: Dict[str, Any]) -> List[Any]:
 
     if metryka == "lista_wszystkiego":
         stmt = (
-            select([*ShoppingTrip.__table__.columns])
-            .execution_options(populate_existing=True)
+            select(ShoppingTrip)
+            .options(selectinload(ShoppingTrip.products))
             .order_by(ShoppingTrip.trip_date.desc())
         )
         result = await db.execute(stmt)
-        trips = list(result.scalars().all())
-
-        # Load products separately
-        for trip in trips:
-            product_stmt = select([*Product.__table__.columns]).where(
-                Product.trip_id == trip.id
-            )
-            product_result = await db.execute(product_stmt)
-            trip.products = list(product_result.scalars().all())
-
-        return trips
+        return list(result.scalars().all())
 
     if metryka == "suma_wydatkow":
         selekcja = [func.sum(Product.unit_price * Product.quantity).label("value")]
@@ -325,41 +317,27 @@ async def get_summary(db: Any, query_params: Dict[str, Any]) -> List[Any]:
             return []
 
         # Build base query
-        stmt = select(*selekcja)
-
-        # Add join
-        stmt = stmt.select_from(
-            Product.__table__.join(
-                ShoppingTrip.__table__, Product.trip_id == ShoppingTrip.id
-            )
-        )
+        stmt = select(*selekcja).select_from(Product).join(ShoppingTrip)
 
         # Add group by if needed
         if kolumny_grupujace_sql:
-            # Fetch the raw SQL expression from the statement and execute with group by manually
-            query = str(stmt.compile(compile_kwargs={"literal_binds": True}))
-            query += " GROUP BY " + ", ".join(
-                str(col.compile(compile_kwargs={"literal_binds": True}))
-                for col in kolumny_grupujace_sql
-            )
-            result = await db.execute(query)
-            return list(result)
-        else:
-            result = await db.execute(stmt)
-            return list(result.all())
+            stmt = stmt.group_by(*kolumny_grupujace_sql)
+
+        result = await db.execute(stmt)
+        return list(result.all())
 
     return []
 
 
-async def get_all_products(db: Any) -> List[Product]:
+async def get_all_products(db: AsyncSession) -> List[Product]:
     """Pobiera wszystkie produkty ze wszystkich zakupów."""
-    query = select([*Product.__table__.columns]).order_by(Product.id.desc())
+    query = select(Product).order_by(Product.id.desc())
     result = await db.execute(query)
     return list(result.scalars().all())
 
 
 async def add_products_to_trip(
-    db: Any, shopping_trip_id: int, products_data: List[Dict[str, Any]]
+    db: AsyncSession, shopping_trip_id: int, products_data: List[Dict[str, Any]]
 ) -> ShoppingTrip:
     """
     Dodaje wiele produktów do istniejącej listy zakupów w jednej transakcji.
@@ -367,9 +345,7 @@ async def add_products_to_trip(
     try:
         # Pobierz istniejący paragon
         result = await db.execute(
-            select([*ShoppingTrip.__table__.columns]).where(
-                ShoppingTrip.id == shopping_trip_id
-            )
+            select(ShoppingTrip).where(ShoppingTrip.id == shopping_trip_id)
         )
         shopping_trip = result.scalar_one_or_none()
 
@@ -409,11 +385,11 @@ async def add_products_to_trip(
 
 
 async def get_trips_by_date_range(
-    db: Any, start_date: date, end_date: date
+    db: AsyncSession, start_date: date, end_date: date
 ) -> List[ShoppingTrip]:
     """Pobiera zakupy w podanym zakresie dat."""
     stmt = (
-        select(*ShoppingTrip.__table__.columns)
+        select(ShoppingTrip)
         .where(ShoppingTrip.trip_date.between(start_date, end_date))
         .order_by(ShoppingTrip.trip_date.desc())
     )
@@ -421,14 +397,14 @@ async def get_trips_by_date_range(
     return list(result.scalars().all())
 
 
-async def get_available_products(db: Any) -> List[Product]:
+async def get_available_products(db: AsyncSession) -> List[Product]:
     """
     Gets all products that are not consumed and not expired.
     Returns list of Product objects.
     """
     today = date.today()
     stmt = (
-        select([*Product.__table__.columns])
+        select(Product)
         .where(
             (Product.is_consumed.is_(False))
             & ((Product.expiration_date.is_(None)) | (Product.expiration_date >= today))
@@ -439,16 +415,14 @@ async def get_available_products(db: Any) -> List[Product]:
     return list(result.scalars().all())
 
 
-async def mark_products_consumed(db: Any, product_ids: List[int]) -> bool:
+async def mark_products_consumed(db: AsyncSession, product_ids: List[int]) -> bool:
     """
     Marks multiple products as consumed by their IDs.
     Returns True if successful, False otherwise.
     """
     try:
         stmt = (
-            update(Product.__table__)
-            .where(Product.id.in_(product_ids))
-            .values(is_consumed=True)
+            update(Product).where(Product.id.in_(product_ids)).values(is_consumed=True)
         )
         await db.execute(stmt)
         await db.commit()
@@ -459,29 +433,25 @@ async def mark_products_consumed(db: Any, product_ids: List[int]) -> bool:
         return False
 
 
-async def get_shopping_trip_summary(db: Any, trip_id: int) -> Optional[Dict[str, Any]]:
+async def get_shopping_trip_summary(
+    db: AsyncSession, trip_id: int
+) -> Optional[Dict[str, Any]]:
     """
     Calculates the summary for a specific shopping trip, including the total
     number of products and the sum of their costs.
     """
-    # Create base query
-    stmt = select(
-        func.count(Product.id).label("total_products"),
-        func.sum(Product.unit_price * Product.quantity).label("total_cost"),
-    )
-
-    # Add join and filters
-    stmt = stmt.select_from(
-        Product.__table__.join(
-            ShoppingTrip.__table__, Product.trip_id == ShoppingTrip.id
+    stmt = (
+        select(
+            func.count(Product.id).label("total_products"),
+            func.sum(Product.unit_price * Product.quantity).label("total_cost"),
         )
+        .select_from(Product)
+        .join(ShoppingTrip)
+        .where(ShoppingTrip.id == trip_id)
+        .group_by(ShoppingTrip.id)
     )
 
-    # Execute with manual WHERE and GROUP BY clauses
-    query = str(stmt.compile(compile_kwargs={"literal_binds": True}))
-    query += f" WHERE ShoppingTrip.id = {trip_id} GROUP BY ShoppingTrip.id"
-
-    result = await db.execute(query)
+    result = await db.execute(stmt)
     summary = result.first()
 
     if summary:
@@ -493,20 +463,20 @@ async def get_shopping_trip_summary(db: Any, trip_id: int) -> Optional[Dict[str,
 
 
 async def get_conversation_by_session_id(
-    db: Any, session_id: str
+    db: AsyncSession, session_id: str
 ) -> Conversation | None:
     """
     Asynchronously retrieves a conversation from the database by session_id.
     """
     result = await db.execute(
-        select(*Conversation.__table__.columns).where(
-            Conversation.session_id == session_id
-        )
+        select(Conversation)
+        .options(selectinload(Conversation.messages))
+        .where(Conversation.session_id == session_id)
     )
     return result.scalars().first()
 
 
-async def create_conversation(db: Any, session_id: str) -> Conversation:
+async def create_conversation(db: AsyncSession, session_id: str) -> Conversation:
     """
     Asynchronously creates a new conversation in the database.
     """
@@ -518,16 +488,12 @@ async def create_conversation(db: Any, session_id: str) -> Conversation:
 
 
 async def add_message_to_conversation(
-    db: Any, conversation_id: int, role: str, content: str
+    db: AsyncSession, conversation_id: int, role: str, content: str
 ) -> Message:
     """
     Asynchronously adds a new message to a conversation in the database.
     """
-    message = Message(
-        conversation_id=conversation_id,
-        role=role,
-        content=content,
-    )
+    message = Message(conversation_id=conversation_id, role=role, content=content)
     db.add(message)
     await db.commit()
     await db.refresh(message)
