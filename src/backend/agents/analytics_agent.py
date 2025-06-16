@@ -1,10 +1,13 @@
 from typing import Any, Dict
 
-from backend.agents.base_agent import AgentResponse, BaseAgent
-from backend.core.crud import get_summary
+from ..core.crud import get_summary
+from .base_agent import AgentResponse, BaseAgent
 
 
 class AnalyticsAgent(BaseAgent):
+    def __init__(self, name: str):
+        super().__init__(name)
+
     async def process(self, context: Dict[str, Any]) -> AgentResponse:
         db = context["db"]
         query_params = context["query_params"]

@@ -1,11 +1,11 @@
 import logging
-from typing import Any, Dict, Literal, Optional, TypeAlias
+from typing import Any, Dict, Literal, Optional, TypeAlias  # noqa: F401
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.agents.agent_factory import AgentFactory
-from backend.agents.state import ConversationState
-from backend.core import crud
+from ..core import crud
+from .agent_factory import AgentFactory
+from .state import ConversationState
 
 IntentType: TypeAlias = Literal[
     "WEATHER", "SEARCH", "UPDATE_ITEM", "DELETE_ITEM", "UNKNOWN"

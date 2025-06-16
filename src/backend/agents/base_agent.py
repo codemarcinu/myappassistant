@@ -3,24 +3,24 @@ import logging
 from abc import ABC, abstractmethod
 from functools import wraps  # noqa: F401
 from typing import (
+    TYPE_CHECKING,
     Any,
     AsyncGenerator,
     Dict,
     Generic,
     List,
     Optional,
-    TypeAlias,
     TypeVar,
 )
 
 from pydantic import BaseModel, ValidationError
 
-from src.backend.core.llm_client import LLMClient
+from ..core.llm_client import LLMClient
 
-BaseAgent: TypeAlias = "EnhancedBaseAgent[BaseModel]"
+# Define type variable at top level
+T = TypeVar("T", bound=BaseModel)
 
 logger = logging.getLogger(__name__)
-T = TypeVar("T", bound=BaseModel)
 
 
 class AgentResponse(BaseModel):
@@ -117,7 +117,13 @@ class EnhancedBaseAgent(ABC, Generic[T]):
         yield f"Error: Failed to generate response after {retries} attempts"
 
     def __str__(self):
-        return f"{self.__class__.__name__}({self.name})"
+        name_str = str(self.name) if not isinstance(self.name, tuple) else self.name[0]
+        return f"{self.__class__.__name__}(name={name_str})"
 
+
+if TYPE_CHECKING:
+    BaseAgent = EnhancedBaseAgent[BaseModel]
+else:
+    BaseAgent = "EnhancedBaseAgent[BaseModel]"
 
 __all__ = ["BaseAgent", "EnhancedBaseAgent", "AgentResponse"]

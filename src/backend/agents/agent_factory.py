@@ -43,4 +43,7 @@ class AgentFactory:
         if agent_type not in cls._registry:
             raise ValueError(f"Nieznany typ agenta: {agent_type}")
         agent_class = cls._registry[agent_type]
-        return agent_class(name="")
+        agent_name = f"{agent_type}_agent"
+        if not isinstance(agent_name, str):
+            agent_name = str(agent_name)
+        return agent_class(name=agent_name)
