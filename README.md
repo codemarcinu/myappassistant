@@ -11,6 +11,10 @@ My AI Assistant is a modular, agent-based AI system designed to provide a conver
   - **Weather Agent**: Provides real-time weather forecasts.
   - **Search Agent**: Fetches information from the web.
   - **OCR Agent**: Extracts data from receipt images.
+  - **Analytics Agent**: Provides insights into shopping patterns.
+  - **Meal Planner Agent**: Helps with planning meals and generating shopping lists.
+  - **Categorization Agent**: Automatically categorizes products from receipts.
+  - **RAG Agent**: Performs Retrieval-Augmented Generation for enhanced conversational capabilities.
 - **Next.js Frontend**: A modern, interactive user interface built with Next.js and TypeScript.
 - **Natural Language Understanding**: Capable of processing complex, multi-threaded commands.
 - **Local LLM Integration**: Utilizes Ollama for running language models locally, ensuring privacy.
@@ -133,12 +137,13 @@ The application will be available at `http://localhost:3000`.
 - ✅ Weather information retrieval
 - ✅ OCR for receipt processing
 - ✅ Basic conversation state management
+- ✅ RAG for enhanced Q&A
 
 ### Upcoming Features
-- ❌ Advanced analytics for shopping patterns
+- ✅ Advanced analytics for shopping patterns
 - ❌ Budget tracking and visualization
-- ❌ Automated categorization of products
-- ❌ Meal planning and shopping list generation
+- ✅ Automated categorization of products
+- ✅ Meal planning and shopping list generation
 - ❌ User authentication system
 - ❌ Mobile-friendly responsive design
 - ❌ Improved conversation memory
