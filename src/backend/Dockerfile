@@ -2,22 +2,23 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y \
-    tesseract-ocr \
-    && rm -rf /var/lib/apt/lists/*
+# Zainstaluj poetry
+RUN pip install poetry
 
-# Install from requirements.txt
-COPY requirements.txt .
-RUN pip install -r requirements.txt
+# Skonfiguruj poetry, aby nie tworzyło wirtualnego środowiska wewnątrz kontenera
+RUN poetry config virtualenvs.create false
 
-# Copy source code
-COPY . .
+# Skopiuj pliki zależności
+COPY pyproject.toml poetry.lock ./
 
-# Make sure the directory is treated as a Python package
-RUN touch __init__.py
+# Zainstaluj zależności (bez instalowania samego projektu, tylko jego zależności)
+RUN poetry install --no-interaction --no-ansi --without dev --no-root
 
-# Set Python path to include the parent directory
-ENV PYTHONPATH=/
+# Skopiuj kod aplikacji
+COPY src/backend/ ./backend
 
-# Run with the Python module notation to handle imports correctly
-CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Ustaw PYTHONPATH, aby Python mógł znaleźć moduły
+ENV PYTHONPATH=/app
+
+# Uruchom aplikację
+CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]

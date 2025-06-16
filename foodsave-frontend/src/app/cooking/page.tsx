@@ -18,7 +18,7 @@ export default function CookingPage() {
   } = useCooking();
 
   return (
-    <div className="container mx-auto p-4">
+    <>
       <h1 className="text-3xl font-bold mb-6">Gotowanie</h1>
 
       {error && (
@@ -49,6 +49,6 @@ export default function CookingPage() {
           />
         </div>
       </div>
-    </div>
+    </>
   );
 }

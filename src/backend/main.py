@@ -66,7 +66,11 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     # UWAGA: W środowisku produkcyjnym te wartości powinny pochodzić ze zmiennych środowiskowych!
-    allow_origins=["http://localhost:8501", "http://127.0.0.1:8501"],
+    allow_origins=[
+        "http://localhost:8501",
+        "http://127.0.0.1:8501",
+        "http://localhost:3000",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

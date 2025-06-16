@@ -10,10 +10,10 @@ export default function ChatPage() {
   const { messages, isLoading, error, sendMessage } = useChat();
 
   return (
-    <div className="container mx-auto p-4">
+    <>
       <h1 className="text-3xl font-bold mb-6">Asystent AI</h1>
 
-      <Card className="min-h-[calc(100vh-200px)] flex flex-col">
+      <Card className="h-[calc(100vh-150px)] flex flex-col">
         <div className="p-4 border-b">
           {error && (
             <div className="mt-2 p-2 bg-red-100 text-red-700 rounded">
@@ -34,6 +34,6 @@ export default function ChatPage() {
           />
         </div>
       </Card>
-    </div>
+    </>
   );
 }

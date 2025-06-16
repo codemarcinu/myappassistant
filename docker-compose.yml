@@ -1,10 +1,9 @@
-version: '3.8'
 services:
   backend:
     container_name: my_ai_assistant_backend
     build:
-      context: ./src/backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: src/backend/Dockerfile
     ports:
       - "8000:8000"
     environment:
@@ -22,7 +21,7 @@ services:
   frontend:
     container_name: my_ai_assistant_frontend
     build:
-      context: ./src/frontend
+      context: ./foodsave-frontend
       dockerfile: Dockerfile
     ports:
       - "3000:3000"

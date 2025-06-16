@@ -9,6 +9,8 @@ export const metadata: Metadata = {
   description: 'Twój osobisty asystent do zarządzania zakupami i gotowaniem',
 };
 
+import { MainLayout } from '@/components/layout/MainLayout';
+
 export default function RootLayout({
   children,
 }: {
@@ -17,9 +19,7 @@ export default function RootLayout({
   return (
     <html lang="pl">
       <body className={inter.className}>
-        <div className="min-h-screen flex flex-col">
-          {children}
-        </div>
+        <MainLayout>{children}</MainLayout>
       </body>
     </html>
   );
