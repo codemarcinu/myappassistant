@@ -4,10 +4,10 @@ from .analytics_agent import AnalyticsAgent
 from .base_agent import BaseAgent
 from .categorization_agent import CategorizationAgent
 from .chef_agent import ChefAgent
+from .enhanced_rag_agent import EnhancedRAGAgent
 from .meal_planner_agent import MealPlannerAgent
 from .ocr_agent import OCRAgent
 from .rag_agent import RAGAgent
-from .enhanced_rag_agent import EnhancedRAGAgent
 from .search_agent import SearchAgent
 from .weather_agent import WeatherAgent
 

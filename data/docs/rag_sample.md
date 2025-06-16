@@ -2,7 +2,7 @@
 
 ## What is RAG?
 
-Retrieval-Augmented Generation (RAG) is a hybrid AI framework that combines the strengths of both retrieval-based and generation-based approaches to create more accurate, up-to-date, and contextually relevant responses. 
+Retrieval-Augmented Generation (RAG) is a hybrid AI framework that combines the strengths of both retrieval-based and generation-based approaches to create more accurate, up-to-date, and contextually relevant responses.
 
 RAG works by first retrieving relevant information from a knowledge base, then feeding this information to a language model to generate a response. This approach helps address some key limitations of large language models:
 

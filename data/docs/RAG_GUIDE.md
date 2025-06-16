@@ -51,10 +51,10 @@ Before indexing, documents need to be processed:
 1. **Loading**: Use appropriate document loaders based on file type:
    ```python
    from src.backend.core.rag_document_processor import rag_document_processor
-   
+
    # Load from file
    content = rag_document_processor.load_document("path/to/document.pdf")
-   
+
    # Load from URL
    content = rag_document_processor.load_from_url("https://example.com/article")
    ```
@@ -162,13 +162,13 @@ from src.backend.agents.enhanced_rag_agent import EnhancedRAGAgent
 async def main():
     # Create agent
     rag_agent = EnhancedRAGAgent("my-rag-agent")
-    
+
     # Add documents
     await rag_agent.add_file("path/to/document.pdf")
-    
+
     # Search
     results = await rag_agent.search("What is RAG?", k=5)
-    
+
     # Answer questions
     response = await rag_agent.process({"query": "Explain RAG architecture"})
     print(response.text)
@@ -189,7 +189,7 @@ async def process_batch():
         ("Document 2 content", {"source": "doc2", "category": "finance"}),
         # More documents...
     ]
-    
+
     results = await rag_document_processor.process_batch(documents)
     print(f"Processed {len(results)} documents")
 
@@ -251,14 +251,14 @@ from src.backend.core.enhanced_vector_store import enhanced_vector_store
 async def setup_incremental_indexing():
     # Create loader
     loader = AsyncDocumentLoader(enhanced_vector_store)
-    
+
     # Start incremental indexing
     await loader.start_incremental_indexing(
         directory="data/docs",
         glob_pattern="**/*.pdf",  # Match pattern
         check_interval=300  # Check every 5 minutes
     )
-    
+
     # Run indefinitely
     try:
         while True:
