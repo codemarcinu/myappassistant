@@ -3,7 +3,7 @@ import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-from sqlalchemy.ext.asyncio import AsyncSession
+from ..core.sqlalchemy_compat import AsyncSession
 
 from ..core.enhanced_vector_store import enhanced_vector_store
 from ..core.hybrid_llm_client import ModelComplexity, hybrid_llm_client

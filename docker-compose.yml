@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   backend:
     container_name: my_ai_assistant_backend
@@ -15,6 +17,13 @@ services:
     command: python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000
     volumes:
       - /usr/share/tesseract-ocr:/usr/share/tesseract-ocr:ro
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
     depends_on:
       redis:
         condition: service_healthy

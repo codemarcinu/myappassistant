@@ -1,9 +1,12 @@
 # Use Python 3.12 slim image as base
 FROM python:3.12-slim
 
-# Install system dependencies including tesseract-ocr
+# Install system dependencies including tesseract-ocr, build essentials, and swig
 RUN apt-get update && apt-get install -y \
     tesseract-ocr \
+    build-essential \
+    swig \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
@@ -11,16 +14,38 @@ WORKDIR /app
 
 # Copy requirements file
 COPY pyproject.toml poetry.lock ./
+
+# Install poetry and increase network timeouts
 RUN pip install poetry && \
     poetry config virtualenvs.create false && \
-    poetry lock && \
-    poetry install --no-root --only main
+    pip config set global.timeout 600
+
+# Install core dependencies first
+RUN pip install --retries 3 --timeout 300 fastapi uvicorn python-multipart httpx pydantic pydantic-settings python-dotenv \
+    sqlalchemy aiosqlite pytz psutil
+
+# Install ML dependencies in smaller groups with alternatives to problematic packages
+RUN pip install --retries 5 --timeout 600 \
+    langchain==0.1.0 \
+    langchain-community==0.0.13 \
+    numpy==1.26.0 \
+    scipy==1.15.3 \
+    scikit-learn==1.7.0 \
+    pytesseract==0.3.10 \
+    PyMuPDF==1.24.1 \
+    ollama==0.1.0
+
+# Install sentence-transformers (which includes a GPU-enabled pytorch)
+RUN pip install --retries 5 --timeout 600 sentence-transformers==2.2.2
 
 # Copy the backend directory
 COPY ./src/backend ./backend
+
+# Set environment variables
+ENV PYTHONPATH=/app
 
 # Expose port 8000
 EXPOSE 8000
 
 # Command to run the application
-CMD ["uvicorn", "src.backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]

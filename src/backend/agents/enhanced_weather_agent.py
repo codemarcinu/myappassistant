@@ -6,8 +6,8 @@ from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple, Union
 import httpx
 from pydantic import BaseModel, Field
 
-from backend.agents.base_agent import AgentResponse, EnhancedBaseAgent
-from backend.core.llm_client import llm_client
+from ..agents.base_agent import AgentResponse, EnhancedBaseAgent
+from ..core.llm_client import llm_client
 
 logger = logging.getLogger(__name__)
 
