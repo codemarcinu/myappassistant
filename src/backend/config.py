@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     # Konfiguracja bazy danych
     DATABASE_URL: str = "sqlite+aiosqlite:///./shopping.db"
 
+    # Konfiguracja Tesseract OCR
+    TESSDATA_PREFIX: str = "/usr/share/tesseract-ocr/5/"
+
     # Ta linia mówi Pydantic, aby wczytał zmienne z pliku .env w głównym katalogu
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 

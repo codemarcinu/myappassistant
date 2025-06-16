@@ -1,8 +1,7 @@
-# w pliku backend/models/shopping.py
-from sqlalchemy import Boolean, Column, Date, Float, ForeignKey, Integer, String
-from sqlalchemy.orm import relationship
+from sqlalchemy import Boolean, Column, Date, Float, ForeignKey, Index, Integer, String
+from sqlalchemy.orm import deferred, relationship
 
-from ..core.database import Base  # Importujemy naszą klasę bazową z kroku 2
+from ..core.database import Base
 
 
 class ShoppingTrip(Base):
@@ -26,14 +25,24 @@ class Product(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, index=True, nullable=False)
     quantity = Column(Float, default=1.0)
-    unit_price = Column(Float, nullable=True)
+    unit_price = deferred(Column(Float, nullable=True))  # Defer loading unless needed
     discount = Column(Float, default=0.0)
-    category = Column(String, nullable=True)  # New field for product category
-    expiration_date = Column(Date, nullable=True)
-    is_consumed = Column(Boolean, default=False, nullable=False)
+    category = Column(String, index=True, nullable=True)  # Index for category queries
+    expiration_date = Column(
+        Date, index=True, nullable=True
+    )  # Index for expiration queries
+    is_consumed = Column(Boolean, default=False, nullable=False, index=True)
 
     # Klucz obcy - każdy produkt musi należeć do jakiegoś paragonu.
     trip_id = Column(Integer, ForeignKey("shopping_trips.id"), nullable=False)
 
     # Relacja zwrotna do paragonu.
-    trip = relationship("ShoppingTrip", back_populates="products")
+    trip = relationship("ShoppingTrip", back_populates="products", lazy="selectin")
+
+
+# Composite indexes for common product queries
+Index("ix_product_trip_category", Product.trip_id, Product.category)
+Index("ix_product_expiration", Product.expiration_date, Product.is_consumed)
+
+# Index for shopping trips by date
+Index("ix_trip_date", ShoppingTrip.trip_date)

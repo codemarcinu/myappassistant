@@ -1,9 +1,39 @@
+import asyncio
 import logging
 import uuid
+from datetime import datetime, timedelta
 from functools import lru_cache
-from typing import Any, AsyncGenerator, Dict, List, Optional
+from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
 
 import ollama
+
+
+class LLMCache:
+    """Cache for LLM responses with TTL support"""
+
+    def __init__(self, max_size: int = 1000, ttl: int = 3600):
+        self.max_size = max_size
+        self.ttl = timedelta(seconds=ttl)
+        self._cache: Dict[Tuple, Tuple[Any, datetime]] = {}
+
+    def get(self, key: Tuple) -> Optional[Any]:
+        if key not in self._cache:
+            return None
+
+        value, timestamp = self._cache[key]
+        if datetime.now() - timestamp > self.ttl:
+            del self._cache[key]
+            return None
+
+        return value
+
+    def set(self, key: Tuple, value: Any) -> None:
+        if len(self._cache) >= self.max_size:
+            # Remove oldest item
+            oldest_key = next(iter(self._cache))
+            del self._cache[oldest_key]
+
+        self._cache[key] = (value, datetime.now())
 
 
 class LLMClient:
@@ -243,5 +273,34 @@ class LLMClient:
             return []
 
 
+class EnhancedLLMClient(LLMClient):
+    """Enhanced LLM client with rate limiting and advanced caching"""
+
+    def __init__(self):
+        super().__init__()
+        self.semaphore = asyncio.Semaphore(10)  # Limit concurrent requests
+        self.cache = LLMCache(max_size=1000, ttl=3600)  # 1 hour TTL
+
+    async def chat_with_retry(
+        self, model: str, messages: List[Dict], retries: int = 3
+    ) -> Dict[str, Any]:
+        """Chat with automatic retry mechanism"""
+        attempt = 0
+        last_error = None
+
+        while attempt < retries:
+            try:
+                async with self.semaphore:
+                    return await self.chat(model, messages)
+            except Exception as e:
+                last_error = e
+                attempt += 1
+                if attempt < retries:
+                    wait_time = 0.5 * (2 ** (attempt - 1))  # Exponential backoff
+                    await asyncio.sleep(wait_time)
+
+        raise last_error or Exception("Failed after retries")
+
+
 # Inicjalizacja pojedynczej instancji klienta
-llm_client = LLMClient()
+llm_client = EnhancedLLMClient()

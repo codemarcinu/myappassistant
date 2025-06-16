@@ -5,7 +5,7 @@ from typing import Any, AsyncGenerator, Dict, Optional
 import httpx
 from pydantic import BaseModel
 
-from backend.agents.base_agent import AgentResponse, BaseAgent
+from backend.agents.base_agent import AgentResponse, EnhancedBaseAgent
 from backend.core.llm_client import llm_client
 
 logger = logging.getLogger(__name__)
@@ -16,107 +16,73 @@ class WeatherRequest(BaseModel):
 
     location: str
     days: Optional[int] = 1
+    model: Optional[str] = "gemma3:12b"
 
 
-class WeatherAgent(BaseAgent):
+class WeatherAgent(EnhancedBaseAgent[WeatherRequest]):
     """Agent that fetches weather forecasts"""
 
     def __init__(self, name: str = "WeatherAgent", api_key: Optional[str] = None):
         super().__init__(name)
-        self.api_key = "2488986a12e081ac677b3b2e8236dd97" or os.getenv(
-            "WEATHER_API_KEY"
-        )
-        if not self.api_key:
+        self.input_model = WeatherRequest
+        self.api_key = api_key or os.getenv("WEATHER_API_KEY") or "demo_key"
+        if self.api_key == "demo_key":
             logger.warning("Weather API key not configured - using demo mode")
-            self.api_key = "demo_key"
         self.base_url = "https://api.weatherapi.com/v1"
 
-    async def process(self, input_data: Any) -> AgentResponse:
+    async def process(self, input_data: Dict[str, Any]) -> AgentResponse:
         """Process a weather forecast request"""
-        if isinstance(input_data, dict):
-            try:
-                query = input_data.get("query", "")
-                model = input_data.get("model", "gemma3:12b")  # Default model
+        try:
+            validated_data = self._validate_input(input_data)
+            query = validated_data.get("query", "")
+            model = validated_data.get("model", "gemma3:12b")
 
-                # Use LLM to extract location
-                try:
-                    location = await self._extract_location(query, model)
-                    if not location:
-                        return AgentResponse(
-                            success=False,
-                            error="Nie mogłem rozpoznać lokalizacji w zapytaniu.",
-                            text="Nie mogłem rozpoznać lokalizacji w zapytaniu.",
-                        )
-                except Exception as e:
-                    logger.error(f"Error extracting location: {str(e)}")
-                    return ""
+            # Use LLM to extract location
+            location = await self._extract_location(query, model)
+            if not location:
+                return self._handle_error(
+                    ValueError("Nie mogłem rozpoznać lokalizacji w zapytaniu.")
+                )
                 # Remove duplicate location check
 
-                # Fetch weather data
-                weather_data = await self._fetch_weather(location)
-                if not weather_data:
-                    return AgentResponse(
-                        success=False,
-                        error=f"Nie udało się pobrać prognozy pogody dla {location}.",
-                        text=f"Nie udało się pobrać prognozy pogody dla {location}.",
-                    )
-
-                # Format response with LLM, which will now be a stream
-                response_stream = self._format_weather_response(
-                    location, weather_data, model
+            # Fetch weather data
+            weather_data = await self._fetch_weather(location)
+            if not weather_data:
+                return self._handle_error(
+                    ValueError(f"Nie udało się pobrać prognozy pogody dla {location}")
                 )
 
-                # The response from the agent is now the stream itself
-                api_url = "https://api.weatherapi.com/v1/forecast.json"
-                params = {"key": self.api_key, "q": location, "days": 3, "lang": "pl"}
+            # Format response with LLM
+            response_stream = self._format_weather_response(
+                location, weather_data, model
+            )
 
-                async with httpx.AsyncClient() as client:
-                    try:
-                        response = await client.get(api_url, params=params)
-                        response.raise_for_status()
-                        weather_json = await response.json()
+            # Get detailed weather data
+            api_url = f"{self.base_url}/forecast.json"
+            params = {"key": self.api_key, "q": location, "days": 3, "lang": "pl"}
 
-                        validated_data = {
-                            "location": location,
-                            "current": weather_json.get("current", {}),
-                            "forecast": weather_json.get("forecast", {}).get(
-                                "forecastday", []
-                            ),
-                        }
+            async with httpx.AsyncClient() as client:
+                response = await client.get(api_url, params=params)
+                response.raise_for_status()
+                weather_json = response.json()
 
-                        return AgentResponse(
-                            success=True,
-                            data=validated_data,
-                            text_stream=response_stream,
-                            message=f"Pogoda dla {location}",
-                        )
-                    except httpx.HTTPStatusError as e:
-                        logger.error(f"Weather API error: {str(e)}")
-                        return AgentResponse(
-                            success=False,
-                            error=f"Błąd API pogodowego: {str(e)}",
-                            text="Przepraszam, wystąpił problem z uzyskaniem prognozy pogody.",
-                        )
-                    except Exception as e:
-                        logger.error(f"Error processing weather response: {str(e)}")
-                        return AgentResponse(
-                            success=False,
-                            error=f"Wystąpił błąd podczas przetwarzania odpowiedzi: {str(e)}",
-                            text="Przepraszam, wystąpił problem z uzyskaniem prognozy pogody.",
-                        )
-            except Exception as e:
-                logger.error(f"Error processing weather request: {e}")
                 return AgentResponse(
-                    success=False,
-                    error=f"Wystąpił błąd podczas przetwarzania zapytania: {str(e)}",
-                    text="Przepraszam, wystąpił problem z uzyskaniem prognozy pogody.",
+                    success=True,
+                    data={
+                        "location": location,
+                        "current": weather_json.get("current", {}),
+                        "forecast": weather_json.get("forecast", {}).get(
+                            "forecastday", []
+                        ),
+                    },
+                    text_stream=response_stream,
+                    message=f"Pogoda dla {location}",
                 )
 
-        return AgentResponse(
-            success=False,
-            error="Nieprawidłowy format danych wejściowych.",
-            text="Przepraszam, nie mogłem przetworzyć tego zapytania o pogodę.",
-        )
+        except httpx.HTTPStatusError as e:
+            return self._handle_error(e)
+        except Exception as e:
+            return self._handle_error(e)
 
     async def _extract_location(self, query: str, model: str) -> str:
         """Extract location from user query using LLM"""
@@ -204,60 +170,36 @@ class WeatherAgent(BaseAgent):
         self, location: str, weather_data: Dict[str, Any], model: str
     ) -> AsyncGenerator[str, None]:
         """Format weather data into a user-friendly response using LLM stream"""
-        # Extract relevant weather information
-        try:
-            current = weather_data.get("current", {})
-            forecast = weather_data.get("forecast", {}).get("forecastday", [])
+        current = weather_data.get("current", {})
+        forecast = weather_data.get("forecast", {}).get("forecastday", [])
 
-            current_temp = current.get("temp_c", "N/A")
-            current_condition = current.get("condition", {}).get("text", "N/A")
-            current_wind = current.get("wind_kph", "N/A")
-            current_humidity = current.get("humidity", "N/A")
+        weather_summary = (
+            f"Lokalizacja: {location}\n"
+            f"Aktualna temperatura: {current.get('temp_c', 'N/A')}°C\n"
+            f"Warunki: {current.get('condition', {}).get('text', 'N/A')}\n"
+            f"Wiatr: {current.get('wind_kph', 'N/A')} km/h\n"
+            f"Wilgotność: {current.get('humidity', 'N/A')}%\n\n"
+        )
 
-            # Create a summary for the LLM
-            weather_summary = (
-                f"Lokalizacja: {location}\n"
-                f"Aktualna temperatura: {current_temp}°C\n"
-                f"Warunki: {current_condition}\n"
-                f"Wiatr: {current_wind} km/h\n"
-                f"Wilgotność: {current_humidity}%\n\n"
-            )
+        if forecast:
+            weather_summary += "Prognoza na najbliższe dni:\n"
+            for day in forecast:
+                weather_summary += (
+                    f"- {day.get('date', 'N/A')}: "
+                    f"{day.get('day', {}).get('mintemp_c', 'N/A')}°C to "
+                    f"{day.get('day', {}).get('maxtemp_c', 'N/A')}°C, "
+                    f"{day.get('day', {}).get('condition', {}).get('text', 'N/A')}\n"
+                )
 
-            if forecast:
-                weather_summary += "Prognoza na najbliższe dni:\n"
-                for day in forecast:
-                    date = day.get("date", "N/A")
-                    max_temp = day.get("day", {}).get("maxtemp_c", "N/A")
-                    min_temp = day.get("day", {}).get("mintemp_c", "N/A")
-                    condition = (
-                        day.get("day", {}).get("condition", {}).get("text", "N/A")
-                    )
-                    weather_summary += (
-                        f"- {date}: {min_temp}°C to {max_temp}°C, {condition}\n"
-                    )
+        prompt = (
+            f"Na podstawie poniższych danych pogodowych, utwórz przyjazną i naturalnie brzmiącą "
+            f"prognozę pogody w języku polskim:\n\n{weather_summary}"
+        )
 
-            # Let the LLM format this into a nice response
-            prompt = (
-                f"Na podstawie poniższych danych pogodowych, utwórz przyjazną i naturalnie brzmiącą "
-                f"prognozę pogody w języku polskim:\n\n{weather_summary}"
-            )
+        messages = [
+            {"role": "system", "content": "Jesteś pomocnym asystentem pogodowym."},
+            {"role": "user", "content": prompt},
+        ]
 
-            try:
-                async for chunk in llm_client.generate_stream(
-                    model=model,
-                    messages=[
-                        {
-                            "role": "system",
-                            "content": "Jesteś pomocnym asystentem pogodowym.",
-                        },
-                        {"role": "user", "content": prompt},
-                    ],
-                ):
-                    content = chunk["message"]["content"]
-                    yield content
-            except Exception as e:
-                logger.error(f"Error in weather response streaming: {e}")
-                yield f"Aktualna temperatura w {location} wynosi {weather_data.get('current', {}).get('temp_c', 'N/A')}°C."
-        except Exception as e:
-            logger.error(f"Error formatting weather response: {e}")
-            yield f"Aktualna temperatura w {location} wynosi {weather_data.get('current', {}).get('temp_c', 'N/A')}°C."
+        async for chunk in self._stream_llm_response(model, messages):
+            yield chunk

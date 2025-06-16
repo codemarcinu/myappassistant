@@ -1,5 +1,5 @@
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
-from sqlalchemy.orm import relationship
+from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, String
+from sqlalchemy.orm import deferred, relationship
 from sqlalchemy.sql import func
 
 from ..core.database import Base
@@ -21,9 +21,17 @@ class Message(Base):
     __tablename__ = "messages"
 
     id = Column(Integer, primary_key=True, index=True)
-    content = Column(String, nullable=False)
-    role = Column(String, nullable=False)  # "user" or "assistant"
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    content = deferred(
+        Column(String, nullable=False)
+    )  # Large text, load only when needed
+    role = Column(String, nullable=False, index=True)  # "user" or "assistant"
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
 
     conversation_id = Column(Integer, ForeignKey("conversations.id"), nullable=False)
-    conversation = relationship("Conversation", back_populates="messages")
+    conversation = relationship(
+        "Conversation", back_populates="messages", lazy="selectin"
+    )
+
+
+# Composite index for common message queries
+Index("ix_message_conversation_created", Message.conversation_id, Message.created_at)

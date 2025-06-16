@@ -11,8 +11,16 @@ from backend.config import settings
 # Tworzymy silnik SQLAlchemy, który będzie zarządzał połączeniami do bazy danych.
 engine = create_async_engine(
     settings.DATABASE_URL,
-    pool_pre_ping=True,
-    echo=False,  # Ustaw na True, aby widzieć zapytania SQL
+    pool_size=20,  # Number of connections to keep open
+    max_overflow=10,  # Allow connections beyond pool_size when needed
+    pool_pre_ping=True,  # Check connections are alive before use
+    pool_recycle=3600,  # Recycle connections after 1 hour
+    pool_timeout=30,  # Wait 30 seconds for connection from pool
+    echo=False,  # Set to True to see SQL queries
+    connect_args={
+        "timeout": 15,  # SQLite connection timeout
+        "check_same_thread": False,  # Required for SQLite async
+    },
 )
 
 # Tworzymy fabrykę sesji, która będzie tworzyć nowe sesje bazy danych.
