@@ -86,7 +86,7 @@ async def memory_chat_generator(request: MemoryChatRequest, db: AsyncSession):
         import json
 
         error_response = {
-            "response": "Wystąpił błąd serwera podczas przetwarzania zapytania.",
+            "response": f"Wystąpił błąd serwera: {str(e)}",
             "state": {},
         }
         yield json.dumps(error_response)
