@@ -1,0 +1,11 @@
+version: '3.8'
+
+services:
+  backend:
+    image: my_ai_assistant_backend
+    entrypoint: ["sh", "-c", "sleep infinity"]
+    volumes:
+      - ./src:/app_root/src
+      - ./requirements-fix.txt:/app_root/requirements-fix.txt
+    environment:
+      - PYTHONPATH=/app_root

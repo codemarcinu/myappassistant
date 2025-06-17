@@ -77,7 +77,7 @@ class UserActivity(Base):
     interaction_type = Column(String, nullable=False)
     content = Column(String, nullable=True)
     timestamp = Column(DateTime(timezone=True), default=datetime.now)
-    metadata = Column(JSON, nullable=True)
+    activity_metadata = Column(JSON, nullable=True)  # Zmieniono z 'metadata' na 'activity_metadata'
 
     user = relationship("UserProfile", back_populates="activities")
 
@@ -208,7 +208,7 @@ class ProfileManager:
         profile_data = await self.get_or_create_profile(session_id)
 
         # Create activity record
-        from ..core.crud import create_user_activity
+        from ..core.user_activity import create_user_activity
 
         await create_user_activity(
             self.db, profile_data.user_id, interaction_type, content, metadata

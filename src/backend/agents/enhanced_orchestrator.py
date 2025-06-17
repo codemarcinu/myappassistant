@@ -3,19 +3,18 @@ import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-from ..core.sqlalchemy_compat import AsyncSession
-
 from ..core.enhanced_vector_store import enhanced_vector_store
 from ..core.hybrid_llm_client import ModelComplexity, hybrid_llm_client
 from ..core.memory import ConversationMemoryManager
+from ..core.sqlalchemy_compat import AsyncSession
 from ..integrations.web_search import web_search_client
 from ..models.conversation import Conversation, Message
 from ..models.user_profile import InteractionType, ProfileManager
-from .agent_factory import AgentFactory
 from .enhanced_base_agent import EnhancedAgentResponse, ErrorSeverity, ImprovedBaseAgent
-from .enhanced_weather_agent import EnhancedWeatherAgent
 
 logger = logging.getLogger(__name__)
+
+# Moved imports to avoid circular dependencies
 
 
 class EnhancedOrchestrator:
@@ -31,6 +30,9 @@ class EnhancedOrchestrator:
     """
 
     def __init__(self, db: AsyncSession):
+        from .agent_factory import AgentFactory
+        from .enhanced_weather_agent import EnhancedWeatherAgent
+        
         self.db = db
         self.agent_factory = AgentFactory()
         self.profile_manager = ProfileManager(db)
@@ -644,5 +646,4 @@ Udziel wyczerpującej odpowiedzi w języku polskim, opierając się na dostarczo
             logger.error(f"Error during orchestrator shutdown: {e}")
 
 
-# Export for direct import
-enhanced_orchestrator = None  # Will be initialized with DB session
+# Export for direct import will be handled elsewhere to avoid circular imports

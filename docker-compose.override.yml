@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  backend:
+    command: >
+      sh -c "pip install -r /app_root/requirements-fix.txt &&
+             python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000 --log-level debug"
+    volumes:
+      - ./src:/app_root/src
+      - ./requirements-fix.txt:/app_root/requirements-fix.txt
+    environment:
+      - PYTHONPATH=/app_root

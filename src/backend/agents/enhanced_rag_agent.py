@@ -13,10 +13,11 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-from ..agents.base_agent import AgentResponse, BaseAgent
 from backend.core.enhanced_vector_store import enhanced_vector_store
 from backend.core.hybrid_llm_client import ModelComplexity, hybrid_llm_client
 from backend.core.rag_document_processor import rag_document_processor
+
+from ..agents.base_agent import AgentResponse, BaseAgent
 
 logger = logging.getLogger(__name__)
 

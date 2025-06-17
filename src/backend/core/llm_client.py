@@ -55,7 +55,9 @@ class LLMCache:
             sorted_keys = sorted(
                 self.cache.keys(), key=lambda k: self.cache[k]["timestamp"]
             )
-            for k in sorted_keys[: len(self.cache) - self.max_size + 10]:  # Remove batch
+            for k in sorted_keys[
+                : len(self.cache) - self.max_size + 10
+            ]:  # Remove batch
                 del self.cache[k]
 
 
@@ -80,19 +82,19 @@ class EnhancedLLMClient:
     ) -> Union[Dict[str, Any], AsyncGenerator[Dict[str, Any], None]]:
         """
         Send chat messages to the LLM
-        
+
         Args:
             model: Model name
             messages: List of message dicts with role and content
             stream: Whether to stream the response
             options: Additional options to pass to the model
-            
+
         Returns:
             Response dict or async generator for streaming
         """
         start_time = time.time()
         options = options or {}
-        
+
         # For non-streaming, check cache
         if not stream:
             cache_key = f"{model}_{str(messages)}_{str(options)}"
@@ -103,7 +105,7 @@ class EnhancedLLMClient:
 
         try:
             self.last_request_time = datetime.now()
-            
+
             # Format messages for Ollama
             formatted_messages = []
             for msg in messages:
@@ -112,7 +114,7 @@ class EnhancedLLMClient:
                     options["system"] = msg["content"]
                 else:
                     formatted_messages.append(msg)
-            
+
             if stream:
                 # Return streaming generator
                 return self._stream_response(model, formatted_messages, options)
@@ -127,21 +129,24 @@ class EnhancedLLMClient:
                     ],
                     options=options,
                 )
-                
+
                 # Format response to standard structure
                 result = {
-                    "message": {"role": "assistant", "content": response["message"]["content"]},
+                    "message": {
+                        "role": "assistant",
+                        "content": response["message"]["content"],
+                    },
                     "response": response["message"]["content"],
                 }
-                
+
                 # Cache the result
                 self.cache.set(cache_key, result)
-                
+
                 logger.debug(
                     f"LLM request to {model} completed in {time.time() - start_time:.2f}s"
                 )
                 return result
-                
+
         except Exception as e:
             self.last_error = str(e)
             self.error_count += 1
@@ -163,7 +168,7 @@ class EnhancedLLMClient:
                 options=options,
                 stream=True,
             )
-            
+
             # Process and yield each chunk
             for chunk in response_stream:
                 yield {
@@ -173,7 +178,7 @@ class EnhancedLLMClient:
                     },
                     "response": chunk["message"]["content"],
                 }
-                
+
         except Exception as e:
             self.last_error = str(e)
             self.error_count += 1
@@ -185,36 +190,36 @@ class EnhancedLLMClient:
     ) -> List[float]:
         """
         Get embeddings for text
-        
+
         Args:
             model: Model name
             text: Text to embed
             options: Additional options
-            
+
         Returns:
             List of embedding floats
         """
         options = options or {}
         cache_key = f"embed_{model}_{text}"
-        
+
         # Check cache
         cached = self.embedding_cache.get(cache_key)
         if cached:
             return cached
-            
+
         try:
             # Use Ollama's embeddings API
             response = await asyncio.to_thread(
                 ollama.embeddings, model=model, prompt=text, options=options
             )
-            
+
             embeddings = response["embedding"]
-            
+
             # Cache result
             self.embedding_cache.set(cache_key, embeddings)
-            
+
             return embeddings
-            
+
         except Exception as e:
             self.last_error = str(e)
             self.error_count += 1
