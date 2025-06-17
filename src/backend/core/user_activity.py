@@ -1,6 +1,7 @@
 """
 Module containing user activity related functions.
 """
+
 import logging
 from typing import Dict, Optional
 
@@ -20,14 +21,14 @@ async def create_user_activity(
 ) -> UserActivity:
     """
     Creates a new user activity record in the database.
-    
+
     Args:
         db: Database session
         user_id: ID of the user
         interaction_type: Type of interaction
         content: Optional content of the interaction
         metadata: Optional metadata for the interaction
-        
+
     Returns:
         The created UserActivity instance
     """
@@ -35,18 +36,24 @@ async def create_user_activity(
         # Create the activity with activity_metadata instead of metadata (original field name)
         activity = UserActivity(
             user_id=user_id,
-            interaction_type=interaction_type.value if isinstance(interaction_type, InteractionType) else interaction_type,
+            interaction_type=(
+                interaction_type.value
+                if isinstance(interaction_type, InteractionType)
+                else interaction_type
+            ),
             content=content,
             activity_metadata=metadata,  # Use the renamed field
         )
-        
+
         db.add(activity)
         await db.commit()
         await db.refresh(activity)
-        
-        logger.info(f"Created activity record for user {user_id}, type: {interaction_type}")
+
+        logger.info(
+            f"Created activity record for user {user_id}, type: {interaction_type}"
+        )
         return activity
-        
+
     except Exception as e:
         logger.error(f"Error creating user activity: {e}")
         await db.rollback()

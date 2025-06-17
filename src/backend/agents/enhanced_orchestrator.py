@@ -32,7 +32,7 @@ class EnhancedOrchestrator:
     def __init__(self, db: AsyncSession):
         from .agent_factory import AgentFactory
         from .enhanced_weather_agent import EnhancedWeatherAgent
-        
+
         self.db = db
         self.agent_factory = AgentFactory()
         self.profile_manager = ProfileManager(db)

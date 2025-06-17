@@ -77,7 +77,9 @@ class UserActivity(Base):
     interaction_type = Column(String, nullable=False)
     content = Column(String, nullable=True)
     timestamp = Column(DateTime(timezone=True), default=datetime.now)
-    activity_metadata = Column(JSON, nullable=True)  # Zmieniono z 'metadata' na 'activity_metadata'
+    activity_metadata = Column(
+        JSON, nullable=True
+    )  # Zmieniono z 'metadata' na 'activity_metadata'
 
     user = relationship("UserProfile", back_populates="activities")
 

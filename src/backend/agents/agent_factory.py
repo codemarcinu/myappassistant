@@ -4,6 +4,7 @@ from .analytics_agent import AnalyticsAgent
 from .categorization_agent import CategorizationAgent
 from .chef_agent import ChefAgent
 from .enhanced_base_agent import ImprovedBaseAgent
+
 # Removed import of EnhancedOrchestrator to avoid circular dependency
 from .enhanced_rag_agent import EnhancedRAGAgent
 from .enhanced_weather_agent import EnhancedWeatherAgent
@@ -27,13 +28,13 @@ class AgentFactory:
         # Removed EnhancedOrchestrator to avoid circular dependency
         # Add additional agent classes here
     }
-    
+
     @classmethod
     def register_agent(cls, agent_type: str, agent_instance: ImprovedBaseAgent) -> None:
         """
         Register an agent instance with the factory.
         This method allows for runtime registration of agents.
-        
+
         Args:
             agent_type (str): Type of agent (e.g., 'enhanced_orchestrator')
             agent_instance (ImprovedBaseAgent): Instance of the agent
