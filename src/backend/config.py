@@ -10,7 +10,13 @@ class Settings(BaseSettings):
     APP_NAME: str = "Osobisty Asystent AI"
     APP_VERSION: str = "0.1.0"
 
+    # Environment configuration
+    ENVIRONMENT: str = "development"
+    LOG_LEVEL: str = "INFO"
+
     # Konfiguracja dla klienta Ollama
+    OLLAMA_URL: str = "http://localhost:11434"
+    OLLAMA_MODEL: str = "gemma3:12b"
     OLLAMA_BASE_URL: str = "http://localhost:11434"
     DEFAULT_CODE_MODEL: str = (
         "SpeakLeash/bielik-11b-v2.3-instruct:Q6_K"  # Polski model do zadań specjalnych
@@ -19,7 +25,7 @@ class Settings(BaseSettings):
     DEFAULT_EMBEDDING_MODEL: str = "nomic-embed-text:latest"
 
     # Konfiguracja bazy danych
-    DATABASE_URL: str = "sqlite+aiosqlite:///./shopping.db"
+    DATABASE_URL: str = "sqlite+aiosqlite:///./data/db/shopping.db"
 
     # Konfiguracja Tesseract OCR
     TESSDATA_PREFIX: str = "/usr/share/tesseract-ocr/5/"

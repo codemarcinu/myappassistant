@@ -3,10 +3,9 @@ Base agent implementation for the AI assistant framework.
 Provides core functionality for all agent types.
 """
 
-import asyncio
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, AsyncGenerator, Dict, Generic, List, Optional, TypeVar, Union
+from typing import Any, AsyncGenerator, Dict, Generic, List, Optional, TypeVar
 
 from pydantic import BaseModel, ValidationError
 
@@ -110,10 +109,6 @@ class EnhancedBaseAgent(BaseAgent, Generic[T]):
                 validated = self.input_model.parse_obj(data)
                 return validated.dict()
             except ValidationError as ve:
-                error_details = {
-                    "error_type": "validation_error",
-                    "errors": ve.errors(),
-                }
                 raise ValueError(f"Invalid input data for {self.name}: {ve}") from ve
         return data
 

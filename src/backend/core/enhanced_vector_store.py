@@ -3,9 +3,9 @@ import hashlib
 import json
 import logging
 import os
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
-from typing import Any, AsyncGenerator, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 
@@ -117,7 +117,7 @@ class SmartChunker:
         self, text: str, metadata: Dict[str, Any]
     ) -> List[DocumentChunk]:
         """Split document into semantically meaningful chunks"""
-        chunks = []
+        chunks: List[DocumentChunk] = []  # Already properly typed
 
         # Handle empty or very short documents
         if not text or len(text) < self.chunk_size / 2:
@@ -278,25 +278,32 @@ class EnhancedVectorStore:
             # Use FAISS for fast retrieval (get more results for filtering)
             query_vector = np.array([query_embedding], dtype=np.float32)
             faiss.normalize_L2(query_vector)
-            D, I = self.index.search(query_vector, min(k * 3, len(self.chunks)))
+            D, result_indices = self.index.search(
+                query_vector, min(k * 3, len(self.chunks))
+            )
 
             # Get candidates
             candidates = []
-            for score, idx in zip(D[0], I[0]):
-                if idx < len(self.chunks):
-                    chunk = self.chunks[idx]
+            for idx, (distance_idx, result_index) in enumerate(
+                zip(D[0], result_indices[0])
+            ):
+                if result_index < len(self.chunks):
+                    chunk = self.chunks[result_index]
                     # Apply metadata filter if specified
                     if filter_metadata and not self._matches_filter(
                         chunk.metadata, filter_metadata
                     ):
                         continue
-                    candidates.append(
-                        (chunk, 1.0 - score / 2)
+                    similarity = (
+                        1.0 - distance_idx / 2
                     )  # Convert L2 distance to similarity
+                    candidates.append((chunk, similarity))
 
             # Filter by similarity threshold
             candidates = [
-                (chunk, score) for chunk, score in candidates if score >= min_similarity
+                (chunk, similarity)
+                for chunk, similarity in candidates
+                if similarity >= min_similarity
             ]
         else:
             # Fallback to manual search
@@ -338,15 +345,15 @@ class EnhancedVectorStore:
         self, metadata: Dict[str, Any], filter_criteria: Dict[str, Any]
     ) -> bool:
         """Check if metadata matches filter criteria"""
-        for key, value in filter_criteria.items():
+        for key, val in filter_criteria.items():
             if key not in metadata:
                 return False
 
-            if isinstance(value, list):
+            if isinstance(val, list):
                 # List means "any of these values"
-                if metadata[key] not in value:
+                if metadata[key] not in val:
                     return False
-            elif metadata[key] != value:
+            elif metadata[key] != val:
                 return False
 
         return True
@@ -418,12 +425,13 @@ class AsyncDocumentLoader:
         self.vector_store = vector_store
         self.loading_task = None
         self._stop_event = asyncio.Event()
+        self.last_modified_times: dict[str, float] = {}
 
     async def load_directory(
         self,
         directory: str,
         glob_pattern: str = "**/*.*",
-        metadata_fn: Optional[callable] = None,
+        metadata_fn: Optional[Callable] = None,
     ) -> None:
         """Load all documents from a directory with pattern matching"""
         # Collect all matching files
@@ -486,17 +494,15 @@ class AsyncDocumentLoader:
         directory: str,
         glob_pattern: str = "**/*.*",
         check_interval: int = 300,  # seconds
-        metadata_fn: Optional[callable] = None,
+        metadata_fn: Optional[Callable] = None,
     ) -> None:
         """Start background task for incremental indexing of new/modified files"""
         self._stop_event.clear()
 
         # Track last modified times
-        last_modified_times: Dict[str, float] = {}
+        file_mod_times: Dict[str, float] = {}
 
         async def _indexing_task():
-            nonlocal last_modified_times
-
             while not self._stop_event.is_set():
                 try:
                     # Collect all matching files
@@ -522,8 +528,8 @@ class AsyncDocumentLoader:
 
                         # Check if file is new or modified
                         if (
-                            file_str not in last_modified_times
-                            or last_modified_times[file_str] < mtime
+                            file_str not in self.last_modified_times
+                            or self.last_modified_times[file_str] < mtime
                         ):
                             try:
                                 # Read file content
@@ -544,7 +550,7 @@ class AsyncDocumentLoader:
 
                                 # Add to vector store
                                 await self.vector_store.add_document(text, metadata)
-                                last_modified_times[file_str] = mtime
+                                self.last_modified_times[file_str] = mtime
                                 logger.info(f"Indexed new/modified file: {file_path}")
 
                             except Exception as e:
@@ -552,9 +558,9 @@ class AsyncDocumentLoader:
 
                     # Check for any deleted files and remove from tracking
                     current_files = set(str(f) for f in files)
-                    tracked_files = set(last_modified_times.keys())
+                    tracked_files = set(self.last_modified_times.keys())
                     for deleted_file in tracked_files - current_files:
-                        del last_modified_times[deleted_file]
+                        del self.last_modified_times[deleted_file]
 
                     # Save index periodically
                     if self.vector_store.chunks_since_save > 0:
@@ -572,32 +578,3 @@ class AsyncDocumentLoader:
                     logger.error(f"Error in incremental indexing: {e}")
                     # Wait before retrying
                     await asyncio.sleep(60)
-
-        # Start background task
-        self.loading_task = asyncio.create_task(_indexing_task())
-        logger.info(f"Started incremental indexing for {directory}")
-
-    async def stop_indexing(self) -> None:
-        """Stop background indexing task"""
-        if self.loading_task:
-            self._stop_event.set()
-            await self.loading_task
-            self.loading_task = None
-            logger.info("Stopped incremental indexing")
-
-
-# Initialize a default vector store
-enhanced_vector_store = EnhancedVectorStore(
-    persist_dir=os.path.join(
-        os.path.dirname(__file__), "..", "..", "data", "vector_index"
-    )
-)
-
-
-# Helper function for cosine similarity
-def cosine_similarity(v1: List[float], v2: List[float]) -> float:
-    """Calculate cosine similarity between vectors"""
-    dot_product = sum(x * y for x, y in zip(v1, v2))
-    norm1 = sum(x * x for x in v1) ** 0.5
-    norm2 = sum(x * x for x in v2) ** 0.5
-    return dot_product / (norm1 * norm2) if norm1 * norm2 > 0 else 0

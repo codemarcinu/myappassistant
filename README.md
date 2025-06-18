@@ -140,6 +140,13 @@ graph TD
     cp .env.example .env
     ```
 
+    Required API keys:
+    - **NEWS_API_KEY**: Register at [newsapi.org](https://newsapi.org/register) to get a free API key
+    - **BING_SEARCH_API_KEY**: Create a Bing Search API resource in [Azure Cognitive Services](https://portal.azure.com/#create/Microsoft.CognitiveServicesBingSearch-v7) to obtain a key
+    - **DATABASE_URL**: Configure your database connection string (SQLite is used by default)
+
+    Edit the `.env` file and replace the placeholder values with your actual API keys.
+
 5.  **Set up Ollama:**
     Install Ollama from the [official website](https://ollama.com/) and pull the required models:
     ```bash
@@ -147,7 +154,7 @@ graph TD
     ollama pull SpeakLeash/bielik-11b-v2.3-instruct:Q6_K
     ollama pull nomic-embed-text
     ```
-    
+
     For GPU acceleration, refer to the [GPU Setup Guide](GPU_SETUP.md).
 
 6.  **Initialize the Database:**

@@ -1,5 +1,5 @@
 # w pliku backend/services/shopping_service.py
-from typing import List, Optional
+from typing import Optional
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,12 +20,12 @@ async def create_shopping_trip(
         store_name=trip.store_name,
         total_amount=trip.total_amount,
     )
-    db.add(db_trip)
+    await db.add(db_trip)
     await db.flush()
 
     for product_data in trip.products:
         db_product = Product(**product_data.model_dump(), trip_id=db_trip.id)
-        db.add(db_product)
+        await db.add(db_product)
 
     await db.commit()
 
@@ -47,7 +47,7 @@ async def create_shopping_trip(
 
 async def get_shopping_trips(
     db: AsyncSession, skip: int = 0, limit: int = 100
-) -> List[ShoppingTrip]:
+) -> list[ShoppingTrip]:
     """
     Pobiera listę wszystkich paragonów z bazy danych wraz z ich produktami.
     """
@@ -61,7 +61,8 @@ async def get_shopping_trips(
         )  # Eager loading jest tu równie kluczowy!
     )
     result = await db.execute(query)
-    return list(result.scalars().all())
+    shopping_trips: list[ShoppingTrip] = list(result.scalars().all())
+    return shopping_trips
 
 
 async def update_shopping_trip(
@@ -107,7 +108,7 @@ async def update_product(
     # 1. Pobierz obiekt z bazy
     query = select(Product).where(Product.id == product_id)
     result = await db.execute(query)
-    db_product = result.scalar_one_or_none()
+    db_product: Optional[Product] = result.scalar_one_or_none()
 
     if not db_product:
         return None

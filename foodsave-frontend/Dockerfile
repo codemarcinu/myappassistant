@@ -8,7 +8,7 @@ WORKDIR /app
 
 # Kopiowanie plików package
 COPY package.json package-lock.json* ./
-RUN npm ci --only=production
+RUN npm ci
 
 # Etap budowania
 FROM base AS builder
@@ -16,8 +16,14 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Build aplikacji
-RUN npm run build
+# Sprawdzenie wersji Next.js
+RUN npm list next
+
+# Build aplikacji z dodatkowymi logami
+RUN npm run build --verbose
+
+# Sprawdzenie struktury plików po buildzie
+RUN ls -la /app/.next
 
 # Etap produkcyjny
 FROM base AS runner

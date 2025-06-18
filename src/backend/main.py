@@ -10,12 +10,12 @@ from slowapi.util import get_remote_address
 from sqlalchemy.sql import text
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from backend.api import agents, chat, food, pantry, upload
-from backend.api.v1.endpoints import receipts
-from backend.config import settings
-from backend.core.database import AsyncSessionLocal, Base, engine
-from backend.core.migrations import run_migrations
-from backend.core.seed_data import seed_database
+from .api import agents, chat, food, pantry, upload
+from .api.v1.endpoints import receipts
+from .config import settings
+from .core.database import AsyncSessionLocal, Base, engine
+from .core.migrations import run_migrations
+from .core.seed_data import seed_database
 
 # --- Rate limiting ---
 limiter = Limiter(key_func=get_remote_address)
@@ -70,6 +70,8 @@ app.add_middleware(
         "http://localhost:8501",
         "http://127.0.0.1:8501",
         "http://localhost:3000",
+        "http://localhost:3001",
+        "http://localhost:3002",
     ],
     allow_credentials=True,
     allow_methods=["*"],

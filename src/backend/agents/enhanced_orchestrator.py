@@ -1,16 +1,14 @@
-import asyncio
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, Optional
 
 from ..core.enhanced_vector_store import enhanced_vector_store
 from ..core.hybrid_llm_client import ModelComplexity, hybrid_llm_client
 from ..core.memory import ConversationMemoryManager
 from ..core.sqlalchemy_compat import AsyncSession
 from ..integrations.web_search import web_search_client
-from ..models.conversation import Conversation, Message
+from ..models.conversation import Conversation
 from ..models.user_profile import InteractionType, ProfileManager
-from .enhanced_base_agent import EnhancedAgentResponse, ErrorSeverity, ImprovedBaseAgent
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +75,7 @@ class EnhancedOrchestrator:
 
         try:
             # 1. Get user profile for personalization
-            user_profile = await self.profile_manager.get_or_create_profile(session_id)
+            await self.profile_manager.get_or_create_profile(session_id)
 
             # 2. Get conversation and memory manager
             from ..core import crud
@@ -102,7 +100,7 @@ class EnhancedOrchestrator:
                     session_id
                 )
                 if suggestions:
-                    personalized_context = f"Sugestie:\n" + "\n".join(
+                    personalized_context = "Sugestie:\n" + "\n".join(
                         f"- {s}" for s in suggestions[:2]
                     )
 
@@ -153,7 +151,9 @@ class EnhancedOrchestrator:
             # 10. Calculate and log processing time
             processing_time = (datetime.now() - start_time).total_seconds()
             logger.info(
-                f"Processed command in {processing_time:.2f}s (intent: {intent_data.get('intent', 'unknown')})"
+                "Processed command in %.2fs (intent: %s)",
+                processing_time,
+                intent_data.get("intent", "unknown"),
             )
 
             # Add processing metadata to response
@@ -169,8 +169,8 @@ class EnhancedOrchestrator:
         except Exception as e:
             logger.error(f"Error processing command: {e}")
             return {
-                "response": "Wystąpił błąd podczas przetwarzania polecenia. Proszę spróbować ponownie.",
-                "error": str(e),
+                "response": "Brak dostępnych agentów",
+                "data": {"query": user_command},
             }
 
     async def _determine_command_complexity(self, command: str) -> ModelComplexity:

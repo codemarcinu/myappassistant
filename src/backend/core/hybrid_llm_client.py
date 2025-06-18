@@ -4,12 +4,11 @@ import re
 import time
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple, Union
+from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
 
-import ollama
 from pydantic import BaseModel
 
-from ..core.llm_client import EnhancedLLMClient, LLMCache, llm_client
+from ..core.llm_client import LLMCache, llm_client
 
 logger = logging.getLogger(__name__)
 
@@ -311,9 +310,11 @@ class HybridLLMClient:
                     )
                     priority_features = [f"forced_{complexity_level.value}"]
                 else:
-                    complexity_level, complexity_score, priority_features = (
-                        await self._get_complexity_level(messages, system_prompt)
-                    )
+                    (
+                        complexity_level,
+                        complexity_score,
+                        priority_features,
+                    ) = await self._get_complexity_level(messages, system_prompt)
 
                 # Select appropriate model
                 model, selection_reason = self._select_model(
@@ -407,17 +408,17 @@ class HybridLLMClient:
 
                     return response
 
-        except Exception as e:
-            logger.error(f"Error in hybrid chat: {str(e)}")
+        except Exception as error_msg:
+            logger.error(f"Error in hybrid chat: {str(error_msg)}")
 
             if model and model in self.model_stats:
                 self.model_stats[model].failed_requests += 1
-                self.model_stats[model].last_error = str(e)
+                self.model_stats[model].last_error = str(error_msg)
 
             # Return error response in expected format
             return {
-                "message": {"content": f"Error processing request: {str(e)}"},
-                "response": f"Error processing request: {str(e)}",
+                "message": {"content": f"Error processing request: {str(error_msg)}"},
+                "response": f"Error processing request: {str(error_msg)}",
             }
 
     async def _wrap_streaming_response(
@@ -467,15 +468,15 @@ class HybridLLMClient:
                 else latency
             )
 
-        except Exception as e:
-            logger.error(f"Error in streaming response: {str(e)}")
+        except Exception as error_msg:
+            logger.error(f"Error in streaming response: {str(error_msg)}")
             self.model_stats[model].failed_requests += 1
-            self.model_stats[model].last_error = str(e)
+            self.model_stats[model].last_error = str(error_msg)
 
             # Yield error message
             yield {
-                "message": {"content": f"Error during streaming: {str(e)}"},
-                "response": f"Error during streaming: {str(e)}",
+                "message": {"content": f"Error during streaming: {str(error_msg)}"},
+                "response": f"Error during streaming: {str(error_msg)}",
             }
 
     async def embed(self, text: str, model: Optional[str] = None) -> List[float]:
@@ -578,7 +579,7 @@ class HybridLLMClient:
         stream: bool = False,
     ) -> Any:
         """Try with primary model, falling back to simpler model if necessary"""
-        error = None
+        error_msg = None
 
         # Determine complexity if no primary model specified
         if not primary_model:
@@ -592,7 +593,7 @@ class HybridLLMClient:
                     messages=messages, model=primary_model, stream=stream
                 )
             except Exception as e:
-                error = e
+                error_msg = str(e)
                 logger.warning(
                     f"Error with primary model {primary_model}, attempt {attempt+1}: {str(e)}"
                 )

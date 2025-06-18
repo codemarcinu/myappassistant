@@ -8,10 +8,9 @@ This agent implements advanced Retrieval-Augmented Generation capabilities:
 - Provides source tracking and attribution
 """
 
-import asyncio
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Union
 
 from backend.core.enhanced_vector_store import enhanced_vector_store
 from backend.core.hybrid_llm_client import ModelComplexity, hybrid_llm_client
@@ -193,7 +192,7 @@ class EnhancedRAGAgent(BaseAgent):
         for i, doc in enumerate(retrieved_docs):
             chunk_text = doc["text"]
             source = doc["metadata"].get("source", "unknown")
-            similarity = doc["similarity"]
+            # similarity = doc["similarity"]  # Unused variable
 
             # Add to context
             context_chunks.append(f"[Chunk {i+1}] {chunk_text}")

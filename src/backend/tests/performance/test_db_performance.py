@@ -19,7 +19,7 @@ async def test_conversation_query_performance(unique_session_id):
     async with AsyncSessionLocal() as session:
         # Create test data
         conv = Conversation(session_id=unique_session_id)
-        session.add(conv)
+        await session.add(conv)
         await session.commit()
 
         # Add 100 test messages
@@ -30,7 +30,7 @@ async def test_conversation_query_performance(unique_session_id):
                 conversation_id=conv.id,
                 created_at=datetime.now() - timedelta(minutes=i),
             )
-            session.add(msg)
+            await session.add(msg)
         await session.commit()
 
         # Benchmark query with composite index
@@ -68,7 +68,7 @@ async def test_shopping_query_performance():
             )
             for i in range(50)
         ]
-        session.add_all(products)
+        await session.add_all(products)
         await session.commit()
 
         # Benchmark category query
@@ -91,14 +91,14 @@ async def test_memory_usage():
         async with AsyncSessionLocal() as session:
             for i in range(100):
                 conv = Conversation(session_id=f"mem_test_{i}")
-                session.add(conv)
+                await session.add(conv)
                 await session.flush()  # Ensure conv.id is available
 
                 for j in range(10):
                     msg = Message(
                         content=f"Msg {j}", role="user", conversation_id=conv.id
                     )
-                    session.add(msg)
+                    await session.add(msg)
             await session.commit()
 
     # Get baseline memory usage

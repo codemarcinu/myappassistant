@@ -3,7 +3,7 @@ from typing import Any, Dict
 from pydantic import BaseModel, ValidationError
 
 from ..core.ocr import process_image_file, process_pdf_file
-from .base_agent import AgentResponse, BaseAgent
+from .enhanced_base_agent import EnhancedAgentResponse, ImprovedBaseAgent
 
 
 class OCRAgentInput(BaseModel):
@@ -13,7 +13,7 @@ class OCRAgentInput(BaseModel):
     file_type: str
 
 
-class OCRAgent(BaseAgent):
+class OCRAgent(ImprovedBaseAgent):
     """Agent odpowiedzialny za optyczne rozpoznawanie znaków (OCR) z obrazów i dokumentów PDF.
 
     Wykorzystuje Tesseract OCR z obsługą języka polskiego.
@@ -23,7 +23,7 @@ class OCRAgent(BaseAgent):
         """Inicjalizuje OCRAgent."""
         super().__init__(name="OCR Agent")
 
-    async def process(self, input_data: Any) -> AgentResponse:
+    async def process(self, input_data: Dict[str, Any]) -> EnhancedAgentResponse:
         """
         Przetwarza pliki obrazów lub PDF-ów za pomocą OCR.
 
@@ -38,8 +38,10 @@ class OCRAgent(BaseAgent):
                 # Walidacja i konwersja przez Pydantic
                 input_data = OCRAgentInput.parse_obj(input_data)
         except ValidationError as ve:
-            return AgentResponse(
-                success=False, error=f"Błąd walidacji danych wejściowych: {ve}"
+            return EnhancedAgentResponse(
+                success=False,
+                error=f"Błąd walidacji danych wejściowych: {ve}",
+                error_severity="medium",
             )
 
         file_bytes: bytes = input_data.file_bytes
@@ -51,29 +53,35 @@ class OCRAgent(BaseAgent):
             elif file_type == "pdf":
                 text = process_pdf_file(file_bytes)
             else:
-                return AgentResponse(
-                    success=False, error=f"Nieobsługiwany typ pliku: {file_type}"
+                return EnhancedAgentResponse(
+                    success=False,
+                    error=f"Nieobsługiwany typ pliku: {file_type}",
+                    error_severity="medium",
                 )
 
             if not text:
-                return AgentResponse(
-                    success=False, error="Nie udało się rozpoznać tekstu z pliku"
+                return EnhancedAgentResponse(
+                    success=False,
+                    error="Nie udało się rozpoznać tekstu z pliku",
+                    error_severity="medium",
                 )
 
-            return AgentResponse(
+            return EnhancedAgentResponse(
                 success=True,
                 text=text,
                 message="Pomyślnie wyodrębniono tekst z pliku",
+                metadata={"file_type": file_type},
             )
         except Exception as e:
-            return AgentResponse(
+            return EnhancedAgentResponse(
                 success=False,
                 error=f"Wystąpił błąd podczas przetwarzania pliku: {str(e)}",
+                error_severity="high",
             )
 
     async def execute(
         self, task_description: str, context: Dict[str, Any] = {}
-    ) -> AgentResponse:
+    ) -> EnhancedAgentResponse:
         """
         Wykonuje OCR na przesłanym pliku.
 

@@ -1,5 +1,4 @@
-import importlib
-import pkgutil
+import importlib  # noqa: F401
 
 # Check all possible locations for RecursiveCharacterTextSplitter
 possible_locations = [

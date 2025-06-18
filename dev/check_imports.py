@@ -1,63 +1,55 @@
 print("Checking imports...")
 try:
-    import numpy as np
+    import numpy as np  # noqa: F401
 
-    print("✅ numpy is available")
+    print("✅ numpy is available (unused in this script)")
 except ImportError as e:
     print(f"❌ numpy error: {e}")
 
 try:
-    import faiss
+    import faiss  # noqa: F401
 
-    print("✅ faiss is available")
+    print("✅ faiss is available (unused in this script)")
 except ImportError as e:
     print(f"❌ faiss error: {e}")
 
 try:
-    import pytz
+    import pytz  # noqa: F401
 
-    print("✅ pytz is available")
+    print("✅ pytz is available (unused in this script)")
 except ImportError as e:
     print(f"❌ pytz error: {e}")
 
 try:
-    from sqlalchemy.ext.asyncio import AsyncSession
+    from sqlalchemy.ext.asyncio import AsyncSession  # noqa: F401
 
-    print("✅ sqlalchemy.ext.asyncio is available")
+    print("✅ sqlalchemy.ext.asyncio is available (unused in this script)")
 except ImportError as e:
     print(f"❌ sqlalchemy.ext.asyncio error: {e}")
 
 try:
-    from langchain.text_splitter import RecursiveCharacterTextSplitter
-    from langchain_community.document_loaders import (
+    from langchain.text_splitter import RecursiveCharacterTextSplitter  # noqa: F401
+    from langchain_community.document_loaders import (  # noqa: F401
         DirectoryLoader,
         PyPDFLoader,
         WebBaseLoader,
     )
-    from langchain_community.document_loaders.email import UnstructuredEmailLoader
-    from langchain_community.document_loaders.markdown import UnstructuredMarkdownLoader
-    from langchain_community.document_loaders.powerpoint import (
-        UnstructuredPowerPointLoader,
-    )
-    from langchain_community.document_loaders.word_document import (
-        UnstructuredWordDocumentLoader,
-    )
 
-    print("✅ langchain modules are available")
+    print("✅ langchain modules are available (unused in this script)")
 except ImportError as e:
     print(f"❌ langchain error: {e}")
 
 try:
-    import pinecone
+    import pinecone  # noqa: F401
 
-    print("✅ pinecone is available")
+    print("✅ pinecone is available (unused in this script)")
 except ImportError as e:
     print(f"❌ pinecone error: {e}")
 
 try:
-    from sentence_transformers import SentenceTransformer
+    from sentence_transformers import SentenceTransformer  # noqa: F401
 
-    print("✅ sentence_transformers is available")
+    print("✅ sentence_transformers is available (unused in this script)")
 except ImportError as e:
     print(f"❌ sentence_transformers error: {e}")
 

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
 from fastapi.responses import JSONResponse
 
-from backend.agents.ocr_agent import OCRAgent, OCRAgentInput
+from src.backend.agents.ocr_agent import OCRAgent, OCRAgentInput
 
 router = APIRouter(prefix="/receipts", tags=["Receipts"])
 

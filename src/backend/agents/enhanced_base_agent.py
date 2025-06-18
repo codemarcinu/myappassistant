@@ -5,22 +5,11 @@ import traceback
 from abc import ABC, abstractmethod
 from datetime import datetime
 from enum import Enum
-from typing import (
-    Any,
-    AsyncGenerator,
-    Dict,
-    Generic,
-    List,
-    Optional,
-    Tuple,
-    TypeVar,
-    Union,
-)
+from typing import Any, AsyncGenerator, Callable, Dict, Generic, List, Optional, TypeVar
 
 from pydantic import BaseModel, ValidationError
 
 from ..core.hybrid_llm_client import ModelComplexity, hybrid_llm_client
-from ..core.llm_client import llm_client
 
 T = TypeVar("T", bound=BaseModel)
 logger = logging.getLogger(__name__)
@@ -93,18 +82,14 @@ class ImprovedBaseAgent(ABC, Generic[T]):
                 validated = self.input_model.parse_obj(data)
                 return validated.dict()
             except ValidationError as ve:
-                error_details = {
-                    "error_type": "validation_error",
-                    "errors": ve.errors(),
-                }
                 raise ValueError(f"Invalid input data for {self.name}: {ve}") from ve
         return data
 
     async def execute_with_fallback(
         self,
-        func: callable,
+        func: Callable[..., Any],
         *args,
-        fallback_handler: Optional[callable] = None,
+        fallback_handler: Optional[Callable[..., Any]] = None,
         error_severity: ErrorSeverity = ErrorSeverity.MEDIUM,
         **kwargs,
     ) -> Any:
@@ -408,14 +393,7 @@ class ImprovedBaseAgent(ABC, Generic[T]):
         if not self.alert_config.enabled:
             return
 
-        alert_text = (
-            f"ALERT: {subject}\n"
-            f"Severity: {severity}\n"
-            f"Agent: {self.name}\n"
-            f"Time: {datetime.now().isoformat()}\n\n"
-            f"Error: {error_info.get('error', 'Unknown error')}\n"
-            f"Traceback: {error_info.get('traceback', 'No traceback')}"
-        )
+        logger.warning(f"AGENT ALERT: {subject} ({severity})")
 
         logger.warning(f"AGENT ALERT: {subject} ({severity})")
 
@@ -427,7 +405,7 @@ class ImprovedBaseAgent(ABC, Generic[T]):
             )
 
         if self.alert_config.slack_alerts and self.alert_config.slack_webhook:
-            logger.info(f"Would send Slack alert to webhook")
+            logger.info("Would send Slack alert to webhook")
 
     async def _stream_llm_response(
         self,

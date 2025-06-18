@@ -19,20 +19,19 @@ import argparse
 import asyncio
 import json
 import logging
-import os
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+
+from src.backend.agents.enhanced_rag_agent import EnhancedRAGAgent
+from src.backend.core.enhanced_vector_store import enhanced_vector_store
+from src.backend.core.rag_document_processor import RAGDocumentProcessor
+
+# Initialize RAG document processor
+rag_document_processor = RAGDocumentProcessor()
 
 # Add parent directory to path to import modules from the project
 parent_dir = Path(__file__).parent.parent
 sys.path.append(str(parent_dir))
-
-from src.backend.agents.enhanced_rag_agent import EnhancedRAGAgent
-from src.backend.core.enhanced_vector_store import enhanced_vector_store
-
-# Import the RAG components
-from src.backend.core.rag_document_processor import rag_document_processor
 
 # Configure logging
 logging.basicConfig(

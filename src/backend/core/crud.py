@@ -9,6 +9,7 @@ from sqlalchemy.orm import selectinload
 
 from ..models.conversation import Conversation, Message
 from ..models.shopping import Product, ShoppingTrip
+from ..models.user_profile import UserActivity, UserProfile
 
 logger = logging.getLogger(__name__)
 
@@ -498,3 +499,119 @@ async def add_message_to_conversation(
     await db.commit()
     await db.refresh(message)
     return message
+
+
+async def create_user_profile(
+    db: AsyncSession, user_id: str, session_id: str
+) -> UserProfile:
+    """
+    Creates a new user profile with default preferences and schedule.
+    Returns the created UserProfile object.
+    """
+    from ..models.user_profile import UserPreferences, UserSchedule
+
+    profile = UserProfile(
+        user_id=user_id,
+        session_id=session_id,
+        preferences=UserPreferences().dict(),
+        schedule=UserSchedule().dict(),
+        topics_of_interest=[],
+    )
+    db.add(profile)
+    await db.commit()
+    await db.refresh(profile)
+    return profile
+
+
+async def get_user_profile_by_session(
+    db: AsyncSession, session_id: str
+) -> Optional[UserProfile]:
+    """
+    Retrieves a user profile by session ID.
+    Returns None if not found.
+    """
+    result = await db.execute(
+        select(UserProfile).where(UserProfile.session_id == session_id)
+    )
+    return result.scalars().one_or_none()
+
+
+async def update_user_preferences(
+    db: AsyncSession, user_id: str, preferences: Dict[str, Any]
+) -> bool:
+    """
+    Updates user preferences.
+    Returns True if successful, False otherwise.
+    """
+    try:
+        stmt = (
+            update(UserProfile)
+            .where(UserProfile.user_id == user_id)
+            .values(preferences=preferences)
+        )
+        await db.execute(stmt)
+        await db.commit()
+        return True
+    except Exception as e:
+        logger.error(f"Error updating user preferences: {e}")
+        await db.rollback()
+        return False
+
+
+async def update_user_schedule(
+    db: AsyncSession, user_id: str, schedule: Dict[str, Any]
+) -> bool:
+    """
+    Updates user schedule.
+    Returns True if successful, False otherwise.
+    """
+    try:
+        stmt = (
+            update(UserProfile)
+            .where(UserProfile.user_id == user_id)
+            .values(schedule=schedule)
+        )
+        await db.execute(stmt)
+        await db.commit()
+        return True
+    except Exception as e:
+        logger.error(f"Error updating user schedule: {e}")
+        await db.rollback()
+        return False
+
+
+async def get_user_activities(
+    db: AsyncSession, user_id: str, limit: int = 50
+) -> List[UserActivity]:
+    """
+    Gets recent user activities.
+    Returns list of UserActivity objects.
+    """
+    stmt = (
+        select(UserActivity)
+        .where(UserActivity.user_id == user_id)
+        .order_by(UserActivity.timestamp.desc())
+        .limit(limit)
+    )
+    result = await db.execute(stmt)
+    return list(result.scalars().all())
+
+
+async def update_user_topics(db: AsyncSession, user_id: str, topics: List[str]) -> bool:
+    """
+    Updates user's topics of interest.
+    Returns True if successful, False otherwise.
+    """
+    try:
+        stmt = (
+            update(UserProfile)
+            .where(UserProfile.user_id == user_id)
+            .values(topics_of_interest=topics)
+        )
+        await db.execute(stmt)
+        await db.commit()
+        return True
+    except Exception as e:
+        logger.error(f"Error updating user topics: {e}")
+        await db.rollback()
+        return False

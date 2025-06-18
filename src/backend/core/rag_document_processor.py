@@ -11,10 +11,9 @@ This module handles the process of preparing documents for RAG systems:
 import asyncio
 import hashlib
 import logging
-import os
 from datetime import datetime
 from pathlib import Path
-from typing import Any, AsyncGenerator, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
@@ -27,21 +26,8 @@ except ImportError:
     logging.warning("FAISS not available, falling back to simple vector store")
 
 try:
-    import pinecone
-
-    PINECONE_AVAILABLE = True
-except ImportError:
-    PINECONE_AVAILABLE = False
-    logging.warning("Pinecone not available, falling back to local vector store")
-
-try:
     from langchain.text_splitter import RecursiveCharacterTextSplitter
-    from langchain_community.document_loaders import (
-        DirectoryLoader,
-        PyPDFLoader,
-        UnstructuredLoader,
-        WebBaseLoader,
-    )
+    from langchain_community.document_loaders import PyPDFLoader, WebBaseLoader
     from langchain_community.document_loaders.email import UnstructuredEmailLoader
     from langchain_community.document_loaders.markdown import UnstructuredMarkdownLoader
     from langchain_community.document_loaders.powerpoint import (
@@ -55,6 +41,14 @@ try:
 except ImportError:
     LANGCHAIN_AVAILABLE = False
     logging.warning("LangChain not available, falling back to basic document loading")
+
+try:
+    import pinecone
+
+    PINECONE_AVAILABLE = True
+except ImportError:
+    PINECONE_AVAILABLE = False
+    logging.warning("Pinecone not available, falling back to local vector store")
 
 try:
     from sentence_transformers import SentenceTransformer
@@ -222,6 +216,19 @@ class RAGDocumentProcessor:
         try:
             if suffix == ".pdf":
                 loader = PyPDFLoader(str(path))
+                documents = loader.load()
+                return [
+                    {
+                        "content": doc.page_content,
+                        "metadata": {
+                            **doc.metadata,
+                            "page": str(
+                                doc.metadata.get("page", "0")
+                            ),  # Ensure page is string
+                        },
+                    }
+                    for doc in documents
+                ]
             elif suffix in [".doc", ".docx"]:
                 loader = UnstructuredWordDocumentLoader(str(path))
             elif suffix == ".html":
@@ -243,7 +250,13 @@ class RAGDocumentProcessor:
 
             # Load the document
             documents = loader.load()
-            return [doc.page_content for doc in documents]
+            return [
+                {
+                    "content": doc.page_content,
+                    "metadata": doc.metadata,
+                }
+                for doc in documents
+            ]
 
         except Exception as e:
             logger.error(f"Failed to load document {path}: {e}")
@@ -401,7 +414,7 @@ class RAGDocumentProcessor:
             "filename": path.name,
             "extension": path.suffix,
             "file_path": str(path),
-            "file_size": path.stat().st_size,
+            "file_size": str(path.stat().st_size),  # Convert to string
             "last_modified": datetime.fromtimestamp(path.stat().st_mtime).isoformat(),
         }
 
@@ -426,8 +439,22 @@ class RAGDocumentProcessor:
         for i, content in enumerate(contents):
             # Update metadata with section information
             section_metadata = base_metadata.copy()
+
+            # Get content metadata if available (from PDF loader etc)
+            content_metadata = {}
+            if isinstance(content, dict) and "metadata" in content:
+                content_metadata = content["metadata"]
+                # Ensure numeric metadata values are strings
+                for k, v in content_metadata.items():
+                    if isinstance(v, (int, float)):
+                        content_metadata[k] = str(v)
+
             section_metadata.update(
-                {"section_index": i, "total_sections": len(contents)}
+                {
+                    "section_index": str(i),  # Convert to string
+                    "total_sections": str(len(contents)),  # Convert to string
+                    **content_metadata,
+                }
             )
 
             # Process this section
