@@ -30,11 +30,13 @@ class EnhancedOrchestrator:
     def __init__(self, db: AsyncSession):
         from .agent_factory import AgentFactory
         from .enhanced_weather_agent import EnhancedWeatherAgent
+        from .router_service import RouterService
 
         self.db = db
         self.agent_factory = AgentFactory()
         self.profile_manager = ProfileManager(db)
         self.memory_managers: Dict[str, ConversationMemoryManager] = {}
+        self.router = RouterService()
 
         # Initialize enhanced weather agent
         self.weather_agent = EnhancedWeatherAgent()
@@ -188,79 +190,12 @@ class EnhancedOrchestrator:
         complexity_level: ModelComplexity,
     ) -> Dict[str, Any]:
         """Detect user intent with context awareness"""
-        # Construct prompt with available context
-        context_parts = []
-        if personalized_context:
-            context_parts.append(personalized_context)
-        if memory_context:
-            context_parts.append(memory_context)
-
-        context_text = "\n\n".join(context_parts)
-
-        prompt = f"""Przeanalizuj intencję użytkownika w poniższym zapytaniu:
-
-Zapytanie: "{command}"
-
-{context_text}
-
-Określ główną intencję z poniższych kategorii:
-- WEATHER: Zapytanie o pogodę lub warunki atmosferyczne
-- SEARCH: Ogólne wyszukiwanie informacji
-- RAG: Zapytanie o wiedzę zgromadzoną w dokumentach
-- COOKING: Zapytanie związane z gotowaniem, przepisami lub planowaniem posiłków
-- SHOPPING: Zapytanie związane z zakupami lub zarządzaniem produktami
-- CHAT: Konwersacja ogólna lub small talk
-- UNKNOWN: Intencja nie pasuje do żadnej z powyższych kategorii
-
-Odpowiedz w formacie JSON:
-{{
-  "intent": "NAZWA_INTENCJI",
-  "confidence": 0.0-1.0,
-  "entities": [],
-  "requires_clarification": false
-}}
-"""
-
-        # Select model based on complexity
-        model = (
-            "gemma2:2b" if complexity_level == ModelComplexity.SIMPLE else "gemma3:12b"
+        return await self.router.detect_intent(
+            command=command,
+            personalized_context=personalized_context,
+            memory_context=memory_context,
+            complexity_level=complexity_level,
         )
-
-        response = await hybrid_llm_client.chat(
-            messages=[
-                {
-                    "role": "system",
-                    "content": "Jesteś asystentem analizującym intencje użytkownika.",
-                },
-                {"role": "user", "content": prompt},
-            ],
-            model=model,
-            force_complexity=complexity_level,
-        )
-
-        # Extract JSON from response
-        if response and "message" in response:
-            content = response["message"]["content"]
-
-            # Find JSON content (simple implementation)
-            import json
-            import re
-
-            json_match = re.search(r"({.*})", content, re.DOTALL)
-            if json_match:
-                try:
-                    json_str = json_match.group(1).strip()
-                    return json.loads(json_str)
-                except (json.JSONDecodeError, IndexError) as e:
-                    logger.error(f"Error parsing intent JSON: {e}")
-
-        # Fallback if parsing fails
-        return {
-            "intent": "UNKNOWN",
-            "confidence": 0.0,
-            "entities": [],
-            "requires_clarification": False,
-        }
 
     async def _route_by_intent(
         self,
@@ -273,38 +208,18 @@ Odpowiedz w formacie JSON:
         memory_context: str,
     ) -> Dict[str, Any]:
         """Route command to appropriate handler based on intent"""
-        intent = intent_data.get("intent", "UNKNOWN")
-        logger.info(f"Routing command to handler for intent: {intent}")
-
-        # Handle clarification if needed
         if intent_data.get("requires_clarification", False):
             return await self._handle_clarification(command, intent_data, session_id)
 
-        # Route based on intent
-        if intent == "WEATHER" and agent_states.get("weather", True):
-            return await self._handle_weather(command, session_id, complexity_level)
-
-        elif intent == "SEARCH" and agent_states.get("search", True):
-            return await self._handle_search(command, session_id, complexity_level)
-
-        elif intent == "RAG":
-            return await self._handle_rag(command, session_id, complexity_level)
-
-        elif intent == "COOKING" and agent_states.get("cooking", False):
-            return await self._handle_cooking(command, session_id, complexity_level)
-
-        elif intent == "SHOPPING" and agent_states.get("shopping", False):
-            return await self._handle_shopping(command, session_id, complexity_level)
-
-        else:
-            # Default to general chat with context
-            return await self._handle_general_chat(
-                command,
-                session_id,
-                complexity_level,
-                personalized_context,
-                memory_context,
-            )
+        return await self.router.route_command(
+            command=command,
+            intent_data=intent_data,
+            session_id=session_id,
+            complexity_level=complexity_level,
+            agent_states=agent_states,
+            personalized_context=personalized_context,
+            memory_context=memory_context,
+        )
 
     async def _handle_clarification(
         self, command: str, intent_data: Dict[str, Any], session_id: str
