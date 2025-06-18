@@ -1,45 +1,45 @@
-# Base Node.js image
-FROM node:20-alpine AS base
+# Multi-stage build dla aplikacji Next.js
+FROM node:18-alpine AS base
 
-# Set working directory
+# Instalacja zależności tylko gdy potrzebne
+FROM base AS deps
+RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-# Install dependencies only when needed (leveraging Docker cache)
-FROM base AS deps
+# Kopiowanie plików package
 COPY package.json package-lock.json* ./
+RUN npm ci --only=production
 
-# Install dependencies with clean installation (ci is preferred for reproducible builds)
-RUN npm ci
-
-# Rebuild the source code only when needed
+# Etap budowania
 FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Build application (fail if build fails - no || true)
+# Build aplikacji
 RUN npm run build
 
-# Production image, copy all the files and run next
+# Etap produkcyjny
 FROM base AS runner
 WORKDIR /app
 
-ENV NODE_ENV production
+ENV NODE_ENV=production
 
-# Copy necessary files from the builder stage
-COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package.json ./package.json
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+
+# Kopiowanie plików publicznych
 COPY --from=builder /app/public ./public
 
-# Create a non-root user and switch to it
-RUN addgroup --system --gid 1001 nodejs && \
-    adduser --system --uid 1001 nextjs && \
-    chown -R nextjs:nodejs /app/.next
+# Kopiowanie plików buildowanych
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
 USER nextjs
 
-# Expose the listening port
 EXPOSE 3000
 
-# Run the application
-CMD ["npm", "start"]
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
+
+CMD ["node", "server.js"]

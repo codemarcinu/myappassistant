@@ -1,0 +1,121 @@
+version: '3.8'
+
+services:
+  # Serwis Ollama dla lokalnych modeli LLM
+  ollama:
+    image: ollama/ollama:latest
+    container_name: foodsave-ollama
+    ports:
+      - "11434:11434"
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+      - OLLAMA_KEEP_ALIVE=24h
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - foodsave-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Backend FastAPI
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: foodsave-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=production
+      - OLLAMA_URL=http://ollama:11434
+      - OLLAMA_MODEL=gemma3:latest
+      - DATABASE_URL=sqlite:///./data/foodsave.db
+      - LOG_LEVEL=INFO
+      - CORS_ORIGINS=http://localhost:3000,http://frontend:3000
+      - RAG_VECTOR_STORE_PATH=/app/data/vector_store
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      ollama:
+        condition: service_healthy
+    networks:
+      - foodsave-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Frontend Next.js
+  frontend:
+    build:
+      context: ./foodsave-frontend
+      dockerfile: Dockerfile
+    container_name: foodsave-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=http://backend:8000
+      - NEXT_PUBLIC_APP_NAME=FoodSave AI
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - foodsave-network
+    restart: unless-stopped
+
+  # Nginx Reverse Proxy (opcjonalny)
+  nginx:
+    image: nginx:alpine
+    container_name: foodsave-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - foodsave-network
+    restart: unless-stopped
+    profiles:
+      - production
+
+  # Redis dla cache (opcjonalny)
+  redis:
+    image: redis:7-alpine
+    container_name: foodsave-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - foodsave-network
+    restart: unless-stopped
+    profiles:
+      - with-cache
+
+volumes:
+  ollama_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  foodsave-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
