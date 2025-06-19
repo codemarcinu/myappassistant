@@ -146,3 +146,9 @@ async def long_task(background_tasks: BackgroundTasks):
 async def read_root():
     """Root endpoint."""
     return {"message": f"Witaj w backendzie aplikacji {settings.APP_NAME}!"}
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run(app, host="0.0.0.0", port=8000)

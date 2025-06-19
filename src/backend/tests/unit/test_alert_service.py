@@ -3,8 +3,8 @@ from unittest.mock import patch
 
 import pytest
 
+from backend.agents.adapters.alert_service import AlertService
 from backend.agents.error_types import ErrorSeverity
-from backend.agents.mixins.alert_service import AlertService
 
 
 class TestAlertService:
@@ -20,7 +20,7 @@ class TestAlertService:
 
     def test_should_alert_throttling(self, service):
         error_key = "test_agent:test"
-        service.last_alerts[error_key] = datetime.now() - timedelta(seconds=100)
+        service.last_alerts[error_key] = datetime.now() - timedelta(seconds=3600)
         assert service.should_alert("test", ErrorSeverity.HIGH)
 
         service.last_alerts[error_key] = datetime.now()

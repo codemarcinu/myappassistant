@@ -578,3 +578,7 @@ class AsyncDocumentLoader:
                     logger.error(f"Error in incremental indexing: {e}")
                     # Wait before retrying
                     await asyncio.sleep(60)
+
+
+# Create a global instance of EnhancedVectorStore
+enhanced_vector_store = EnhancedVectorStore()

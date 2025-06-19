@@ -8,10 +8,11 @@ from typing import Any, AsyncGenerator, Callable, Dict, Generic, List, Optional,
 from pydantic import BaseModel, ValidationError
 
 from ..core.hybrid_llm_client import ModelComplexity, hybrid_llm_client
+from .adapters.alert_service import AlertService
+from .adapters.error_handler import ErrorHandler
+from .adapters.fallback_manager import FallbackManager
+from .core.agent_interface import IAlertService, IErrorHandler, IFallbackProvider
 from .error_types import EnhancedAgentResponse, ErrorSeverity
-from .mixins.alert_service import AlertService
-from .mixins.error_handler import ErrorHandler
-from .mixins.fallback_manager import FallbackManager
 
 T = TypeVar("T", bound=BaseModel)
 logger = logging.getLogger(__name__)
@@ -27,9 +28,9 @@ class ImprovedBaseAgent(ABC, Generic[T]):
     def __init__(
         self,
         name: str,
-        error_handler: Optional[ErrorHandler] = None,
-        fallback_manager: Optional["FallbackManager"] = None,
-        alert_service: Optional[AlertService] = None,
+        error_handler: Optional[IErrorHandler] = None,
+        fallback_manager: Optional[IFallbackProvider] = None,
+        alert_service: Optional[IAlertService] = None,
     ):
         self.name = name
         self.input_model: Optional[type[T]] = None
@@ -100,7 +101,7 @@ class ImprovedBaseAgent(ABC, Generic[T]):
         self, input_data: Dict[str, Any], original_error: Exception, start_time: float
     ) -> EnhancedAgentResponse:
         """Delegate to FallbackManager"""
-        from .mixins.fallback_manager import FallbackManager
+        from .adapters.fallback_manager import FallbackManager
 
         if self.fallback_manager is None:
             self.fallback_manager = FallbackManager()

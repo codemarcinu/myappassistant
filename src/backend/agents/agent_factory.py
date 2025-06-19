@@ -62,7 +62,47 @@ class AgentFactory:
 
     def _get_agent_class(self, class_name: str) -> Type[ImprovedBaseAgent]:
         """Dynamically import agent class to avoid circular imports"""
-        module = __import__(
-            f"src.backend.agents.{class_name.lower()}", fromlist=[class_name]
+        import importlib
+        import os
+        import sys
+
+        # Get the project root path
+        project_root = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "../../..")
         )
-        return getattr(module, class_name)
+        if project_root not in sys.path:
+            sys.path.insert(0, project_root)
+
+        # Map class names to actual module files
+        module_map = {
+            "OCRAgent": "ocr_agent",
+            "EnhancedWeatherAgent": "enhanced_weather_agent",
+            "SearchAgent": "search_agent",
+            "ChefAgent": "chef_agent",
+            "MealPlannerAgent": "meal_planner_agent",
+            "CategorizationAgent": "categorization_agent",
+            "AnalyticsAgent": "analytics_agent",
+            "EnhancedRAGAgent": "enhanced_rag_agent",
+        }
+
+        if class_name not in module_map:
+            raise ValueError(f"No module mapping for agent class: {class_name}")
+
+        module_name = module_map[class_name]
+        full_module_path = f"src.backend.agents.{module_name}"
+
+        try:
+            module = importlib.import_module(full_module_path)
+            return getattr(module, class_name)
+        except ImportError as e:
+            # Check if file actually exists
+            file_path = os.path.join(os.path.dirname(__file__), f"{module_name}.py")
+            if not os.path.exists(file_path):
+                raise FileNotFoundError(
+                    f"Agent module file not found: {file_path}"
+                ) from e
+            else:
+                raise ImportError(
+                    f"Failed to import {class_name} from {full_module_path}: {str(e)}\n"
+                    f"Current sys.path: {sys.path}"
+                ) from e

@@ -39,7 +39,7 @@ class WeatherRequest(BaseModel):
     location: str
     days: int = Field(default=3, ge=1, le=7)
     include_alerts: bool = True
-    model: str = "gemma3:12b"
+    model: str = "SpeakLeash/bielik-11b-v2.3-instruct:Q8_0"
 
 
 class WeatherAlert(BaseModel):
@@ -108,7 +108,9 @@ class EnhancedWeatherAgent(EnhancedBaseAgent[WeatherRequest]):
             # Validate input
             validated_data = self._validate_input(input_data)
             query = validated_data.get("query", "")
-            model = validated_data.get("model", "gemma3:12b")
+            model = validated_data.get(
+                "model", "SpeakLeash/bielik-11b-v2.3-instruct:Q8_0"
+            )
             include_alerts = validated_data.get("include_alerts", True)
 
             # Extract location from query

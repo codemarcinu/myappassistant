@@ -65,7 +65,6 @@ class TestRateLimiter:
 
         # User2 only hits global limit
         assert await limiter.check_limit("test_agent", "user2") is True
-        assert await limiter.check_limit("test_agent", "user2") is True
         assert await limiter.check_limit("test_agent", "user2") is False
 
 

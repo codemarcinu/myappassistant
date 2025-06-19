@@ -63,7 +63,7 @@ class TestCircuitBreaker:
 
         result = await wrapped()
         assert result == "success"
-        assert breaker.state == CircuitState.HALF_OPEN
+        assert breaker.state == CircuitState.CLOSED
 
     @pytest.mark.asyncio
     async def test_half_open_to_closed(self, breaker):

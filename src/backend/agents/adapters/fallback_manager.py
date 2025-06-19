@@ -4,6 +4,7 @@ from typing import Any, Dict, Optional
 
 from backend.core.hybrid_llm_client import ModelComplexity, hybrid_llm_client
 
+from ..core.agent_interface import IFallbackProvider
 from ..error_types import EnhancedAgentResponse, ErrorSeverity
 
 
@@ -131,7 +132,7 @@ class MinimalResponseStrategy(FallbackStrategy):
         )
 
 
-class FallbackManager:
+class FallbackManager(IFallbackProvider):
     """Manages fallback strategies execution"""
 
     def __init__(self):

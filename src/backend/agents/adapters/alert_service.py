@@ -2,10 +2,11 @@ import logging
 from datetime import datetime
 from typing import Any, Dict, Optional
 
+from ..core.agent_interface import IAlertService
 from ..error_types import ErrorSeverity
 
 
-class AlertService:
+class AlertService(IAlertService):
     """Service for handling critical error alerts"""
 
     def __init__(self, name: str, alert_config: Optional[Dict[str, Any]] = None):

@@ -2,13 +2,13 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from backend.agents.error_types import EnhancedAgentResponse
-from backend.agents.mixins.fallback_manager import (
+from backend.agents.adapters.fallback_manager import (
     FallbackManager,
     MinimalResponseStrategy,
     PromptRewritingStrategy,
     SimplifiedModelStrategy,
 )
+from backend.agents.error_types import EnhancedAgentResponse
 
 
 class TestFallbackStrategies:
@@ -28,7 +28,10 @@ class TestFallbackStrategies:
         ) as mock_chat:
             mock_chat.return_value = {"message": {"content": "rewritten query"}}
             result = await strategy.execute(input_data, error)
-            assert result == {"query": "rewritten query"}
+            assert result.success
+            assert result.data == {"query": "rewritten query"}
+            assert result.metadata["original_query"] == "test query"
+            assert result.metadata["rewritten_query"] == "rewritten query"
 
     @pytest.mark.asyncio
     async def test_simplified_model_strategy(self, input_data, error):

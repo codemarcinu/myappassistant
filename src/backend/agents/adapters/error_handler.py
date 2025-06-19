@@ -2,12 +2,13 @@ import logging
 import time
 import traceback
 from datetime import datetime
-from typing import Any, Callable, Coroutine, Dict, Optional
+from typing import Any, Awaitable, Callable, Dict, Optional
 
+from ..core.agent_interface import IErrorHandler
 from ..error_types import ErrorSeverity
 
 
-class ErrorHandler:
+class ErrorHandler(IErrorHandler):
     """Handler for error processing and recovery with alerting capabilities"""
 
     def __init__(self, name: str, alert_config: Optional[Dict[str, Any]] = None):
@@ -21,21 +22,22 @@ class ErrorHandler:
 
     async def execute_with_fallback(
         self,
-        func: Callable[..., Coroutine[Any, Any, Any]],
+        func: Callable[..., Awaitable[Any]],
         *args,
-        fallback_handler: Optional[Callable[..., Coroutine[Any, Any, Any]]] = None,
+        fallback_handler: Optional[Callable[..., Any]] = None,
         error_severity: ErrorSeverity = ErrorSeverity.MEDIUM,
         **kwargs,
-    ) -> tuple[Any, bool, Optional[str], float]:
+    ) -> Any:
         """
         Execute a function with automatic fallback and error handling
-        Returns tuple of (result, used_fallback, error_message, processing_time)
+        Returns the result of the operation or fallback.
+        Logs additional debug information internally.
         """
         start_time = time.time()
 
         try:
             result = await func(*args, **kwargs)
-            return result, False, None, time.time() - start_time
+            return result
 
         except Exception as e:
             error_info = {
@@ -54,12 +56,12 @@ class ErrorHandler:
                 try:
                     logging.info(f"Attempting fallback for {func.__name__}")
                     result = await fallback_handler(*args, error=e, **kwargs)
-                    return result, True, str(e), time.time() - start_time
+                    return result
                 except Exception as fallback_error:
                     logging.error(f"Fallback also failed: {str(fallback_error)}")
                     error_info["fallback_error"] = str(fallback_error)
 
-            return None, True, str(e), time.time() - start_time
+            return None
 
     def _should_alert(self, error_message: str, severity: ErrorSeverity) -> bool:
         """Determine if an alert should be sent based on severity and throttling"""
@@ -89,6 +91,10 @@ class ErrorHandler:
 
         self.last_alerts[error_key] = now
         return True
+
+    def should_alert(self, error_message: str, severity: ErrorSeverity) -> bool:
+        """Public interface for checking if an alert should be sent"""
+        return self._should_alert(error_message, severity)
 
     async def _send_alert(
         self, subject: str, error_info: Dict[str, Any], severity: ErrorSeverity

@@ -1,14 +1,25 @@
 import logging
+import re
+from collections import OrderedDict
 from datetime import datetime
 from typing import Any, Dict, Optional
 
-from ..core.enhanced_vector_store import enhanced_vector_store
+from ..core.enhanced_vector_store import EnhancedVectorStore
 from ..core.hybrid_llm_client import ModelComplexity, hybrid_llm_client
 from ..core.memory import ConversationMemoryManager
+from ..core.profile_manager import ProfileManager
 from ..core.sqlalchemy_compat import AsyncSession
 from ..integrations.web_search import web_search_client
 from ..models.conversation import Conversation
-from ..models.user_profile import InteractionType, ProfileManager
+from ..models.user_profile import InteractionType
+from .orchestrator_errors import (
+    AgentProcessingError,
+    IntentRecognitionError,
+    MemoryManagerError,
+    OrchestratorError,
+    ProfileManagerError,
+    ServiceUnavailableError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -27,19 +38,26 @@ class EnhancedOrchestrator:
     - Robust error handling and fallbacks
     """
 
-    def __init__(self, db: AsyncSession):
-        from .agent_factory import AgentFactory
-        from .enhanced_weather_agent import EnhancedWeatherAgent
-        from .router_service import RouterService
-
+    def __init__(
+        self,
+        db: AsyncSession,
+        agent_factory: AgentFactory,
+        profile_manager: ProfileManager,
+        router_service: RouterService,
+        weather_agent: EnhancedWeatherAgent,
+        # Add other dependencies as needed
+    ):
         self.db = db
-        self.agent_factory = AgentFactory()
-        self.profile_manager = ProfileManager(db)
-        self.memory_managers: Dict[str, ConversationMemoryManager] = {}
-        self.router = RouterService()
-
-        # Initialize enhanced weather agent
-        self.weather_agent = EnhancedWeatherAgent()
+        self.agent_factory = agent_factory
+        self.profile_manager = profile_manager
+        self.memory_managers: OrderedDict[str, ConversationMemoryManager] = (
+            OrderedDict()
+        )
+        self.max_memory_managers = (
+            1000  # Maximum number of memory managers to keep in cache
+        )
+        self.router = router_service
+        self.weather_agent = weather_agent
 
         # Pre-register specialized agents
         self._register_enhanced_agents()
@@ -52,16 +70,57 @@ class EnhancedOrchestrator:
     async def _get_memory_manager(
         self, session_id: str, conversation: Optional[Conversation] = None
     ) -> ConversationMemoryManager:
-        """Get or create memory manager for session"""
-        if session_id not in self.memory_managers:
-            memory_manager = ConversationMemoryManager(session_id)
-            self.memory_managers[session_id] = memory_manager
+        """Get or create memory manager for session with LRU caching"""
+        # If exists, move to end (most recently used) and return
+        if session_id in self.memory_managers:
+            manager = self.memory_managers[session_id]
+            # Move to end by removing and reinserting
+            del self.memory_managers[session_id]
+            self.memory_managers[session_id] = manager
+            return manager
 
-            # Initialize from conversation history if provided
-            if conversation:
-                await memory_manager.initialize_from_history(conversation)
+        # Create new manager
+        manager = ConversationMemoryManager(session_id)
+        # Add to cache
+        self.memory_managers[session_id] = manager
 
-        return self.memory_managers[session_id]
+        # If cache is full, remove the least recently used (first item)
+        if len(self.memory_managers) > self.max_memory_managers:
+            oldest_session_id = next(iter(self.memory_managers))
+            del self.memory_managers[oldest_session_id]
+
+        # Initialize from history if provided
+        if conversation:
+            await manager.initialize_from_history(conversation)
+
+        return manager
+
+    def _format_error_response(self, error: Exception) -> Dict[str, Any]:
+        """Format a standardized error response"""
+        error_type = type(error).__name__
+        error_message = str(error) or "Wystąpił nieznany błąd"
+        user_message = "Przepraszam, wystąpił błąd podczas przetwarzania żądania. Proszę spróbować ponownie."
+
+        if isinstance(error, AgentProcessingError):
+            user_message = "Błąd przetwarzania agenta: " + error_message
+        elif isinstance(error, ServiceUnavailableError):
+            user_message = "Usługa jest obecnie niedostępna. Spróbuj ponownie później."
+        elif isinstance(error, IntentRecognitionError):
+            user_message = (
+                "Nie udało się rozpoznać intencji komendy. Spróbuj wyrazić ją inaczej."
+            )
+        elif isinstance(error, MemoryManagerError):
+            user_message = "Błąd zarządzania pamięcią konwersacji."
+        elif isinstance(error, ProfileManagerError):
+            user_message = "Błąd zarządzania profilem użytkownika."
+
+        return {
+            "response": user_message,
+            "status": "error",
+            "error_type": error_type,
+            "error_message": error_message,
+            "timestamp": datetime.now().isoformat(),
+        }
 
     async def process_command(
         self,
@@ -168,12 +227,12 @@ class EnhancedOrchestrator:
 
             return response
 
+        except OrchestratorError as e:
+            logger.error(f"Orchestrator specific error: {e}")
+            return self._format_error_response(e)
         except Exception as e:
-            logger.error(f"Error processing command: {e}")
-            return {
-                "response": "Brak dostępnych agentów",
-                "data": {"query": user_command},
-            }
+            logger.error(f"Unexpected error processing command: {e}")
+            return self._format_error_response(e)
 
     async def _determine_command_complexity(self, command: str) -> ModelComplexity:
         """Determine the complexity level of a command"""
@@ -249,7 +308,7 @@ class EnhancedOrchestrator:
             agent_response = await self.weather_agent.process(
                 {
                     "query": command,
-                    "model": "gemma3:12b",  # Override with consistent model
+                    "model": "SpeakLeash/bielik-11b-v2.3-instruct:Q8_0",  # Override with consistent model
                     "include_alerts": True,
                 }
             )
@@ -283,23 +342,58 @@ class EnhancedOrchestrator:
         logger.info(f"Handling search query: {command}")
 
         try:
-            # Extract search query (simplified version)
-            search_terms = (
-                command.replace("wyszukaj", "")
-                .replace("znajdź", "")
-                .replace("szukaj", "")
-                .strip()
-            )
+            # Improved query extraction using regex to handle natural language queries
+            search_terms = command
+            patterns = [
+                r"wyszukaj\s+(.+)",
+                r"znajdź\s+(.+)",
+                r"szukaj\s+(.+)",
+                r"wyszukiwanie\s+(.+)",
+                r"znalezienie\s+(.+)",
+                r"poszukaj\s+(.+)",
+            ]
 
-            # If search terms are too short, ask for clarification
-            if len(search_terms) < 3:
+            # Try to match extraction patterns
+            for pattern in patterns:
+                match = re.search(pattern, command, re.IGNORECASE)
+                if match:
+                    search_terms = match.group(1).strip()
+                    break
+
+            # If no pattern matched, use the whole command
+            if search_terms == command:
+                logger.info(
+                    f"No search pattern matched, using entire command as search terms: {command}"
+                )
+
+            # Validate search terms
+            if len(search_terms) < 2:
                 return {
                     "response": "Proszę podać bardziej szczegółowe zapytanie do wyszukania.",
                     "requires_clarification": True,
                 }
 
+            # Remove question marks if they're at the end
+            if search_terms.endswith("?"):
+                search_terms = search_terms[:-1].strip()
+
+            # Perform web search with enhanced validation
+            if not search_terms or len(search_terms) > 200:
+                logger.warning(f"Invalid search terms: '{search_terms}'")
+                return {
+                    "response": "Nieprawidłowe zapytanie wyszukiwania. Proszę spróbować ponownie.",
+                    "status": "error",
+                }
+
             # Perform web search
-            search_response = await web_search_client.search(search_terms)
+            try:
+                search_response = await web_search_client.search(search_terms)
+            except Exception as e:
+                logger.error(f"Web search failed: {e}")
+                return {
+                    "response": "Wystąpił problem z wyszukiwaniem. Proszę spróbować ponownie później.",
+                    "status": "error",
+                }
 
             # Check if we got any results
             if not search_response.results:
@@ -335,7 +429,7 @@ Odpowiedź powinna być w języku polskim, dobrze ustrukturyzowana i zawierać n
                     },
                     {"role": "user", "content": prompt},
                 ],
-                model="gemma3:12b",
+                model="SpeakLeash/bielik-11b-v2.3-instruct:Q8_0",
                 force_complexity=ModelComplexity.STANDARD,
             )
 
@@ -344,15 +438,14 @@ Odpowiedź powinna być w języku polskim, dobrze ustrukturyzowana i zawierać n
                 answer = response["message"]["content"]
 
                 # Return formatted response
-                return {
-                    "response": answer,
-                    "data": {
-                        "query": search_terms,
-                        "results": [
-                            result.dict() for result in search_response.results
-                        ],
-                    },
-                }
+            return {
+                "response": answer,
+                "status": "success",
+                "data": {
+                    "query": search_terms,
+                    "results": [result.dict() for result in search_response.results],
+                },
+            }
 
             # Fallback
             return {
@@ -363,7 +456,8 @@ Odpowiedź powinna być w języku polskim, dobrze ustrukturyzowana i zawierać n
         except Exception as e:
             logger.error(f"Error processing search query: {e}")
             return {
-                "response": "Wystąpił błąd podczas wyszukiwania. Proszę spróbować ponownie."
+                "response": "Wystąpił błąd podczas wyszukiwania. Proszę spróbować ponownie.",
+                "status": "error",
             }
 
     async def _handle_rag(
@@ -374,9 +468,8 @@ Odpowiedź powinna być w języku polskim, dobrze ustrukturyzowana i zawierać n
 
         try:
             # Search the vector store
-            results = await enhanced_vector_store.search(
-                query=command, k=5, min_similarity=0.65
-            )
+            vector_store = EnhancedVectorStore()
+            results = await vector_store.search(query=command, k=5, min_similarity=0.65)
 
             if not results:
                 # No relevant documents found, fall back to general chat
@@ -415,7 +508,7 @@ Udziel wyczerpującej odpowiedzi w języku polskim, opierając się na dostarczo
                     },
                     {"role": "user", "content": prompt},
                 ],
-                model="gemma3:12b",
+                model="SpeakLeash/bielik-11b-v2.3-instruct:Q8_0",
                 force_complexity=ModelComplexity.COMPLEX,
             )
 
@@ -501,14 +594,10 @@ Udziel wyczerpującej odpowiedzi w języku polskim, opierając się na dostarczo
 
         context_text = "\n\n".join(context_parts)
 
-        # Select model based on complexity
-        model = "llama3:8b"
+        # Select model based on complexity - force gemma3:latest for general chat
+        model = "gemma3:latest"
         if complexity_level == ModelComplexity.SIMPLE:
-            model = "gemma2:2b"
-        elif complexity_level == ModelComplexity.COMPLEX:
-            model = "gemma3:12b"
-        elif complexity_level == ModelComplexity.CRITICAL:
-            model = "llama3:70b"
+            model = "gemma:2b"
 
         # Generate response using appropriate model
         prompt = f"""Użytkownik: {command}
@@ -544,6 +633,11 @@ Udziel wyczerpującej odpowiedzi w języku polskim, opierając się na dostarczo
             "model_used": model,
             "complexity": complexity_level.value,
         }
+
+    async def remove_memory_manager(self, session_id: str) -> None:
+        """Explicitly remove a memory manager by session_id"""
+        if session_id in self.memory_managers:
+            del self.memory_managers[session_id]
 
     async def shutdown(self) -> None:
         """Clean shutdown of all components"""

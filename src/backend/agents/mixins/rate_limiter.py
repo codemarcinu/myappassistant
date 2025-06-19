@@ -2,7 +2,7 @@ import asyncio
 import logging
 import time
 from collections import defaultdict
-from typing import Dict, Optional
+from typing import Any, Callable, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -56,24 +56,28 @@ class RateLimiter:
         async with self.lock:
             self.user_limits[agent_type][user_id] = TokenBucket(capacity, refill_rate)
 
-    async def check_limit(self, agent_type: str, user_id: Optional[str] = None) -> bool:
+    async def check_limit(
+        self, agent_type: str, user_id: Optional[str] = None, tokens: int = 1
+    ) -> bool:
         """
         Check if request is allowed
+        Args:
+            tokens: Number of tokens to consume (default=1)
         Returns:
             bool: True if allowed, False if rate limited
         """
-        # Check global limit first
-        if agent_type in self.global_limits:
-            if not await self.global_limits[agent_type].consume():
-                return False
-
-        # Check user-specific limit if provided
+        # Check user-specific limit first if provided
         if (
             user_id
             and agent_type in self.user_limits
             and user_id in self.user_limits[agent_type]
         ):
-            if not await self.user_limits[agent_type][user_id].consume():
+            if not await self.user_limits[agent_type][user_id].consume(tokens):
+                return False
+
+        # Check global limit
+        if agent_type in self.global_limits:
+            if not await self.global_limits[agent_type].consume(tokens):
                 return False
 
         return True
@@ -82,9 +86,28 @@ class RateLimiter:
 def rate_limited(agent_type: str, user_id_key: Optional[str] = None):
     """Decorator for rate limiting agent methods"""
 
-    def decorator(func):
-        async def wrapper(self, *args, **kwargs):
-            user_id = kwargs.get(user_id_key) if user_id_key else None
+    def decorator(func: Callable) -> Callable:
+        async def wrapper(self, *args, **kwargs) -> Any:
+            # Extract user_id from kwargs or args
+            user_id = None
+            if user_id_key:
+                if user_id_key in kwargs:
+                    user_id = kwargs[user_id_key]
+                else:
+                    # Try to get from args by parameter name
+                    try:
+                        # Get function signature
+                        import inspect
+
+                        sig = inspect.signature(func)
+                        params = list(sig.parameters.keys())
+                        if user_id_key in params:
+                            idx = params.index(user_id_key) - 1  # subtract 1 for 'self'
+                            if idx < len(args):
+                                user_id = args[idx]
+                    except Exception as e:
+                        logger.warning(f"Error extracting user_id: {e}")
+
             if not await self.rate_limiter.check_limit(agent_type, user_id):
                 raise RateLimitExceeded(f"Rate limit exceeded for {agent_type}")
             return await func(self, *args, **kwargs)
