@@ -1,7 +1,7 @@
 from sqlalchemy import Boolean, Column, Date, Float, ForeignKey, Index, Integer, String
 from sqlalchemy.orm import deferred, relationship
 
-from src.backend.infrastructure.database.database import Base
+from ..core.database import Base
 
 
 class ShoppingTrip(Base):

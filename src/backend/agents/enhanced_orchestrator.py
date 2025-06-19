@@ -2,16 +2,16 @@ import logging
 from datetime import datetime
 from typing import Any, Dict, Optional
 
-from src.backend.agents.orchestration_components import (
+from ..core.profile_manager import ProfileManager
+from ..core.sqlalchemy_compat import AsyncSession
+from ..models.user_profile import InteractionType
+from .orchestration_components import (
     IAgentRouter,
     IIntentDetector,
     IMemoryManager,
     IResponseGenerator,
 )
-from src.backend.agents.orchestrator_errors import OrchestratorError
-from src.backend.core.profile_manager import ProfileManager
-from src.backend.core.sqlalchemy_compat import AsyncSession
-from src.backend.models.user_profile import InteractionType
+from .orchestrator_errors import OrchestratorError
 
 logger = logging.getLogger(__name__)
 

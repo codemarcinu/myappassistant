@@ -2,7 +2,7 @@ from typing import Any, Dict, Optional
 
 from fastapi import status
 
-from src.backend.core.exceptions import ErrorCodes, FoodSaveException
+from ..core.exceptions import ErrorCodes, FoodSaveException
 
 
 class OrchestratorError(FoodSaveException):

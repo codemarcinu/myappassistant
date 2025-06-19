@@ -7,8 +7,9 @@ from .enhanced_base_agent import ImprovedBaseAgent
 class AgentBuilder:
     """Builder pattern for configuring and creating agents"""
 
-    def __init__(self, container: AgentContainer):
+    def __init__(self, container: AgentContainer, factory: Any = None):
         self.container = container
+        self._factory = factory
         self._config: Dict[str, Any] = {}
         self._agent_type: Optional[str] = None
 
@@ -52,6 +53,19 @@ class AgentBuilder:
 
     def _create_agent_instance(self) -> ImprovedBaseAgent:
         """Create the appropriate agent instance"""
-        from .agent_factory import AgentFactory
+        if not self._agent_type:
+            raise ValueError("Agent type must be specified")
 
-        return AgentFactory.create_agent(self._agent_type)
+        # Get agent class from registry
+        agent_class = self._factory._registry.get(self._agent_type)
+        if not agent_class:
+            raise ValueError(f"Unsupported agent type: {self._agent_type}")
+
+        # Create agent instance with basic dependencies
+        agent_name = f"{self._agent_type}Agent"
+        return agent_class(
+            name=agent_name,
+            error_handler=self.container.get("error_handler"),
+            fallback_manager=self.container.get("fallback_manager"),
+            alert_service=self.container.get("alert_service"),
+        )

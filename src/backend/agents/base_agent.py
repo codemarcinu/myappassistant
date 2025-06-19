@@ -9,7 +9,7 @@ from typing import Any, AsyncGenerator, Dict, Generic, List, Optional, TypeVar
 
 from pydantic import BaseModel, ValidationError
 
-from src.backend.core.llm_client import llm_client
+from ..core.llm_client import llm_client
 
 T = TypeVar("T", bound=BaseModel)
 logger = logging.getLogger(__name__)

@@ -1,6 +1,6 @@
 from sqlalchemy import text
 
-from src.backend.infrastructure.database.database import engine
+from .database import engine
 
 
 async def run_migrations():

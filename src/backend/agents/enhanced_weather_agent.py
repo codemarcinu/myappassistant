@@ -68,8 +68,19 @@ class WeatherData(BaseModel):
 class EnhancedWeatherAgent(EnhancedBaseAgent[WeatherRequest]):
     """Enhanced weather agent with multi-provider fallback and alert handling"""
 
-    def __init__(self, name: str = "EnhancedWeatherAgent"):
-        super().__init__(name)
+    def __init__(
+        self,
+        name: str = "EnhancedWeatherAgent",
+        error_handler=None,
+        fallback_manager=None,
+        alert_service=None,
+    ):
+        super().__init__(
+            name=name,
+            error_handler=error_handler,
+            fallback_manager=fallback_manager,
+            alert_service=alert_service,
+        )
         self.input_model = WeatherRequest
         self.providers: List[WeatherProvider] = self._init_providers()
         self.http_client = httpx.AsyncClient(timeout=10.0)

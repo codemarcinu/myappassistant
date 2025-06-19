@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field, validator
 from sqlalchemy import JSON, Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
-from src.backend.infrastructure.database.database import Base
+from ..core.database import Base
 
 # Removed unused import
 
@@ -64,6 +64,7 @@ class UserActivity(Base):
     """Database model for tracking user activity"""
 
     __tablename__ = "user_activities"
+    __table_args__ = {"extend_existing": True}
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(String, ForeignKey("user_profiles.user_id"), nullable=False)

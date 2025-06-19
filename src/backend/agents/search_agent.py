@@ -3,17 +3,29 @@ from typing import Any, AsyncGenerator, Dict, List
 
 import httpx
 
-from backend.agents.base_agent import AgentResponse, BaseAgent
+from backend.agents.base_agent import AgentResponse
+from backend.agents.enhanced_base_agent import ImprovedBaseAgent
 from backend.core.llm_client import llm_client
 
 logger = logging.getLogger(__name__)
 
 
-class SearchAgent(BaseAgent):
+class SearchAgent(ImprovedBaseAgent):
     """Agent that performs web searches using DuckDuckGo"""
 
-    def __init__(self, name: str = "SearchAgent"):
-        super().__init__(name)
+    def __init__(
+        self,
+        name: str = "SearchAgent",
+        error_handler=None,
+        fallback_manager=None,
+        alert_service=None,
+    ):
+        super().__init__(
+            name=name,
+            error_handler=error_handler,
+            fallback_manager=fallback_manager,
+            alert_service=alert_service,
+        )
         self.search_url = "https://api.duckduckgo.com/"
 
     async def process(self, input_data: Any) -> AgentResponse:

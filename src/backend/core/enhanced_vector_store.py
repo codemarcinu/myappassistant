@@ -18,7 +18,7 @@ except ImportError:
     FAISS_AVAILABLE = False
     logging.warning("FAISS not available, falling back to simple vector store")
 
-from src.backend.core.llm_client import llm_client
+from .llm_client import llm_client
 
 logger = logging.getLogger(__name__)
 

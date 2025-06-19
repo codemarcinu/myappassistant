@@ -42,3 +42,19 @@ class AlertConfig(BaseModel):
     slack_webhook: Optional[str] = None
     min_severity: ErrorSeverity = ErrorSeverity.HIGH
     throttle_period: int = 3600  # seconds between similar alerts
+
+
+class AgentError(Exception):
+    """Base class for agent errors"""
+
+    def __init__(self, message: str, severity: ErrorSeverity = ErrorSeverity.MEDIUM):
+        self.message = message
+        self.severity = severity
+        super().__init__(message)
+
+
+class OrchestratorError(AgentError):
+    """Error specific to orchestrator operations"""
+
+    def __init__(self, message: str, severity: ErrorSeverity = ErrorSeverity.HIGH):
+        super().__init__(message, severity)

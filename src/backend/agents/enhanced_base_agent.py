@@ -7,12 +7,12 @@ from typing import Any, AsyncGenerator, Callable, Dict, Generic, List, Optional,
 
 from pydantic import BaseModel, ValidationError
 
-from src.backend.agents.adapters.alert_service import AlertService
-from src.backend.agents.adapters.error_handler import ErrorHandler
-from src.backend.agents.adapters.fallback_manager import FallbackManager
-from src.backend.agents.core.agent_interface import IAlertService, IErrorHandler
-from src.backend.agents.error_types import EnhancedAgentResponse, ErrorSeverity
-from src.backend.core.hybrid_llm_client import ModelComplexity, hybrid_llm_client
+from ..core.hybrid_llm_client import ModelComplexity, hybrid_llm_client
+from .adapters.alert_service import AlertService
+from .adapters.error_handler import ErrorHandler
+from .adapters.fallback_manager import FallbackManager
+from .core.agent_interface import IAlertService, IErrorHandler
+from .error_types import EnhancedAgentResponse, ErrorSeverity
 
 T = TypeVar("T", bound=BaseModel)
 logger = logging.getLogger(__name__)
@@ -40,10 +40,9 @@ class ImprovedBaseAgent(ABC, Generic[T]):
         self.fallback_attempts = 0
         self.max_fallback_attempts = 3
 
-    @abstractmethod
     async def process(self, input_data: Dict[str, Any]) -> EnhancedAgentResponse:
         """Main processing method to be implemented by each agent"""
-        pass
+        raise NotImplementedError("process() must be implemented by subclass")
 
     def _validate_input(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Validate input data against model"""
@@ -291,3 +290,4 @@ class ImprovedBaseAgent(ABC, Generic[T]):
 
 # Use ImprovedBaseAgent in place of EnhancedBaseAgent for improved error handling
 EnhancedBaseAgentWithFallback = ImprovedBaseAgent
+EnhancedBaseAgent = ImprovedBaseAgent  # Alias for backwards compatibility
