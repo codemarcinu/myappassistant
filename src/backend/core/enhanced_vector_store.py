@@ -18,7 +18,7 @@ except ImportError:
     FAISS_AVAILABLE = False
     logging.warning("FAISS not available, falling back to simple vector store")
 
-from ..core.llm_client import llm_client
+from src.backend.core.llm_client import llm_client
 
 logger = logging.getLogger(__name__)
 
@@ -479,7 +479,7 @@ class AsyncDocumentLoader:
         self.vector_store = vector_store
         self.loading_task = None
         self._stop_event = asyncio.Event()
-        self.last_modified_times: dict[str, float] = {}
+        self.last_modified_times: Dict[str, float] = {}
 
     async def load_directory(
         self,
@@ -554,7 +554,7 @@ class AsyncDocumentLoader:
         self._stop_event.clear()
 
         # Track last modified times
-        file_mod_times: Dict[str, float] = {}
+        self.last_modified_times: Dict[str, float] = {}
 
         async def _indexing_task():
             while not self._stop_event.is_set():

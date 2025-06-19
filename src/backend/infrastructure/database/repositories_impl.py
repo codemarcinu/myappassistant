@@ -1,9 +1,9 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...domain.repositories import FoodItemRepository, UserRepository
-from ...models.shopping import FoodItem
-from ...models.user_profile import UserProfile
+from src.backend.domain.repositories import FoodItemRepository, UserRepository
+from src.backend.models.shopping import Product
+from src.backend.models.user_profile import UserProfile
 
 
 class SQLAlchemyUserRepository(UserRepository):
@@ -30,19 +30,19 @@ class SQLAlchemyFoodItemRepository(FoodItemRepository):
 
     async def get_by_id(self, item_id: int) -> dict | None:
         result = await self.session.execute(
-            select(FoodItem).where(FoodItem.id == item_id)
+            select(Product).where(Product.id == item_id)
         )
         item = result.scalars().first()
         return item.to_dict() if item else None
 
     async def create(self, item_data: dict) -> dict:
-        item = FoodItem(**item_data)
+        item = Product(**item_data)
         self.session.add(item)
         await self.session.commit()
         return item.to_dict()
 
     async def search(self, query: str) -> list[dict]:
         result = await self.session.execute(
-            select(FoodItem).where(FoodItem.name.ilike(f"%{query}%"))
+            select(Product).where(Product.name.ilike(f"%{query}%"))
         )
         return [item.to_dict() for item in result.scalars().all()]

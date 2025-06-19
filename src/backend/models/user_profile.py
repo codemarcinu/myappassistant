@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field, validator
 from sqlalchemy import JSON, Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
-from ..core.database import Base
+from src.backend.infrastructure.database.database import Base
 
 # Removed unused import
 

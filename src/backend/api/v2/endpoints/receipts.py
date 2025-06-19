@@ -2,7 +2,11 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
 
 from src.backend.agents.ocr_agent import OCRAgent, OCRAgentInput
-from src.backend.api.v2.exceptions import APIErrorCodes, BadRequestError, UnprocessableEntityError
+from src.backend.api.v2.exceptions import (
+    APIErrorCodes,
+    BadRequestError,
+    UnprocessableEntityError,
+)
 
 router = APIRouter(prefix="/receipts", tags=["Receipts"])
 

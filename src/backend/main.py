@@ -13,17 +13,17 @@ from sqlalchemy.sql import text
 from starlette.middleware.base import BaseHTTPMiddleware
 from structlog.contextvars import bind_contextvars, clear_contextvars
 
-from .api import agents, chat, food, pantry, upload
-from .api.v1.endpoints import receipts
-from .api.v2.endpoints import receipts as receipts_v2
-from .api.v2.exceptions import APIErrorDetail, APIException
-from .application.use_cases.process_query_use_case import ProcessQueryUseCase
-from .config import settings
-from .core.container import Container
-from .core.exceptions import ErrorCodes, ErrorDetail, FoodSaveException
-from .core.migrations import run_migrations
-from .core.seed_data import seed_database
-from .infrastructure.database.database import AsyncSessionLocal, Base, engine
+from src.backend.api import agents, chat, food, pantry, upload
+from src.backend.api.v1.endpoints import receipts
+from src.backend.api.v2.endpoints import receipts as receipts_v2
+from src.backend.api.v2.exceptions import APIErrorDetail, APIException
+from src.backend.application.use_cases.process_query_use_case import ProcessQueryUseCase
+from src.backend.config import settings
+from src.backend.core.container import Container
+from src.backend.core.exceptions import ErrorCodes, ErrorDetail, FoodSaveException
+from src.backend.core.migrations import run_migrations
+from src.backend.core.seed_data import seed_database
+from src.backend.infrastructure.database.database import AsyncSessionLocal, Base, engine
 
 # --- Rate limiting ---
 limiter = Limiter(key_func=get_remote_address)
@@ -91,22 +91,22 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Create tables
+    # Create tables asynchronously
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    # Run migrations
+
+    # Run migrations asynchronously
     await run_migrations()
-    # Seed the database
+
+    # Seed the database asynchronously
     logger = structlog.get_logger()
     logger.info("database.seeding.start")
-    db = AsyncSessionLocal()
-    try:
-        await seed_database(db)
-    except Exception as e:
-        logger.error("database.seeding.error", error=str(e))
-        raise
-    finally:
-        await db.close()
+    async with AsyncSessionLocal() as db:
+        try:
+            await seed_database(db)
+        except Exception as e:
+            logger.error("database.seeding.error", error=str(e))
+            raise
     logger.info("database.seeding.complete")
     yield  # Cleanup code here if needed
 

@@ -1,6 +1,6 @@
-from typing import Any, List, Optional
+from typing import List
 
-from ..llm_api.llm_client import LLMClient
+from src.backend.infrastructure.llm_api.llm_client import LLMClient
 
 
 class EnhancedVectorStoreImpl:

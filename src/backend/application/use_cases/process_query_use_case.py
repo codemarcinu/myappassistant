@@ -1,8 +1,10 @@
 from typing import Any
 
-from ..domain.repositories import FoodItemRepository, UserRepository
-from ..infrastructure.llm_api.llm_client import LLMClient
-from ..infrastructure.vector_store.vector_store_impl import EnhancedVectorStoreImpl
+from src.backend.domain.repositories import FoodItemRepository, UserRepository
+from src.backend.infrastructure.llm_api.llm_client import LLMClient
+from src.backend.infrastructure.vector_store.vector_store_impl import (
+    EnhancedVectorStoreImpl,
+)
 
 
 class ProcessQueryUseCase:

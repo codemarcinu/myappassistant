@@ -1,14 +1,15 @@
 from dependency_injector import containers, providers
 
-from ..application.use_cases.process_query_use_case import ProcessQueryUseCase
-from ..domain.repositories import FoodItemRepository, UserRepository
-from ..infrastructure.database.database import get_db
-from ..infrastructure.database.repositories_impl import (
+from src.backend.application.use_cases.process_query_use_case import ProcessQueryUseCase
+from src.backend.infrastructure.database.database import get_db
+from src.backend.infrastructure.database.repositories_impl import (
     SQLAlchemyFoodItemRepository,
     SQLAlchemyUserRepository,
 )
-from ..infrastructure.llm_api.llm_client import LLMClient
-from ..infrastructure.vector_store.vector_store_impl import EnhancedVectorStoreImpl
+from src.backend.infrastructure.llm_api.llm_client import LLMClient
+from src.backend.infrastructure.vector_store.vector_store_impl import (
+    EnhancedVectorStoreImpl,
+)
 
 
 class Container(containers.DeclarativeContainer):

@@ -2,19 +2,16 @@ import logging
 from datetime import datetime
 from typing import Any, Dict, Optional
 
-from ..core.hybrid_llm_client import ModelComplexity, hybrid_llm_client
-from ..core.profile_manager import ProfileManager
-from ..core.sqlalchemy_compat import AsyncSession
-from ..models.user_profile import InteractionType
-from .orchestration_components import (
+from src.backend.agents.orchestration_components import (
     IAgentRouter,
     IIntentDetector,
     IMemoryManager,
-    IntentData,
     IResponseGenerator,
-    MemoryContext,
 )
-from .orchestrator_errors import OrchestratorError
+from src.backend.agents.orchestrator_errors import OrchestratorError
+from src.backend.core.profile_manager import ProfileManager
+from src.backend.core.sqlalchemy_compat import AsyncSession
+from src.backend.models.user_profile import InteractionType
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +53,67 @@ class EnhancedOrchestrator:
             "error_type": type(error).__name__,
             "timestamp": datetime.now().isoformat(),
         }
+
+    async def process_file(
+        self,
+        file_bytes: bytes,
+        filename: str,
+        session_id: str,
+        content_type: str,
+    ) -> Dict[str, Any]:
+        """
+        Process an uploaded file through the orchestrator
+        """
+        try:
+            # 1. Get user profile for personalization
+            await self.profile_manager.get_or_create_profile(session_id)
+
+            # 2. Get conversation context
+            context = await self.memory_manager.get_context(session_id)
+
+            # 3. Log file upload for analytics
+            await self.profile_manager.log_activity(
+                session_id, InteractionType.FILE_UPLOAD, filename
+            )
+
+            # 4. Route to appropriate agent based on file type
+            if content_type.startswith("image/"):
+                intent = {"type": "image_processing", "entities": {}}
+            elif content_type == "application/pdf":
+                intent = {"type": "document_processing", "entities": {}}
+            else:
+                raise ValueError(f"Unsupported content type: {content_type}")
+
+            # 5. Route to appropriate agent
+            agent_response = await self.agent_router.route_to_agent(
+                intent,
+                context,
+                file_data={
+                    "bytes": file_bytes,
+                    "filename": filename,
+                    "content_type": content_type
+                }
+            )
+
+            # 6. Generate final response
+            final_response = await self.response_generator.generate_response(
+                agent_response, context
+            )
+
+            return {
+                "response": final_response,
+                "metadata": {
+                    "filename": filename,
+                    "content_type": content_type
+                }
+            }
+
+        except OrchestratorError as e:
+            logger.error(f"Orchestrator file processing error: {e}")
+            return self._format_error_response(e)
+        except Exception as e:
+            logger.error(f"Unexpected error processing file: {e}")
+            return self._format_error_response(e)
 
     async def process_command(
         self,
