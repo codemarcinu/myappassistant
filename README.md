@@ -186,12 +186,60 @@ locust -f locustfile.py
 5.  **Set up Ollama:**
     Install Ollama from the [official website](https://ollama.com/) and pull the required models:
     ```bash
-    ollama pull gemma3:latest
-    ollama pull SpeakLeash/bielik-11b-v2.3-instruct:Q6_K
-    ollama pull nomic-embed-text
+    # Install Ollama
+    curl -fsSL https://ollama.com/install.sh | sh
+
+    # Pull required models (minimum 16GB RAM recommended)
+    ollama pull gemma3:latest  # ~5GB
+    ollama pull SpeakLeash/bielik-11b-v2.3-instruct:Q6_K  # ~7GB
+    ollama pull nomic-embed-text  # ~0.5GB
+
+    # Verify installation
+    ollama list
     ```
 
-    For GPU acceleration, refer to the [GPU Setup Guide](GPU_SETUP.md).
+    For GPU acceleration (recommended for better performance):
+    ```bash
+    # Install NVIDIA drivers and CUDA first
+    ./scripts/setup_nvidia_docker.sh
+
+    # Then run Ollama with GPU support
+    OLLAMA_GPU=1 ollama serve
+    ```
+
+    Common troubleshooting:
+    - If models fail to load, check available RAM (minimum 16GB recommended for best performance)
+    - For slow performance, try smaller models or enable GPU
+    - Use `ollama ps` to check running models
+    - Refer to the [GPU Setup Guide](GPU_SETUP.md) for advanced configuration
+    - Check logs with `journalctl -u ollama -f` (Linux) or Event Viewer (Windows)
+    - For CUDA errors, verify driver version with `nvidia-smi`
+    - For out-of-memory errors, try smaller models or reduce context window
+    - If models won't download, check network connectivity and storage space
+    - For persistent issues, try `ollama serve --verbose` for detailed logs
+
+### Model Requirements
+Different models have varying hardware requirements:
+
+| Model Name            | RAM Required | VRAM Required | Disk Space |
+|-----------------------|--------------|---------------|------------|
+| gemma3:latest         | 8GB          | 4GB           | 5GB        |
+| SpeakLeash/bielik-11b | 16GB         | 8GB           | 7GB        |
+| nomic-embed-text      | 4GB          | 2GB           | 0.5GB      |
+
+### Performance Optimization
+1. **GPU Acceleration**:
+   - Install NVIDIA drivers and CUDA toolkit
+   - Set `OLLAMA_GPU=1` environment variable
+   - Use `--gpu` flag when pulling models
+
+2. **Memory Management**:
+   - Limit concurrent models with `OLLAMA_MAX_LOADED_MODELS`
+   - Adjust context window size for memory-constrained systems
+
+3. **Network Optimization**:
+   - Use `OLLAMA_HOST` to bind to specific interface
+   - Enable compression with `OLLAMA_COMPRESSION=true`
 
 6.  **Initialize the Database:**
     ```bash
@@ -286,12 +334,14 @@ We welcome contributions! Please follow these guidelines:
 - ✅ Automated categorization of products
 - ✅ Meal planning and shopping list generation
 - ✅ Advanced memory management system
+- ✅ Basic budget tracking functionality (recently added)
 
 ### Upcoming Features
-- ❌ Budget tracking and visualization
+- ❌ Enhanced budget visualization
 - ❌ Enhanced API versioning (v2)
 - ❌ Improved error handling standardization
 - ❌ Comprehensive test coverage (>90%)
+- ❌ Mobile-friendly interface (in progress)
 
 ### Note
 This is a personal application designed for single-user use on desktop/laptop computers. No mobile support or authentication system is planned as it's intended for individual computer use only.
