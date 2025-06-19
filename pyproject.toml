@@ -43,6 +43,7 @@ pytz = "^2024.1"
 psutil = "^7.0.0"
 structlog = "^24.1.0"
 sqlalchemy = {extras = ["asyncio"], version = "^2.0.41"}
+dependency-injector = "^4.41.0"
 [tool.poetry.group.dev.dependencies]
 sqlalchemy-stubs = "*"
 mypy = "^0.910"

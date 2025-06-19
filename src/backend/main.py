@@ -1,7 +1,8 @@
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import APIRouter, BackgroundTasks, FastAPI, Request
+from dependency_injector.wiring import Provide, inject
+from fastapi import APIRouter, BackgroundTasks, Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from slowapi import Limiter
@@ -12,10 +13,12 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from .api import agents, chat, food, pantry, upload
 from .api.v1.endpoints import receipts
+from .application.use_cases.process_query_use_case import ProcessQueryUseCase
 from .config import settings
-from .core.database import AsyncSessionLocal, Base, engine
+from .core.container import Container
 from .core.migrations import run_migrations
 from .core.seed_data import seed_database
+from .infrastructure.database.database import AsyncSessionLocal, Base, engine
 
 # --- Rate limiting ---
 limiter = Limiter(key_func=get_remote_address)
@@ -106,12 +109,24 @@ async def lifespan(app: FastAPI):
     yield  # Cleanup code here if needed
 
 
+# Initialize DI container
+container = Container()
+container.config.from_dict(
+    {"llm_api_key": settings.LLM_API_KEY, "database_url": settings.DATABASE_URL}
+)
+
 app = FastAPI(
     lifespan=lifespan,
     title=settings.APP_NAME,
     description="Backend dla modułowej aplikacji agentowej.",
     version=settings.APP_VERSION,
 )
+
+# Attach container to app
+app.container = container
+
+# Wire dependencies
+container.wire(modules=[__name__])
 
 # --- Middleware ---
 app.add_middleware(
@@ -186,9 +201,20 @@ app.include_router(api_v1, prefix="/api/v1")
 
 # --- Health check ---
 @app.get("/health", tags=["Health"])
-async def health_check():
-    """Health check endpoint."""
-    return {"status": "ok", "version": settings.APP_VERSION}
+@inject
+async def health_check(
+    process_query_uc: ProcessQueryUseCase = Depends(
+        Provide[Container.process_query_use_case]
+    ),
+):
+    """Health check endpoint with dependency injection example."""
+    # Example of using injected dependency
+    test_result = await process_query_uc.execute("health check", "system")
+    return {
+        "status": "ok",
+        "version": settings.APP_VERSION,
+        "test_query_result": test_result,
+    }
 
 
 @app.get("/ready", tags=["Health"])
