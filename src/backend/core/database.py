@@ -1,5 +1,6 @@
 from typing import AsyncGenerator
 
+import structlog
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
@@ -50,16 +51,34 @@ AsyncTestSessionLocal: async_sessionmaker[AsyncSession] = async_sessionmaker(
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
-    """Dependency to get a database session."""
+    """Dependency to get a database session.
+
+    Usage:
+        # For read operations (auto-commit):
+        async with get_db() as session:
+            result = await session.execute(query)
+
+        # For write operations (explicit transaction):
+        async with get_db() as session:
+            async with session.begin():
+                await session.execute(insert_query)
+                await session.execute(update_query)
+    """
     async with AsyncSessionLocal() as session:
         try:
             # Explicitly initialize connection
             await session.execute(text("SELECT 1"))
             yield session
-            await session.commit()
+            # Only commit if not in an explicit transaction
+            if not session.in_transaction():
+                await session.commit()
         except Exception as e:
-            await session.rollback()
-            print(f"Database error: {str(e)}")
+            if session.in_transaction():
+                await session.rollback()
+            logger = structlog.get_logger()
+            logger.error(
+                "database.transaction.error", error=str(e), error_type=type(e).__name__
+            )
             raise
         finally:
             await session.close()
@@ -75,7 +94,10 @@ async def get_test_db() -> AsyncGenerator[AsyncSession, None]:
             await session.commit()
         except Exception as e:
             await session.rollback()
-            print(f"Test database error: {str(e)}")
+            logger = structlog.get_logger()
+            logger.error(
+                "database.transaction.error", error=str(e), error_type=type(e).__name__
+            )
             raise
         finally:
             await session.close()

@@ -21,13 +21,60 @@ from .core.seed_data import seed_database
 limiter = Limiter(key_func=get_remote_address)
 
 
-# --- Middleware: Logging ---
-class LoggingMiddleware(BaseHTTPMiddleware):
+import structlog
+from structlog.contextvars import bind_contextvars, clear_contextvars
+
+# Configure structured logging
+structlog.configure(
+    processors=[
+        structlog.contextvars.merge_contextvars,
+        structlog.processors.add_log_level,
+        structlog.processors.StackInfoRenderer(),
+        structlog.dev.set_exc_info,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.make_filtering_bound_logger(logging.INFO),
+    context_class=dict,
+    logger_factory=structlog.PrintLoggerFactory(),
+    cache_logger_on_first_use=False,
+)
+
+
+# --- Middleware: Structured Logging ---
+class StructuredLoggingMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        logging.info(f"Request: {request.method} {request.url}")
-        response = await call_next(request)
-        logging.info(f"Response: {response.status_code}")
-        return response
+        # Clear any existing context
+        clear_contextvars()
+
+        # Bind request context
+        bind_contextvars(
+            request_id=request.headers.get("X-Request-ID", "none"),
+            method=request.method,
+            path=request.url.path,
+            query=dict(request.query_params),
+            client_ip=request.client.host if request.client else None,
+        )
+
+        logger = structlog.get_logger()
+        logger.info("request.start")
+
+        try:
+            response = await call_next(request)
+
+            # Log response
+            bind_contextvars(
+                status_code=response.status_code,
+                response_size=response.headers.get("content-length", 0),
+            )
+            logger.info("request.complete")
+
+            return response
+        except Exception as e:
+            logger.error("request.error", error=str(e))
+            raise
+        finally:
+            clear_contextvars()
 
 
 # --- Middleware: Auth (szkielet) ---
@@ -45,13 +92,17 @@ async def lifespan(app: FastAPI):
     # Run migrations
     await run_migrations()
     # Seed the database
-    logging.info("Seeding database with initial data...")
+    logger = structlog.get_logger()
+    logger.info("database.seeding.start")
     db = AsyncSessionLocal()
     try:
         await seed_database(db)
+    except Exception as e:
+        logger.error("database.seeding.error", error=str(e))
+        raise
     finally:
         await db.close()
-    logging.info("Database seeding finished.")
+    logger.info("database.seeding.complete")
     yield  # Cleanup code here if needed
 
 
@@ -77,22 +128,48 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-app.add_middleware(LoggingMiddleware)
+app.add_middleware(StructuredLoggingMiddleware)
 # app.add_middleware(AuthMiddleware)  # Odkomentuj, gdy AuthMiddleware będzie gotowe
 app.state.limiter = limiter
 app.add_middleware(SlowAPIMiddleware)
 
 
+from .core.exceptions import ErrorCodes, ErrorDetail, FoodSaveException
+
+
 # --- Exception Handlers ---
+@app.exception_handler(FoodSaveException)
+async def foodsave_exception_handler(request: Request, exc: FoodSaveException):
+    """Handle FoodSave exceptions with standardized format"""
+    logging.error(f"FoodSave error: {exc.detail}")
+    return JSONResponse(status_code=exc.status_code, content=exc.detail)
+
+
 @app.exception_handler(Exception)
 async def generic_exception_handler(request: Request, exc: Exception):
+    """Fallback handler for all other exceptions"""
     logging.error(f"Unhandled error: {exc}")
-    return JSONResponse(status_code=500, content={"detail": "Internal Server Error"})
+    return JSONResponse(
+        status_code=500,
+        content=ErrorDetail(
+            code=ErrorCodes.INTERNAL_ERROR,
+            message="Internal Server Error",
+            details={"exception": str(exc)},
+        ).dict(),
+    )
 
 
 @app.exception_handler(404)
 async def not_found_handler(request: Request, exc):
-    return JSONResponse(status_code=404, content={"detail": "Not Found"})
+    """Standard 404 handler"""
+    return JSONResponse(
+        status_code=404,
+        content=ErrorDetail(
+            code=ErrorCodes.NOT_FOUND,
+            message="Not Found",
+            details={"path": request.url.path},
+        ).dict(),
+    )
 
 
 # --- API Versioning ---

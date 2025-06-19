@@ -25,7 +25,6 @@ pydantic-settings = "^2.0"
 python-dotenv = "^1.0.0"
 
 # Database Group
-sqlalchemy = { version = "^2.0.25", extras = ["asyncio"] }
 aiosqlite = "^0.19.0"
 greenlet = "^3.0.3"
 
@@ -42,6 +41,8 @@ PyMuPDF = "^1.24.1"
 # Utilities
 pytz = "^2024.1"
 psutil = "^7.0.0"
+structlog = "^24.1.0"
+sqlalchemy = {extras = ["asyncio"], version = "^2.0.41"}
 [tool.poetry.group.dev.dependencies]
 sqlalchemy-stubs = "*"
 mypy = "^0.910"
@@ -57,6 +58,7 @@ safety = "^2.3.2"
 ruff = "^0.4.4"
 types-requests = "^2.31.0"
 memory-profiler = "^0.61.0"
+locust = "^2.20.0"
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
