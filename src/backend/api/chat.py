@@ -5,9 +5,9 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.backend.agents.orchestrator_factory import create_enhanced_orchestrator
 from src.backend.infrastructure.database.database import get_db
 
-from ..agents.orchestrator import Orchestrator
 from ..config import settings
 from ..core.llm_client import llm_client
 
@@ -67,7 +67,9 @@ async def memory_chat_generator(request: MemoryChatRequest, db: AsyncSession):
     Generator for streaming responses from the orchestrator.
     """
     try:
-        orchestrator = Orchestrator(db)
+        # Użyj fabryki do utworzenia EnhancedOrchestrator
+        orchestrator = create_enhanced_orchestrator(db)
+
         # The orchestrator now returns a dictionary or a streaming generator
         response_data = await orchestrator.process_command(
             user_command=request.message, session_id=request.session_id

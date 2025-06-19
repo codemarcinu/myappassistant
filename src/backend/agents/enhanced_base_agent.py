@@ -9,8 +9,8 @@ from pydantic import BaseModel, ValidationError
 
 from src.backend.agents.adapters.alert_service import AlertService
 from src.backend.agents.adapters.error_handler import ErrorHandler
-from src.backend.agents.core.agent_interface import IAlertService, IErrorHandler
 from src.backend.agents.adapters.fallback_manager import FallbackManager
+from src.backend.agents.core.agent_interface import IAlertService, IErrorHandler
 from src.backend.agents.error_types import EnhancedAgentResponse, ErrorSeverity
 from src.backend.core.hybrid_llm_client import ModelComplexity, hybrid_llm_client
 

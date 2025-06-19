@@ -91,8 +91,8 @@ class EnhancedOrchestrator:
                 file_data={
                     "bytes": file_bytes,
                     "filename": filename,
-                    "content_type": content_type
-                }
+                    "content_type": content_type,
+                },
             )
 
             # 6. Generate final response
@@ -102,10 +102,7 @@ class EnhancedOrchestrator:
 
             return {
                 "response": final_response,
-                "metadata": {
-                    "filename": filename,
-                    "content_type": content_type
-                }
+                "metadata": {"filename": filename, "content_type": content_type},
             }
 
         except OrchestratorError as e:

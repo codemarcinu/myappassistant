@@ -1,4 +1,6 @@
 import logging
+import os
+import sys
 from contextlib import asynccontextmanager
 
 import structlog
@@ -24,6 +26,12 @@ from src.backend.core.exceptions import ErrorCodes, ErrorDetail, FoodSaveExcepti
 from src.backend.core.migrations import run_migrations
 from src.backend.core.seed_data import seed_database
 from src.backend.infrastructure.database.database import AsyncSessionLocal, Base, engine
+
+# Dodaj katalog projektu do PYTHONPATH
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(os.path.dirname(current_dir))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 
 # --- Rate limiting ---
 limiter = Limiter(key_func=get_remote_address)
