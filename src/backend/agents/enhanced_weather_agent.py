@@ -469,7 +469,9 @@ class EnhancedWeatherAgent(EnhancedBaseAgent[WeatherRequest]):
                 severity_text = (
                     "WYSOKI"
                     if alert.severity >= 3
-                    else "ŚREDNI" if alert.severity == 2 else "NISKI"
+                    else "ŚREDNI"
+                    if alert.severity == 2
+                    else "NISKI"
                 )
                 weather_summary += (
                     f"- {alert.event} (Poziom: {severity_text}): {alert.headline}\n"

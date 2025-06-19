@@ -2,12 +2,8 @@ import asyncio
 
 import pytest
 
-from backend.agents.mixins.rate_limiter import (
-    RateLimiter,
-    RateLimitExceeded,
-    TokenBucket,
-    rate_limited,
-)
+from backend.agents.mixins.rate_limiter import (RateLimiter, RateLimitExceeded,
+                                                TokenBucket, rate_limited)
 
 
 class TestTokenBucket:

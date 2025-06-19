@@ -59,6 +59,21 @@ class UserSchedule(BaseModel):
             return "Europe/Warsaw"  # Default to Warsaw if invalid
         return v
 
+    def dict(self, *args, **kwargs):
+        """Override dict() to serialize time objects to ISO format strings"""
+        data = super().dict(*args, **kwargs)
+        for field in ['wake_time', 'sleep_time', 'work_start_time', 'work_end_time', 'lunch_time']:
+            if field in data and isinstance(data[field], time):
+                data[field] = data[field].isoformat()
+        return data
+
+    @classmethod
+    def parse_time(cls, time_str: str) -> time:
+        """Parse ISO format time string back to time object"""
+        if isinstance(time_str, time):
+            return time_str
+        return time.fromisoformat(time_str)
+
 
 class UserActivity(Base):
     """Database model for tracking user activity"""
@@ -103,7 +118,16 @@ class UserProfile(Base):
 
     def get_schedule(self) -> UserSchedule:
         """Get user schedule as pydantic model"""
-        return UserSchedule.parse_obj(self.schedule)
+        if not self.schedule:
+            return UserSchedule()
+        
+        # Handle case where schedule might be stored as serialized strings
+        schedule_data = self.schedule.copy()
+        for field in ['wake_time', 'sleep_time', 'work_start_time', 'work_end_time', 'lunch_time']:
+            if field in schedule_data and isinstance(schedule_data[field], str):
+                schedule_data[field] = UserSchedule.parse_time(schedule_data[field])
+        
+        return UserSchedule.parse_obj(schedule_data)
 
 
 class UserProfileData(BaseModel):

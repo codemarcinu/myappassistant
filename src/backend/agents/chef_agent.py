@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field
 
 from backend.agents.base_agent import AgentResponse, BaseAgent
 from backend.agents.tools.tools import get_available_products_from_pantry
@@ -31,8 +31,8 @@ class RecipeSuggestion(BaseModel):
 class ChefAgent(BaseAgent):
     """Agent that suggests recipes based on available pantry items"""
 
-    def __init__(self, name: str = "ChefAgent"):
-        super().__init__(name)
+    def __init__(self, name: str = "ChefAgent", error_handler=None, fallback_manager=None):
+        super().__init__(name, error_handler=error_handler, fallback_manager=fallback_manager)
 
     async def process(self, input_data: Any) -> AgentResponse:
         """Main processing method - validates input and generates recipe"""

@@ -180,9 +180,9 @@ class EnhancedVectorStore:
         self.persist_dir = persist_dir
         self.last_save_time = datetime.now()
         self.chunks_since_save = 0
-        self.chunk_ids_to_index: Dict[str, int] = (
-            {}
-        )  # Maps chunk IDs to index positions
+        self.chunk_ids_to_index: Dict[
+            str, int
+        ] = {}  # Maps chunk IDs to index positions
         self._lock = asyncio.Lock()  # Async lock for thread safety
         self.max_chunks = 10000  # Maximum chunks before cleanup
         self.cleanup_threshold = 0.8  # Cleanup when reaching 80% of max_chunks

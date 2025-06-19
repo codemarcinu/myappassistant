@@ -28,14 +28,14 @@ except ImportError:
 try:
     from langchain.text_splitter import RecursiveCharacterTextSplitter
     from langchain_community.document_loaders import PyPDFLoader, WebBaseLoader
-    from langchain_community.document_loaders.email import UnstructuredEmailLoader
-    from langchain_community.document_loaders.markdown import UnstructuredMarkdownLoader
-    from langchain_community.document_loaders.powerpoint import (
-        UnstructuredPowerPointLoader,
-    )
-    from langchain_community.document_loaders.word_document import (
-        UnstructuredWordDocumentLoader,
-    )
+    from langchain_community.document_loaders.email import \
+        UnstructuredEmailLoader
+    from langchain_community.document_loaders.markdown import \
+        UnstructuredMarkdownLoader
+    from langchain_community.document_loaders.powerpoint import \
+        UnstructuredPowerPointLoader
+    from langchain_community.document_loaders.word_document import \
+        UnstructuredWordDocumentLoader
 
     LANGCHAIN_AVAILABLE = True
 except ImportError:
@@ -60,7 +60,8 @@ except ImportError:
         "SentenceTransformers not available, falling back to LLM-based embeddings"
     )
 
-from ..core.enhanced_vector_store import EnhancedVectorStore, enhanced_vector_store
+from ..core.enhanced_vector_store import (EnhancedVectorStore,
+                                          enhanced_vector_store)
 from ..core.hybrid_llm_client import hybrid_llm_client
 
 logger = logging.getLogger(__name__)

@@ -1,11 +1,11 @@
-from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Type
+from typing import Any, Dict, Optional, Type
 
 from pydantic import BaseModel
 
 from .agent_builder import AgentBuilder
 from .agent_container import AgentContainer
 from .enhanced_base_agent import ImprovedBaseAgent
+from .agent_registry import AgentRegistry
 
 # Module-level configuration
 config = {}
@@ -24,7 +24,7 @@ class AgentConfig(BaseModel):
 class AgentFactory:
     """Factory for creating agent instances with DI support."""
 
-    def __init__(self, container: Optional[AgentContainer] = None):
+    def __init__(self, container: Optional[AgentContainer] = None, agent_registry: Optional[AgentRegistry] = None):
         self.container = container or AgentContainer()
         self.config = {}
         self.agent_config = {
@@ -38,32 +38,31 @@ class AgentFactory:
             "rag": {"module": "enhanced_rag_agent"},
             "orchestrator": {"module": "orchestrator"},
         }
-        self._registry: Dict[str, Type[ImprovedBaseAgent]] = {
-            "OCR": self._get_agent_class("OCRAgent"),
-            "Weather": self._get_agent_class("EnhancedWeatherAgent"),
-            "Search": self._get_agent_class("SearchAgent"),
-            "Chef": self._get_agent_class("ChefAgent"),
-            "MealPlanner": self._get_agent_class("MealPlannerAgent"),
-            "Categorization": self._get_agent_class("CategorizationAgent"),
-            "Analytics": self._get_agent_class("AnalyticsAgent"),
-            "RAG": self._get_agent_class("EnhancedRAGAgent"),
-            "Orchestrator": self._get_agent_class("Orchestrator"),
-            "CustomAgent": self._get_agent_class(
-                "EnhancedBaseAgent"
-            ),  # For custom modules test
-        }
+        self.agent_registry = agent_registry or AgentRegistry()
+        
+        # Register agent classes with the registry
+        self.agent_registry.register_agent_class("OCR", self._get_agent_class("OCRAgent"))
+        self.agent_registry.register_agent_class("Weather", self._get_agent_class("EnhancedWeatherAgent"))
+        self.agent_registry.register_agent_class("Search", self._get_agent_class("SearchAgent"))
+        self.agent_registry.register_agent_class("Chef", self._get_agent_class("ChefAgent"))
+        self.agent_registry.register_agent_class("MealPlanner", self._get_agent_class("MealPlannerAgent"))
+        self.agent_registry.register_agent_class("Categorization", self._get_agent_class("CategorizationAgent"))
+        self.agent_registry.register_agent_class("Analytics", self._get_agent_class("AnalyticsAgent"))
+        self.agent_registry.register_agent_class("RAG", self._get_agent_class("EnhancedRAGAgent"))
+        self.agent_registry.register_agent_class("Orchestrator", self._get_agent_class("Orchestrator"))
+        self.agent_registry.register_agent_class("CustomAgent", self._get_agent_class("EnhancedBaseAgent"))
 
     def register_agent(
         self, agent_type: str, agent_class: Type[ImprovedBaseAgent]
     ) -> None:
         """
-        Register an agent class with the factory.
+        Register an agent class with the factory and registry.
 
         Args:
             agent_type (str): Type of agent (e.g., 'enhanced_orchestrator')
             agent_class (Type[ImprovedBaseAgent]): Agent class to register
         """
-        self._registry[agent_type] = agent_class
+        self.agent_registry.register_agent_class(agent_type, agent_class)
 
     def create_agent(
         self, agent_type: str, config: Optional[Dict] = None, **kwargs
@@ -81,7 +80,8 @@ class AgentFactory:
         Raises:
             ValueError: If the agent type is not found in the registry.
         """
-        if agent_type not in self._registry:
+        agent_class = self.agent_registry.get_agent_class(agent_type)
+        if not agent_class:
             if "Invalid configuration" in str(self.agent_config.get(agent_type, "")):
                 raise ValueError(f"Invalid configuration for agent type: {agent_type}")
             raise ValueError(f"Unsupported agent type: {agent_type}")

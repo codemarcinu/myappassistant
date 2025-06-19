@@ -4,8 +4,8 @@ import json
 import logging
 import os
 import time
-from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Tuple, Union
+from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 import httpx
 from pydantic import BaseModel

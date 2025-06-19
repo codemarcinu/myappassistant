@@ -2,6 +2,7 @@ from typing import Any, Dict, Optional
 
 from .agent_container import AgentContainer
 from .enhanced_base_agent import ImprovedBaseAgent
+from .circuit_breaker_wrapper import AgentCircuitBreaker
 
 
 class AgentBuilder:
@@ -68,4 +69,5 @@ class AgentBuilder:
             error_handler=self.container.get("error_handler"),
             fallback_manager=self.container.get("fallback_manager"),
             alert_service=self.container.get("alert_service"),
+            circuit_breaker=AgentCircuitBreaker(name=agent_name) # Utwórz instancję CB dla każdego agenta
         )

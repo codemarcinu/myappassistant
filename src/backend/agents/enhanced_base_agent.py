@@ -2,10 +2,13 @@ import asyncio
 import logging
 import time
 import traceback
-from abc import ABC, abstractmethod
-from typing import Any, AsyncGenerator, Callable, Dict, Generic, List, Optional, TypeVar
+from abc import ABC
+from typing import (Any, AsyncGenerator, Callable, Dict, Generic, List,
+                    Optional, TypeVar)
 
+import pybreaker
 from pydantic import BaseModel, ValidationError
+from src.backend.agents.circuit_breaker_wrapper import AgentCircuitBreaker
 
 from ..core.hybrid_llm_client import ModelComplexity, hybrid_llm_client
 from .adapters.alert_service import AlertService
@@ -31,6 +34,7 @@ class ImprovedBaseAgent(ABC, Generic[T]):
         error_handler: Optional[IErrorHandler] = None,
         fallback_manager: Optional[FallbackManager] = None,
         alert_service: Optional[IAlertService] = None,
+        circuit_breaker: Optional[AgentCircuitBreaker] = None,
     ):
         self.name = name
         self.input_model: Optional[type[T]] = None
@@ -39,6 +43,14 @@ class ImprovedBaseAgent(ABC, Generic[T]):
         self.alert_service = alert_service or AlertService(name)
         self.fallback_attempts = 0
         self.max_fallback_attempts = 3
+        
+        # Inicjalizacja Circuit Breaker
+        self.circuit_breaker = circuit_breaker or AgentCircuitBreaker(
+            name=name,
+            fail_max=3,  # Otwórz po 3 błędach
+            reset_timeout=60, # Spróbuj ponownie po 60 sekundach
+        )
+        logger.info(f"Agent {self.name} initialized with Circuit Breaker.")
 
     async def process(self, input_data: Dict[str, Any]) -> EnhancedAgentResponse:
         """Main processing method to be implemented by each agent"""
@@ -74,27 +86,45 @@ class ImprovedBaseAgent(ABC, Generic[T]):
             **kwargs,
         )
 
+    async def safe_process_with_circuit(self, input_data: Dict[str, Any]) -> EnhancedAgentResponse:
+        """
+        Procesuje dane wejściowe z ochroną Circuit Breaker.
+        Ta metoda powinna być wywoływana zamiast bezpośredniego `process`.
+        """
+        start_time = time.time()
+        try:
+            # Użyj circuit breaker do wywołania oryginalnej metody process()
+            response = await self.circuit_breaker.run(self.process, input_data)
+            response.processing_time = time.time() - start_time
+            response.processed_with_fallback = False # Jeśli działa normalnie
+            return response
+        except pybreaker.CircuitBreakerError:
+            # Obwód jest otwarty, zwróć odpowiedź fallbackową
+            error_message = f"Agent '{self.name}' jest tymczasowo niedostępny (Circuit Breaker OPEN)."
+            logger.error(error_message)
+            return EnhancedAgentResponse(
+                success=False,
+                error=error_message,
+                message=error_message,
+                processed_with_fallback=True, # Traktujemy to jako fallback
+                error_severity=ErrorSeverity.CRITICAL, # Krytyczny, bo usługa jest wyłączona
+                processing_time=time.time() - start_time,
+                metadata={"circuit_state": self.circuit_breaker.get_state()}
+            )
+        except Exception as e:
+            # Wszelkie inne błędy zostaną przekazane do istniejących mechanizmów fallback
+            logger.error(f"Error in {self.name}.process (before fallback manager): {str(e)}")
+            return await self._multi_tiered_fallback(input_data, e, start_time)
+
     async def safe_process(self, input_data: Dict[str, Any]) -> EnhancedAgentResponse:
         """
         Process input with comprehensive error handling and fallbacks
+        including Circuit Breaker protection.
 
         This wraps the process method with additional safety and recovery mechanisms,
         including multi-tiered fallback approaches for different error scenarios.
         """
-        start_time = time.time()
-        self.fallback_attempts = 0
-
-        try:
-            # First try normal processing
-            response = await self.process(input_data)
-            response.processing_time = time.time() - start_time
-            return response
-
-        except Exception as e:
-            logger.error(f"Error in {self.name}.process: {str(e)}")
-
-            # Begin fallback sequence
-            return await self._multi_tiered_fallback(input_data, e, start_time)
+        return await self.safe_process_with_circuit(input_data)
 
     async def _multi_tiered_fallback(
         self, input_data: Dict[str, Any], original_error: Exception, start_time: float

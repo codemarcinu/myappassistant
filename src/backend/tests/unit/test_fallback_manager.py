@@ -2,12 +2,10 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from backend.agents.adapters.fallback_manager import (
-    FallbackManager,
-    MinimalResponseStrategy,
-    PromptRewritingStrategy,
-    SimplifiedModelStrategy,
-)
+from backend.agents.adapters.fallback_manager import (FallbackManager,
+                                                      MinimalResponseStrategy,
+                                                      PromptRewritingStrategy,
+                                                      SimplifiedModelStrategy)
 from backend.agents.error_types import EnhancedAgentResponse
 
 
