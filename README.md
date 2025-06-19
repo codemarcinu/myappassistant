@@ -84,11 +84,47 @@ graph TD
 
 ## Technology Stack
 
-- **Backend**: Python, FastAPI, SQLAlchemy
+- **Backend**: Python 3.12+, FastAPI, SQLAlchemy
 - **Frontend**: Next.js, React, TypeScript, Tailwind CSS
 - **AI**: Ollama, LangChain, FAISS, Sentence Transformers
 - **Database**: SQLite (default), compatible with PostgreSQL
 - **DevOps**: Docker, Poetry
+- **Testing**: pytest, pytest-cov, pytest-asyncio, Locust
+- **Code Quality**: black, isort, flake8, ruff, mypy
+
+## Testing Approach
+
+The project uses a comprehensive testing strategy:
+
+### Test Types
+- **Unit Tests**: Test individual components in isolation (`tests/unit/`)
+- **Integration Tests**: Test API endpoints and component interactions (`tests/integration/`)
+- **E2E Tests**: Test complete workflows (`tests/e2e/`)
+- **Performance Tests**: Load testing with Locust (`locustfile.py`)
+
+### Running Tests
+```bash
+# Run all tests with coverage
+pytest --cov=src tests/ -v
+
+# Run specific test type
+pytest tests/unit/ -v
+pytest tests/integration/ -v
+
+# Run performance tests
+locust -f locustfile.py
+```
+
+### Test Coverage
+- Current coverage: ~85% (target: 90%)
+- Generate coverage report:
+  ```bash
+  pytest --cov=src --cov-report=html tests/
+  ```
+
+### Mocking Strategy
+- External services are mocked using unittest.mock
+- Database connections use test fixtures
 
 ## Setup & Installation
 
@@ -187,6 +223,52 @@ graph TD
 
 The application will be available at `http://localhost:3000`.
 
+## API Documentation
+
+The backend API is documented using OpenAPI/Swagger. After starting the backend server, access the interactive documentation at:
+
+```
+http://localhost:8000/docs
+```
+
+This provides:
+- Full API endpoint documentation
+- Interactive testing capabilities
+- Request/response schemas
+- Authentication requirements
+
+## Contribution Guidelines
+
+We welcome contributions! Please follow these guidelines:
+
+1. **Branching Strategy**:
+   - Create feature branches from `main`
+   - Use descriptive branch names (e.g., `feature/add-recipe-search`)
+
+2. **Code Style**:
+   - Follow PEP 8 for Python
+   - Use TypeScript best practices for frontend
+   - Run formatters before committing:
+     ```bash
+     black .
+     isort .
+     ```
+
+3. **Testing**:
+   - Add tests for new features
+   - Maintain test coverage
+   - Run all tests before submitting PRs
+
+4. **Pull Requests**:
+   - Include clear description of changes
+   - Reference related issues
+   - Request reviews from maintainers
+
+5. **Issue Reporting**:
+   - Use clear, descriptive titles
+   - Include steps to reproduce
+   - Specify expected vs actual behavior
+
 ## Project Status
 
 ### Current Implementation
@@ -200,15 +282,22 @@ The application will be available at `http://localhost:3000`.
 - ✅ Advanced conversation state management
 - ✅ Enhanced RAG for superior Q&A capabilities
 - ✅ Improved vector storage for knowledge retrieval
-
-### Upcoming Features
 - ✅ Advanced analytics for shopping patterns
-- ❌ Budget tracking and visualization
 - ✅ Automated categorization of products
 - ✅ Meal planning and shopping list generation
-- ❌ User authentication system
-- ❌ Mobile-friendly responsive design
 - ✅ Advanced memory management system
+
+### Upcoming Features
+- ❌ Budget tracking and visualization
+- ❌ Enhanced API versioning (v2)
+- ❌ Improved error handling standardization
+- ❌ Comprehensive test coverage (>90%)
+
+### Note
+This is a personal application designed for single-user use on desktop/laptop computers. No mobile support or authentication system is planned as it's intended for individual computer use only.
+
+### Refactoring Progress
+See [REFACTORING_PLAN.md](REFACTORING_PLAN.md) for detailed refactoring roadmap and progress.
 
 ## Development Tools
 

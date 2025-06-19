@@ -1,6 +1,7 @@
 import logging
 from contextlib import asynccontextmanager
 
+import structlog
 from dependency_injector.wiring import Provide, inject
 from fastapi import APIRouter, BackgroundTasks, Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,12 +11,16 @@ from slowapi.middleware import SlowAPIMiddleware
 from slowapi.util import get_remote_address
 from sqlalchemy.sql import text
 from starlette.middleware.base import BaseHTTPMiddleware
+from structlog.contextvars import bind_contextvars, clear_contextvars
 
 from .api import agents, chat, food, pantry, upload
 from .api.v1.endpoints import receipts
+from .api.v2.endpoints import receipts as receipts_v2
+from .api.v2.exceptions import APIErrorDetail, APIException
 from .application.use_cases.process_query_use_case import ProcessQueryUseCase
 from .config import settings
 from .core.container import Container
+from .core.exceptions import ErrorCodes, ErrorDetail, FoodSaveException
 from .core.migrations import run_migrations
 from .core.seed_data import seed_database
 from .infrastructure.database.database import AsyncSessionLocal, Base, engine
@@ -23,9 +28,6 @@ from .infrastructure.database.database import AsyncSessionLocal, Base, engine
 # --- Rate limiting ---
 limiter = Limiter(key_func=get_remote_address)
 
-
-import structlog
-from structlog.contextvars import bind_contextvars, clear_contextvars
 
 # Configure structured logging
 structlog.configure(
@@ -149,15 +151,28 @@ app.state.limiter = limiter
 app.add_middleware(SlowAPIMiddleware)
 
 
-from .core.exceptions import ErrorCodes, ErrorDetail, FoodSaveException
-
-
 # --- Exception Handlers ---
 @app.exception_handler(FoodSaveException)
 async def foodsave_exception_handler(request: Request, exc: FoodSaveException):
     """Handle FoodSave exceptions with standardized format"""
     logging.error(f"FoodSave error: {exc.detail}")
     return JSONResponse(status_code=exc.status_code, content=exc.detail)
+
+
+# Add handler for API v2 exceptions
+@app.exception_handler(APIException)
+async def api_v2_exception_handler(request: Request, exc: APIException):
+    """Handle API v2 exceptions with standardized format"""
+    logging.error(f"API v2 error: {exc.message}")
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=APIErrorDetail(
+            status_code=exc.status_code,
+            error_code=exc.error_code,
+            message=exc.message,
+            details=exc.details,
+        ).dict(),
+    )
 
 
 @app.exception_handler(Exception)
@@ -196,7 +211,11 @@ api_v1.include_router(upload.router, tags=["Upload"])
 api_v1.include_router(pantry.router, tags=["Pantry"])
 api_v1.include_router(receipts.router)
 
+api_v2 = APIRouter()
+api_v2.include_router(receipts_v2.router)
+
 app.include_router(api_v1, prefix="/api/v1")
+app.include_router(api_v2, prefix="/api/v2")
 
 
 # --- Health check ---
