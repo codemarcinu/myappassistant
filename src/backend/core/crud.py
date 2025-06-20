@@ -7,9 +7,9 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from ..models.conversation import Conversation, Message
-from ..models.shopping import Product, ShoppingTrip
-from ..models.user_profile import UserActivity, UserProfile
+from backend.models.conversation import Conversation, Message
+from backend.models.shopping import Product, ShoppingTrip
+from backend.models.user_profile import UserActivity, UserProfile
 
 logger = logging.getLogger(__name__)
 
@@ -508,7 +508,7 @@ async def create_user_profile(
     Creates a new user profile with default preferences and schedule.
     Returns the created UserProfile object.
     """
-    from ..models.user_profile import UserPreferences, UserSchedule
+    from backend.models.user_profile import UserPreferences, UserSchedule
 
     profile = UserProfile(
         user_id=user_id,

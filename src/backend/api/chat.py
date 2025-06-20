@@ -9,12 +9,11 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.backend.infrastructure.database.database import get_db
-from src.backend.orchestrator_management.orchestrator_pool import orchestrator_pool
-from src.backend.orchestrator_management.request_queue import request_queue
-
-from ..config import settings
-from ..core.llm_client import llm_client
+from backend.config import settings
+from backend.core.llm_client import llm_client
+from backend.infrastructure.database.database import get_db
+from backend.orchestrator_management.orchestrator_pool import orchestrator_pool
+from backend.orchestrator_management.request_queue import request_queue
 
 # APIRouter działa jak "mini-aplikacja" FastAPI, grupując endpointy
 router = APIRouter()

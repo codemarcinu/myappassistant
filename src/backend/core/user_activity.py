@@ -7,7 +7,7 @@ from typing import Dict, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models.user_profile import InteractionType, UserActivity
+from backend.models.user_profile import InteractionType, UserActivity
 
 logger = logging.getLogger(__name__)
 

@@ -21,36 +21,40 @@ from sqlalchemy.sql import text
 from starlette.middleware.base import BaseHTTPMiddleware
 from structlog.contextvars import bind_contextvars, clear_contextvars
 
-from src.backend.agents.orchestrator_factory import create_orchestrator
-from src.backend.api import agents, chat, food, pantry, upload
-from src.backend.api.v1.endpoints import receipts
-from src.backend.api.v2.endpoints import rag as rag_v2
-from src.backend.api.v2.endpoints import receipts as receipts_v2
-from src.backend.api.v2.endpoints import weather as weather_v2
-from src.backend.api.v2.exceptions import APIErrorDetail, APIException
-from src.backend.config import settings
-from src.backend.core.container import Container
-from src.backend.core.exceptions import (
+from backend.agents.orchestrator_factory import create_orchestrator
+from backend.api import agents, chat, food, pantry, upload
+from backend.api.v1.endpoints import receipts
+from backend.api.v2.endpoints import rag as rag_v2
+from backend.api.v2.endpoints import receipts as receipts_v2
+from backend.api.v2.endpoints import weather as weather_v2
+from backend.api.v2.exceptions import APIErrorDetail, APIException
+from backend.config import settings
+from backend.core.cache_manager import cache_manager
+from backend.core.container import Container
+from backend.core.exceptions import (
+    AIModelError,
     BaseCustomException,
-    convert_system_exception,
-    log_exception_with_context,
+    DatabaseError,
+    FileProcessingError,
+    NetworkError,
+    ValidationError,
 )
-from src.backend.core.middleware import CORSMiddleware as CustomCORSMiddleware
-from src.backend.core.middleware import (
+from backend.core.middleware import CORSMiddleware as CustomCORSMiddleware
+from backend.core.middleware import (
     ErrorHandlingMiddleware,
     PerformanceMonitoringMiddleware,
     RequestLoggingMiddleware,
     SecurityHeadersMiddleware,
 )
-from src.backend.core.migrations import run_migrations
-from src.backend.core.seed_data import seed_database
-from src.backend.infrastructure.database.database import AsyncSessionLocal, Base, engine
-from src.backend.orchestrator_management.orchestrator_pool import orchestrator_pool
-from src.backend.orchestrator_management.request_queue import request_queue
+from backend.core.migrations import run_migrations
+from backend.core.seed_data import seed_database
+from backend.infrastructure.database.database import AsyncSessionLocal, Base, engine
+from backend.orchestrator_management.orchestrator_pool import orchestrator_pool
+from backend.orchestrator_management.request_queue import request_queue
 
 # Dodaj import klienta MMLW
 try:
-    from src.backend.core.mmlw_embedding_client import mmlw_client
+    from backend.core.mmlw_embedding_client import mmlw_client
 
     MMLW_AVAILABLE = True
 except ImportError:
@@ -169,6 +173,14 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             logger.error(f"Error initializing MMLW model at startup: {e}")
 
+    # Initialize cache manager
+    logger.info("Initializing cache manager...")
+    cache_connected = await cache_manager.connect()
+    if cache_connected:
+        logger.info("Cache manager initialized successfully")
+    else:
+        logger.warning("Cache manager not available - continuing without cache")
+
     # Initialize orchestrator pool and request queue (using global instances)
     logger.info("Initializing orchestrator pool and request queue...")
 
@@ -204,6 +216,7 @@ async def lifespan(app: FastAPI):
     # Cleanup on shutdown
     logger.info("Application shutdown initiated.")
     await orchestrator_pool.shutdown()
+    await cache_manager.disconnect()
     if hasattr(app.state, "request_queue_consumer_task"):
         app.state.request_queue_consumer_task.cancel()
         try:
@@ -412,6 +425,9 @@ async def ready_check():
             status for status in pool_health.values() if status["is_healthy"]
         ]
 
+        # Check cache health
+        cache_health = await cache_manager.health_check()
+
         if not available_orchestrators:
             return JSONResponse(
                 status_code=503,
@@ -419,6 +435,7 @@ async def ready_check():
                     "status": "not_ready",
                     "reason": "No healthy orchestrators available",
                     "orchestrator_health": pool_health,
+                    "cache_health": cache_health,
                 },
             )
 
@@ -427,6 +444,7 @@ async def ready_check():
             "database": "connected",
             "orchestrator_pool": pool_health,
             "available_orchestrators": len(available_orchestrators),
+            "cache": "connected" if cache_health else "disconnected",
         }
 
     except Exception as e:
@@ -472,7 +490,7 @@ def raise_error(type: str = "value"):
     if type == "value":
         raise ValueError("Test value error")
     elif type == "custom":
-        from src.backend.core.exceptions import ValidationError
+        from .core.exceptions import ValidationError
 
         raise ValidationError("Test custom error", field="test_field")
     else:
@@ -480,7 +498,7 @@ def raise_error(type: str = "value"):
 
 
 # Include routers
-app.include_router(agents.router, prefix="/api/v1/agents", tags=["Agents"])
+app.include_router(agents.router, tags=["Agents"])
 app.include_router(chat.router, prefix="/api/v1/chat", tags=["Chat"])
 app.include_router(food.router, prefix="/api/v1/food", tags=["Food"])
 app.include_router(pantry.router, prefix="/api/v1/pantry", tags=["Pantry"])
@@ -495,7 +513,7 @@ api_v2_router.include_router(weather_v2.router)
 app.include_router(api_v2_router)
 
 # Include backup management router
-from src.backend.api.v2.endpoints import backup
+from backend.api.v2.endpoints import backup
 
 app.include_router(backup.router, prefix="/api/v2", tags=["Backup Management"])
 

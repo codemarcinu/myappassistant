@@ -3,7 +3,7 @@ from typing import Any, AsyncGenerator, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict
 
-from .interfaces import AgentResponse, ErrorSeverity
+from backend.agents.interfaces import AgentResponse, ErrorSeverity
 
 
 class AgentResponseEnhanced(BaseModel):

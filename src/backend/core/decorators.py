@@ -4,7 +4,7 @@ import logging
 import time
 from typing import Any, Callable, TypeVar
 
-from .exceptions import (
+from backend.core.exceptions import (
     AIModelError,
     BaseCustomException,
     DatabaseError,

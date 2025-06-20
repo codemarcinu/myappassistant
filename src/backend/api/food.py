@@ -5,9 +5,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 # Ta funkcja z 'database.py' będzie dostarczać sesję do bazy danych
-from src.backend.infrastructure.database.database import get_db
-from src.backend.schemas import shopping_schemas
-from src.backend.services import shopping_service
+from backend.infrastructure.database.database import get_db
+from backend.schemas import shopping_schemas
+from backend.services import shopping_service
 
 router = APIRouter()
 

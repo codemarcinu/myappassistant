@@ -2,13 +2,12 @@ import json
 import logging
 from typing import Any, Dict, List, Optional
 
+from backend.agents.base_agent import BaseAgent
+from backend.agents.interfaces import AgentResponse
 from backend.agents.prompts import get_meal_plan_prompt
 from backend.agents.utils import extract_json_from_text
 from backend.core.crud import get_available_products
 from backend.core.llm_client import llm_client
-
-from .base_agent import BaseAgent
-from .interfaces import AgentResponse
 
 logger = logging.getLogger(__name__)
 

@@ -8,8 +8,8 @@ from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
 
 from pydantic import BaseModel, ConfigDict
 
-from ..config import settings
-from ..core.llm_client import LLMCache, llm_client
+from backend.config import settings
+from backend.core.llm_client import LLMCache, llm_client
 
 logger = logging.getLogger(__name__)
 

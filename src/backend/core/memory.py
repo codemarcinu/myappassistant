@@ -1,7 +1,7 @@
 import logging
 from typing import Any, Dict, List, Optional
 
-from ..agents.interfaces import MemoryContext
+from backend.agents.interfaces import MemoryContext
 
 logger = logging.getLogger(__name__)
 

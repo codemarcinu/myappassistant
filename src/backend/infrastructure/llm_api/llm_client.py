@@ -1,7 +1,7 @@
 import logging
 from typing import Any, Dict, Optional
 
-from ...core.hybrid_llm_client import ModelComplexity, hybrid_llm_client
+from backend.core.hybrid_llm_client import ModelComplexity, hybrid_llm_client
 
 logger = logging.getLogger(__name__)
 

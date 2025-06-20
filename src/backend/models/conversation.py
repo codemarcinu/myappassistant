@@ -1,12 +1,14 @@
-from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, String
-from sqlalchemy.orm import deferred, relationship
-from sqlalchemy.sql import func
+from datetime import datetime
 
-from ..core.database import Base
+from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, String, Text, func
+from sqlalchemy.orm import deferred, relationship
+
+from backend.core.database import Base
 
 
 class Conversation(Base):
     __tablename__ = "conversations"
+    __table_args__ = {"extend_existing": True}
 
     id = Column(Integer, primary_key=True, index=True)
     session_id = Column(String, unique=True, index=True, nullable=False)
@@ -19,6 +21,7 @@ class Conversation(Base):
 
 class Message(Base):
     __tablename__ = "messages"
+    __table_args__ = {"extend_existing": True}
 
     id = Column(Integer, primary_key=True, index=True)
     content = deferred(

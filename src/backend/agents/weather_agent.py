@@ -8,7 +8,9 @@ import httpx
 from pydantic import BaseModel, ConfigDict, Field
 
 from ..config import settings
+from ..core.cache_manager import cache_manager
 from ..core.decorators import handle_exceptions
+from ..core.exceptions import ConfigurationError, NetworkError
 from ..core.hybrid_llm_client import hybrid_llm_client
 from .base_agent import BaseAgent
 from .interfaces import AgentResponse
@@ -156,7 +158,7 @@ class WeatherAgent(BaseAgent):
 
             # Check cache first
             cache_key = f"{location}_{include_alerts}"
-            cached_data = self._get_from_cache(cache_key)
+            cached_data = await self._get_from_cache(cache_key)
             if cached_data:
                 logger.info(f"Using cached weather data for {location}")
                 return self._format_response(cached_data, model)
@@ -186,7 +188,7 @@ class WeatherAgent(BaseAgent):
                         provider.last_error = None
 
                         # Cache successful result
-                        self._add_to_cache(cache_key, weather_data)
+                        await self._add_to_cache(cache_key, weather_data)
                         break
 
                 except Exception as e:
@@ -334,6 +336,48 @@ class WeatherAgent(BaseAgent):
                 provider="weatherapi",
             )
 
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 401:
+                logger.error(
+                    f"WeatherAPI authentication failed (401): Invalid API key for {provider.name}"
+                )
+                provider.is_enabled = False
+                provider.last_error = "Invalid API key - provider disabled"
+                raise ConfigurationError(
+                    f"Invalid API key for {provider.name}",
+                    config_key=provider.api_key_env_var,
+                    details={"status_code": 401, "provider": provider.name},
+                )
+            elif e.response.status_code == 429:
+                logger.warning(
+                    f"WeatherAPI rate limit exceeded (429) for {provider.name}"
+                )
+                raise NetworkError(
+                    f"Rate limit exceeded for {provider.name}",
+                    url=url,
+                    status_code=429,
+                    details={
+                        "provider": provider.name,
+                        "retry_after": e.response.headers.get("Retry-After"),
+                    },
+                )
+            else:
+                logger.error(
+                    f"WeatherAPI HTTP error {e.response.status_code} for {provider.name}: {e}"
+                )
+                raise NetworkError(
+                    f"HTTP error {e.response.status_code} from {provider.name}",
+                    url=url,
+                    status_code=e.response.status_code,
+                    details={"provider": provider.name},
+                )
+        except httpx.RequestError as e:
+            logger.error(f"Network error with {provider.name}: {e}")
+            raise NetworkError(
+                f"Network error with {provider.name}",
+                url=url,
+                details={"provider": provider.name, "error": str(e)},
+            )
         except Exception as e:
             logger.error(f"Error fetching from WeatherAPI: {e}")
             return None
@@ -432,6 +476,48 @@ class WeatherAgent(BaseAgent):
                 provider="openweathermap",
             )
 
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 401:
+                logger.error(
+                    f"OpenWeatherMap authentication failed (401): Invalid API key for {provider.name}"
+                )
+                provider.is_enabled = False
+                provider.last_error = "Invalid API key - provider disabled"
+                raise ConfigurationError(
+                    f"Invalid API key for {provider.name}",
+                    config_key=provider.api_key_env_var,
+                    details={"status_code": 401, "provider": provider.name},
+                )
+            elif e.response.status_code == 429:
+                logger.warning(
+                    f"OpenWeatherMap rate limit exceeded (429) for {provider.name}"
+                )
+                raise NetworkError(
+                    f"Rate limit exceeded for {provider.name}",
+                    url=current_url,
+                    status_code=429,
+                    details={
+                        "provider": provider.name,
+                        "retry_after": e.response.headers.get("Retry-After"),
+                    },
+                )
+            else:
+                logger.error(
+                    f"OpenWeatherMap HTTP error {e.response.status_code} for {provider.name}: {e}"
+                )
+                raise NetworkError(
+                    f"HTTP error {e.response.status_code} from {provider.name}",
+                    url=current_url,
+                    status_code=e.response.status_code,
+                    details={"provider": provider.name},
+                )
+        except httpx.RequestError as e:
+            logger.error(f"Network error with {provider.name}: {e}")
+            raise NetworkError(
+                f"Network error with {provider.name}",
+                url=current_url,
+                details={"provider": provider.name, "error": str(e)},
+            )
         except Exception as e:
             logger.error(f"Error fetching from OpenWeatherMap: {e}")
             return None
@@ -463,19 +549,27 @@ class WeatherAgent(BaseAgent):
         index = round(degrees / 22.5) % 16
         return directions[index]
 
-    def _get_from_cache(self, cache_key: str) -> Optional[WeatherData]:
+    async def _get_from_cache(self, cache_key: str) -> Optional[WeatherData]:
         """Get weather data from cache if not expired"""
-        if cache_key in self.cache:
-            data, timestamp = self.cache[cache_key]
-            if datetime.now() - timestamp < self.cache_ttl:
-                return data
-            else:
-                del self.cache[cache_key]
-        return None
+        try:
+            cached_data = await cache_manager.get(f"weather:{cache_key}")
+            if cached_data:
+                logger.info(f"Using cached weather data for {cache_key}")
+                return WeatherData(**cached_data)
+            return None
+        except Exception as e:
+            logger.error(f"Error getting from cache: {e}")
+            return None
 
-    def _add_to_cache(self, cache_key: str, data: WeatherData) -> None:
+    async def _add_to_cache(self, cache_key: str, data: WeatherData) -> None:
         """Add weather data to cache"""
-        self.cache[cache_key] = (data, datetime.now())
+        try:
+            await cache_manager.set(
+                f"weather:{cache_key}", data.model_dump(), ttl=900
+            )  # 15 minutes
+            logger.debug(f"Added weather data to cache: {cache_key}")
+        except Exception as e:
+            logger.error(f"Error adding to cache: {e}")
 
     def _format_response(
         self, weather_data: WeatherData, model: str, has_severe_alerts: bool = False

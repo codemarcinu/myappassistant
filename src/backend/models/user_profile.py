@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, validator
 from sqlalchemy import JSON, Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
-from ..core.database import Base
+from backend.core.database import Base
 
 # Removed unused import
 
@@ -105,6 +105,7 @@ class UserProfile(Base):
     """Database model for user profiles"""
 
     __tablename__ = "user_profiles"
+    __table_args__ = {"extend_existing": True}
 
     user_id = Column(String, primary_key=True, index=True)
     session_id = Column(String, unique=True, index=True, nullable=False)

@@ -4,10 +4,10 @@ from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, ValidationError
 
-from ..core.decorators import handle_exceptions
-from ..core.ocr import process_image_file, process_pdf_file
-from .base_agent import BaseAgent
-from .interfaces import AgentResponse
+from backend.agents.base_agent import BaseAgent
+from backend.agents.interfaces import AgentResponse
+from backend.core.decorators import handle_exceptions
+from backend.core.ocr import process_image_file, process_pdf_file
 
 
 class OCRAgentInput(BaseModel):

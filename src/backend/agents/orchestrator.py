@@ -5,9 +5,10 @@ from typing import Dict, Optional
 
 import pybreaker
 
-from ..core.profile_manager import ProfileManager
-from ..core.sqlalchemy_compat import AsyncSession
-from ..models.user_profile import InteractionType
+from backend.core.profile_manager import ProfileManager
+from backend.core.sqlalchemy_compat import AsyncSession
+from backend.models.user_profile import InteractionType
+
 from .agent_router import AgentRouter
 from .base_agent import BaseAgent
 from .error_types import ErrorSeverity

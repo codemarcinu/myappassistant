@@ -7,7 +7,7 @@ import pytesseract
 from PIL import Image
 from pydantic import BaseModel
 
-from .decorators import handle_exceptions
+from backend.core.decorators import handle_exceptions
 
 logger = logging.getLogger(__name__)
 

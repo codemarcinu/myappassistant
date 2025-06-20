@@ -1,10 +1,9 @@
 from typing import Any, Dict, List
 
+from backend.agents.base_agent import BaseAgent
+from backend.agents.interfaces import AgentResponse
 from backend.agents.prompts import get_categorization_prompt
 from backend.core.llm_client import llm_client
-
-from .base_agent import BaseAgent
-from .interfaces import AgentResponse
 
 
 class CategorizationAgent(BaseAgent):

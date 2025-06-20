@@ -2,7 +2,7 @@ import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from .interfaces import BaseAgent, IMemoryManager, MemoryContext
+from backend.agents.interfaces import BaseAgent, IMemoryManager, MemoryContext
 
 logger = logging.getLogger(__name__)
 

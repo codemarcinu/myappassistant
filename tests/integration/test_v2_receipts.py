@@ -5,8 +5,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 from backend.agents.base_agent import AgentResponse, BaseAgent
-from src.backend.api.v2.exceptions import APIErrorCodes
-from src.backend.main import app
+from backend.api.v2.exceptions import APIErrorCodes
+from backend.main import app
 
 client = TestClient(app)
 

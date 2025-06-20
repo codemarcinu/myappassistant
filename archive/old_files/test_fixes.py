@@ -9,15 +9,19 @@ import os
 import sys
 from typing import Any, Dict
 
-# Dodaj katalog projektu do PYTHONPATH
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# Dodaj src/backend do PYTHONPATH dla importów absolutnych
+backend_path = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "../../src/backend")
+)
+if backend_path not in sys.path:
+    sys.path.insert(0, backend_path)
 
-from src.backend.agents.search_agent import SearchAgent
-from src.backend.agents.weather_agent import WeatherAgent
-from src.backend.config import settings
-from src.backend.core.exceptions import BaseCustomException, ValidationError
-from src.backend.core.hybrid_llm_client import hybrid_llm_client
-from src.backend.core.perplexity_client import perplexity_client
+from backend.agents.search_agent import SearchAgent
+from backend.agents.weather_agent import WeatherAgent
+from backend.config import settings
+from backend.core.exceptions import BaseCustomException, ValidationError
+from backend.core.hybrid_llm_client import hybrid_llm_client
+from backend.core.perplexity_client import perplexity_client
 
 # Konfiguracja logowania
 logging.basicConfig(

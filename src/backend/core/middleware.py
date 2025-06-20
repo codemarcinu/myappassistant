@@ -12,7 +12,7 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 
-from .exceptions import (
+from backend.core.exceptions import (
     BaseCustomException,
     convert_system_exception,
     log_exception_with_context,

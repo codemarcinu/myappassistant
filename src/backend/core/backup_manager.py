@@ -27,8 +27,8 @@ import aiohttp
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..config import settings
-from .database import AsyncSessionLocal
+from backend.config import settings
+from backend.core.database import AsyncSessionLocal
 
 logger = logging.getLogger(__name__)
 

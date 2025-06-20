@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from src.backend.config import settings
+from backend.config import settings
 
 # Database URL is now loaded from central configuration.
 # We're using SQLite which will store the database in a file.

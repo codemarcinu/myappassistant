@@ -3,8 +3,8 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ....agents.weather_agent import WeatherAgent
-from ....infrastructure.database.database import get_db
+from backend.agents.weather_agent import WeatherAgent
+from backend.infrastructure.database.database import get_db
 
 router = APIRouter(prefix="/weather", tags=["Weather"])
 

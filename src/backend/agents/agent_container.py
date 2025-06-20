@@ -1,7 +1,7 @@
 from typing import Any, Dict
 
-from ..core.sqlalchemy_compat import AsyncSession
-from ..core.vector_store import VectorStore
+from backend.core.sqlalchemy_compat import AsyncSession
+from backend.core.vector_store import VectorStore
 
 
 class AgentContainer:
@@ -20,12 +20,16 @@ class AgentContainer:
 
     def register_core_services(self, db: AsyncSession) -> None:
         """Register core services used by agents"""
-        from ..core.hybrid_llm_client import hybrid_llm_client
-        from ..core.profile_manager import ProfileManager
-        from .adapters.alert_service import AlertService
-        from .adapters.error_handler import ErrorHandler
-        from .adapters.fallback_manager import FallbackManager
-        from .interfaces import IAlertService, IErrorHandler, IFallbackProvider
+        from backend.agents.adapters.alert_service import AlertService
+        from backend.agents.adapters.error_handler import ErrorHandler
+        from backend.agents.adapters.fallback_manager import FallbackManager
+        from backend.agents.interfaces import (
+            IAlertService,
+            IErrorHandler,
+            IFallbackProvider,
+        )
+        from backend.core.hybrid_llm_client import hybrid_llm_client
+        from backend.core.profile_manager import ProfileManager
 
         self.register("db", db)
         self.register("profile_manager", ProfileManager(db))

@@ -20,7 +20,8 @@ from typing import (
 
 from pydantic import BaseModel, ValidationError
 
-from ..core.hybrid_llm_client import hybrid_llm_client
+from backend.core.hybrid_llm_client import hybrid_llm_client
+
 from .interfaces import AgentResponse
 from .interfaces import BaseAgent as IBaseAgent
 from .interfaces import ErrorSeverity, IntentData, MemoryContext

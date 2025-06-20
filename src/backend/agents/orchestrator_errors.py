@@ -2,8 +2,16 @@ from typing import Any, Dict, Optional
 
 from fastapi import status
 
-from ..api.v2.exceptions import APIErrorCodes
-from ..core.exceptions import BaseCustomException
+from backend.core.exceptions import BaseCustomException
+
+
+# Lokalne definicje kodów błędów zamiast importu z api.v2.exceptions
+class APIErrorCodes:
+    INTERNAL_ERROR = "INTERNAL_ERROR"
+    SERVICE_UNAVAILABLE = "SERVICE_UNAVAILABLE"
+    VALIDATION_ERROR = "VALIDATION_ERROR"
+    NOT_FOUND = "NOT_FOUND"
+    UNAUTHORIZED = "UNAUTHORIZED"
 
 
 class OrchestratorError(BaseCustomException):

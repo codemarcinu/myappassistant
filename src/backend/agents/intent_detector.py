@@ -3,10 +3,9 @@ import logging
 import subprocess
 from typing import Any, Dict
 
-from src.backend.core.llm_client import llm_client
-from src.backend.core.utils import extract_json_from_text
-
-from .orchestration_components import IntentData, MemoryContext
+from backend.agents.orchestration_components import IntentData, MemoryContext
+from backend.core.llm_client import llm_client
+from backend.core.utils import extract_json_from_text
 
 logger = logging.getLogger(__name__)
 

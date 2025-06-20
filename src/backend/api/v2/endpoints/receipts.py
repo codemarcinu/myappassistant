@@ -1,8 +1,8 @@
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
 
-from src.backend.agents.ocr_agent import OCRAgent, OCRAgentInput
-from src.backend.api.v2.exceptions import (
+from backend.agents.ocr_agent import OCRAgent, OCRAgentInput
+from backend.api.v2.exceptions import (
     APIErrorCodes,
     BadRequestError,
     UnprocessableEntityError,

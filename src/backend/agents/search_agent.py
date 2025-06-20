@@ -5,12 +5,12 @@ from typing import Any, Dict, List, Optional
 
 import httpx
 
-from ..config import settings
-from ..core.decorators import handle_exceptions
-from ..core.hybrid_llm_client import hybrid_llm_client
-from ..core.perplexity_client import perplexity_client
-from .base_agent import BaseAgent
-from .interfaces import AgentResponse
+from backend.agents.base_agent import BaseAgent
+from backend.agents.interfaces import AgentResponse
+from backend.config import settings
+from backend.core.decorators import handle_exceptions
+from backend.core.hybrid_llm_client import hybrid_llm_client
+from backend.core.perplexity_client import perplexity_client
 
 logger = logging.getLogger(__name__)
 

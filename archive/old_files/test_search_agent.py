@@ -6,10 +6,14 @@ import asyncio
 import os
 import sys
 
-# Add the project root to Python path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# Dodaj src/backend do PYTHONPATH dla importów absolutnych
+backend_path = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "../../src/backend")
+)
+if backend_path not in sys.path:
+    sys.path.insert(0, backend_path)
 
-from src.backend.agents.search_agent import SearchAgent
+from backend.agents.search_agent import SearchAgent
 
 
 async def test_search_agent():

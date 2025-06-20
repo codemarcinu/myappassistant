@@ -130,7 +130,7 @@ class GeneralConversationAgent(BaseAgent):
         """Pobiera kontekst z RAG (dokumenty i baza danych)"""
         try:
             # Pobierz dokumenty z RAG
-            documents = await vector_store.search(query, limit=3)
+            documents = await vector_store.search(query, k=3)
 
             # Pobierz dane z bazy danych (zakupy, przepisy, etc.)
             db_context = await self.rag_integration.get_relevant_context(query)

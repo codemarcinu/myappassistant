@@ -22,15 +22,15 @@ import numpy as np
 
 # Import MMLW client
 try:
-    from .mmlw_embedding_client import mmlw_client
+    from backend.core.mmlw_embedding_client import mmlw_client
 
     MMLW_AVAILABLE = True
 except ImportError:
     MMLW_AVAILABLE = False
 
 # Import existing clients
-from ..core.hybrid_llm_client import hybrid_llm_client
-from ..core.vector_store import VectorStore
+from backend.core.hybrid_llm_client import hybrid_llm_client
+from backend.core.vector_store import VectorStore
 
 # LangChain imports (optional)
 try:
@@ -117,7 +117,7 @@ class RAGDocumentProcessor:
         """
         self.vector_store = vector_store
         if self.vector_store is None:
-            from .vector_store import vector_store as global_vector_store
+            from backend.core.vector_store import vector_store as global_vector_store
 
             self.vector_store = global_vector_store
         self.chunk_size = chunk_size
@@ -179,7 +179,7 @@ class RAGDocumentProcessor:
         4. Hybrid LLM client as fallback
         """
         # Import settings here to avoid circular imports
-        from ..config import settings
+        from backend.config import settings
 
         # Try MMLW first (best for Polish language)
         if MMLW_AVAILABLE and settings.USE_MMLW_EMBEDDINGS:

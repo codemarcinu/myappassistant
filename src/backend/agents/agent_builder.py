@@ -1,10 +1,10 @@
 from typing import Any, Dict, Optional
 
-from ..core.decorators import handle_exceptions
-from .agent_container import AgentContainer
-from .base_agent import BaseAgent
-from .circuit_breaker_wrapper import AgentCircuitBreaker
-from .interfaces import IAlertService, IErrorHandler, IFallbackProvider
+from backend.agents.agent_container import AgentContainer
+from backend.agents.base_agent import BaseAgent
+from backend.agents.circuit_breaker_wrapper import AgentCircuitBreaker
+from backend.agents.interfaces import IAlertService, IErrorHandler, IFallbackProvider
+from backend.core.decorators import handle_exceptions
 
 
 class AgentBuilder:
