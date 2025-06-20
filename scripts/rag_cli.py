@@ -22,9 +22,9 @@ import logging
 import sys
 from pathlib import Path
 
-from src.backend.agents.enhanced_rag_agent import EnhancedRAGAgent
-from src.backend.core.enhanced_vector_store import enhanced_vector_store
+from src.backend.agents.rag_agent import RAGAgent
 from src.backend.core.rag_document_processor import RAGDocumentProcessor
+from src.backend.core.vector_store import vector_store
 
 # Initialize RAG document processor
 rag_document_processor = RAGDocumentProcessor()
@@ -72,7 +72,7 @@ async def add_file(args):
 
     # Save the vector store if requested
     if args.save:
-        await enhanced_vector_store.save_index_async()
+        await vector_store.save_index_async()
         logger.info("Vector store saved")
 
 
@@ -113,7 +113,7 @@ async def add_directory(args):
 
     # Save the vector store if requested
     if args.save:
-        await enhanced_vector_store.save_index_async()
+        await vector_store.save_index_async()
         logger.info("Vector store saved")
 
 
@@ -143,7 +143,7 @@ async def add_url(args):
 
     # Save the vector store if requested
     if args.save:
-        await enhanced_vector_store.save_index_async()
+        await vector_store.save_index_async()
         logger.info("Vector store saved")
 
 
@@ -154,7 +154,7 @@ async def search(args):
     logger.info(f"Searching: '{query}'")
 
     # Create RAG agent instance
-    rag_agent = EnhancedRAGAgent("rag-cli-agent")
+    rag_agent = RAGAgent("rag-cli-agent")
 
     # Apply metadata filters if provided
     filter_metadata = {}
@@ -205,24 +205,24 @@ async def search(args):
 async def get_stats(args):
     """Display statistics about the vector store"""
     # Basic stats
-    chunk_count = len(enhanced_vector_store.chunks)
+    chunk_count = len(vector_store.chunks)
 
     # Get unique sources
     sources = set()
-    for chunk in enhanced_vector_store.chunks:
+    for chunk in vector_store.chunks:
         source = chunk.metadata.get("source", "unknown")
         sources.add(source)
 
     # Get categories if available
     categories = {}
-    for chunk in enhanced_vector_store.chunks:
+    for chunk in vector_store.chunks:
         category = chunk.metadata.get("category")
         if category:
             categories[category] = categories.get(category, 0) + 1
 
     # Get tags if available
     tags = {}
-    for chunk in enhanced_vector_store.chunks:
+    for chunk in vector_store.chunks:
         chunk_tags = chunk.metadata.get("tags", [])
         if isinstance(chunk_tags, list):
             for tag in chunk_tags:

@@ -1,11 +1,10 @@
 import logging
-import time
 import traceback
 from datetime import datetime
 from typing import Any, Awaitable, Callable, Dict, Optional
 
-from ..core.agent_interface import IErrorHandler
 from ..error_types import ErrorSeverity
+from ..interfaces import IErrorHandler
 
 
 class ErrorHandler(IErrorHandler):
@@ -33,8 +32,6 @@ class ErrorHandler(IErrorHandler):
         Returns the result of the operation or fallback.
         Logs additional debug information internally.
         """
-        start_time = time.time()
-
         try:
             result = await func(*args, **kwargs)
             return result
@@ -89,12 +86,18 @@ class ErrorHandler(IErrorHandler):
             if time_since_last < self.alert_config["throttle_period"]:
                 return False
 
-        self.last_alerts[error_key] = now
         return True
 
     def should_alert(self, error_message: str, severity: ErrorSeverity) -> bool:
         """Public interface for checking if an alert should be sent"""
-        return self._should_alert(error_message, severity)
+        should_send = self._should_alert(error_message, severity)
+
+        # Aktualizuj last_alerts jeśli alert powinien być wysłany
+        if should_send:
+            error_key = f"{self.name}:{error_message[:50]}"
+            self.last_alerts[error_key] = datetime.now()
+
+        return should_send
 
     async def _send_alert(
         self, subject: str, error_info: Dict[str, Any], severity: ErrorSeverity
@@ -102,6 +105,9 @@ class ErrorHandler(IErrorHandler):
         """Send alert notification via configured channels"""
         if not self.alert_config["enabled"]:
             return
+
+        error_key = f"{self.name}:{subject[:50]}"
+        self.last_alerts[error_key] = datetime.now()
 
         logging.warning(f"AGENT ALERT: {subject} ({severity})")
         # In production would send email/Slack alerts here

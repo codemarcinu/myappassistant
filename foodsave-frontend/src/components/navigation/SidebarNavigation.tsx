@@ -2,13 +2,14 @@
 import { useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { Home, MessageCircle, ShoppingCart, ChefHat, Menu } from 'lucide-react';
+import { Home, MessageCircle, ShoppingCart, ChefHat, Menu, FileText } from 'lucide-react';
 
 const navigationItems = [
   { path: '/dashboard', icon: Home, label: 'Dashboard' },
   { path: '/chat', icon: MessageCircle, label: 'Czat' },
   { path: '/shopping', icon: ShoppingCart, label: 'Zakupy' },
   { path: '/cooking', icon: ChefHat, label: 'Gotowanie' },
+  { path: '/rag', icon: FileText, label: 'RAG' },
 ];
 
 export function SidebarNavigation() {

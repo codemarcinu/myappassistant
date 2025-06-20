@@ -151,16 +151,30 @@ class EnhancedLLMClient:
             self.last_error = str(e)
             self.error_count += 1
             logger.error(f"Error in LLM request to {model}: {str(e)}")
-            raise
+
+            # Return a fallback response instead of raising an exception
+            fallback_response = {
+                "message": {
+                    "role": "assistant",
+                    "content": "I'm sorry, but I'm currently unable to process your request. Please try again later.",
+                },
+                "response": "I'm sorry, but I'm currently unable to process your request. Please try again later.",
+                "error": str(e),
+            }
+
+            # Cache the fallback response to avoid repeated failures
+            if not stream:
+                self.cache.set(cache_key, fallback_response)
+
+            return fallback_response
 
     async def _stream_response(
         self, model: str, messages: List[Dict[str, str]], options: Dict[str, Any]
     ) -> AsyncGenerator[Dict[str, Any], None]:
         """Stream response from LLM"""
         try:
-            # Call Ollama's streaming API
-            response_stream = await asyncio.to_thread(
-                ollama.chat,
+            # Call Ollama's streaming API - no await needed for stream=True
+            response_stream = ollama.chat(
                 model=model,
                 messages=[
                     {"role": m["role"], "content": m["content"]} for m in messages
@@ -183,7 +197,14 @@ class EnhancedLLMClient:
             self.last_error = str(e)
             self.error_count += 1
             logger.error(f"Error in streaming LLM request to {model}: {str(e)}")
-            yield {"message": {"role": "assistant", "content": f"Error: {str(e)}"}}
+
+            # Yield a fallback response instead of an error
+            fallback_message = "I'm sorry, but I'm currently unable to process your request. Please try again later."
+            yield {
+                "message": {"role": "assistant", "content": fallback_message},
+                "response": fallback_message,
+                "error": str(e),
+            }
 
     async def embed(
         self, model: str, text: str, options: Optional[Dict[str, Any]] = None
@@ -235,6 +256,28 @@ class EnhancedLLMClient:
             self.last_error = str(e)
             logger.error(f"Error listing models: {str(e)}")
             return []
+
+    async def generate_stream(
+        self,
+        model: str,
+        messages: List[Dict[str, str]],
+        options: Optional[Dict[str, Any]] = None,
+    ) -> AsyncGenerator[Dict[str, Any], None]:
+        """
+        Generate streaming response from LLM (alias for chat with stream=True)
+
+        Args:
+            model: Model name
+            messages: List of message dicts with role and content
+            options: Additional options to pass to the model
+
+        Returns:
+            Async generator yielding response chunks
+        """
+        async for chunk in self.chat(
+            model=model, messages=messages, stream=True, options=options
+        ):
+            yield chunk
 
 
 # Create a global instance

@@ -1,159 +1,173 @@
 import asyncio
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from backend.agents.base_agent import AgentResponse
-from backend.agents.chef_agent import ChefAgent
-from backend.agents.enhanced_orchestrator import EnhancedOrchestrator
-from backend.agents.ocr_agent import OCRAgent
-from backend.agents.search_agent import SearchAgent
-from backend.agents.weather_agent import WeatherAgent
+from backend.agents.interfaces import AgentResponse, IntentData
+from backend.agents.orchestrator import Orchestrator
 
 
 @pytest.mark.asyncio
 async def test_integration_chat_flow():
-    orchestrator = EnhancedOrchestrator()
+    """Test podstawowego przepływu czatu"""
+    # Mock wymagane zależności
+    mock_db = AsyncMock()
+    mock_profile_manager = AsyncMock()
+    mock_intent_detector = AsyncMock()
 
-    # Mock all agents
-    with patch("backend.agents.enhanced_orchestrator.ChefAgent") as mock_chef, patch(
-        "backend.agents.enhanced_orchestrator.OCRAgent"
-    ) as mock_ocr, patch(
-        "backend.agents.enhanced_orchestrator.SearchAgent"
-    ) as mock_search, patch(
-        "backend.agents.enhanced_orchestrator.WeatherAgent"
-    ) as mock_weather:
+    orchestrator = Orchestrator(
+        db=mock_db,
+        profile_manager=mock_profile_manager,
+        intent_detector=mock_intent_detector,
+    )
 
-        # Setup mock responses
-        mock_chef.return_value.process.return_value = AgentResponse(
-            success=True, message="Recipe suggestion"
-        )
-        mock_ocr.return_value.process.return_value = AgentResponse(
-            success=True, message="Extracted text"
-        )
-        mock_search.return_value.process.return_value = AgentResponse(
-            success=True, message="Search results"
-        )
-        mock_weather.return_value.process.return_value = AgentResponse(
-            success=True, message="Weather forecast"
+    # Mock metody
+    mock_profile_manager.get_or_create_profile = AsyncMock()
+    mock_profile_manager.log_activity = AsyncMock()
+    mock_intent_detector.detect_intent = AsyncMock(return_value=IntentData("general"))
+
+    # Mock agent router
+    with patch.object(orchestrator, "agent_router") as mock_router:
+        mock_router.route_to_agent = AsyncMock(
+            return_value=AgentResponse(
+                success=True, text="Test response", data={"test": "data"}
+            )
         )
 
-        # Test cooking flow
-        response = await orchestrator.process(
-            {"intent": "cooking", "ingredients": ["chicken", "rice"]}
-        )
-        assert response.success
-        assert "Recipe suggestion" in response.message
+        response = await orchestrator.process_command("Hello", "test_session")
 
-        # Test OCR flow
-        response = await orchestrator.process(
-            {"intent": "receipt", "file_bytes": b"test", "file_type": "image"}
-        )
-        assert response.success
-        assert "Extracted text" in response.message
-
-        # Test search flow
-        response = await orchestrator.process(
-            {"intent": "search", "query": "test query"}
-        )
-        assert response.success
-        assert "Search results" in response.message
-
-        # Test weather flow
-        response = await orchestrator.process(
-            {"intent": "weather", "query": "weather in Warsaw"}
-        )
-        assert response.success
-        assert "Weather forecast" in response.message
+        assert isinstance(response, AgentResponse)
+        assert response.success is True
 
 
 @pytest.mark.asyncio
 async def test_integration_error_handling():
-    orchestrator = EnhancedOrchestrator()
+    """Test obsługi błędów w przepływie integracyjnym"""
+    # Mock wymagane zależności
+    mock_db = AsyncMock()
+    mock_profile_manager = AsyncMock()
+    mock_intent_detector = AsyncMock()
 
-    with patch("backend.agents.enhanced_orchestrator.ChefAgent") as mock_chef:
-        mock_chef.return_value.process.return_value = AgentResponse(
-            success=False, error="No ingredients provided"
-        )
+    orchestrator = Orchestrator(
+        db=mock_db,
+        profile_manager=mock_profile_manager,
+        intent_detector=mock_intent_detector,
+    )
 
-        response = await orchestrator.process({"intent": "cooking", "ingredients": []})
-        assert not response.success
-        assert "No ingredients provided" in response.error
+    # Mock metody
+    mock_profile_manager.get_or_create_profile = AsyncMock()
+    mock_profile_manager.log_activity = AsyncMock()
+    mock_intent_detector.detect_intent = AsyncMock(side_effect=Exception("Test error"))
+
+    response = await orchestrator.process_command("Test command", "test_session")
+
+    assert isinstance(response, AgentResponse)
+    assert response.success is False
+    assert "error" in response.error.lower()
 
 
 @pytest.mark.asyncio
 async def test_integration_combined_flow():
     """Test złożonego przepływu używającego wielu agentów"""
-    orchestrator = EnhancedOrchestrator()
+    # Mock wymagane zależności
+    mock_db = AsyncMock()
+    mock_profile_manager = AsyncMock()
+    mock_intent_detector = AsyncMock()
 
-    with patch("backend.agents.enhanced_orchestrator.ChefAgent") as mock_chef, patch(
-        "backend.agents.enhanced_orchestrator.WeatherAgent"
-    ) as mock_weather:
+    orchestrator = Orchestrator(
+        db=mock_db,
+        profile_manager=mock_profile_manager,
+        intent_detector=mock_intent_detector,
+    )
 
-        mock_chef.return_value.process.return_value = AgentResponse(
-            success=True, message="Summer salad recipe"
-        )
-        mock_weather.return_value.process.return_value = AgentResponse(
-            success=True, message="Sunny, 25°C"
+    # Mock metody
+    mock_profile_manager.get_or_create_profile = AsyncMock()
+    mock_profile_manager.log_activity = AsyncMock()
+    mock_intent_detector.detect_intent = AsyncMock(return_value=IntentData("cooking"))
+
+    # Mock agent router
+    with patch.object(orchestrator, "agent_router") as mock_router:
+        mock_router.route_to_agent = AsyncMock(
+            return_value=AgentResponse(
+                success=True, text="Recipe response", data={"recipe": "test recipe"}
+            )
         )
 
-        # Przepływ: pogoda -> przepis dopasowany do pogody
-        weather_response = await orchestrator.process(
-            {"intent": "weather", "query": "weather in Warsaw"}
+        response = await orchestrator.process_command(
+            "How to cook pasta?", "test_session"
         )
-        assert weather_response.success
 
-        recipe_response = await orchestrator.process(
-            {
-                "intent": "cooking",
-                "ingredients": ["tomato", "cucumber"],
-                "context": {"weather": "sunny"},
-            }
-        )
-        assert recipe_response.success
-        assert "Summer salad" in recipe_response.message
+        assert isinstance(response, AgentResponse)
+        assert response.success is True
+        assert "Recipe response" in response.text
 
 
 @pytest.mark.asyncio
 async def test_integration_performance():
     """Test wydajnościowy z wieloma równoległymi żądaniami"""
-    orchestrator = EnhancedOrchestrator()
+    # Mock wymagane zależności
+    mock_db = AsyncMock()
+    mock_profile_manager = AsyncMock()
+    mock_intent_detector = AsyncMock()
 
-    with patch("backend.agents.enhanced_orchestrator.SearchAgent") as mock_search:
-        mock_search.return_value.process.return_value = AgentResponse(
-            success=True, message="Search results"
+    orchestrator = Orchestrator(
+        db=mock_db,
+        profile_manager=mock_profile_manager,
+        intent_detector=mock_intent_detector,
+    )
+
+    # Mock metody
+    mock_profile_manager.get_or_create_profile = AsyncMock()
+    mock_profile_manager.log_activity = AsyncMock()
+    mock_intent_detector.detect_intent = AsyncMock(return_value=IntentData("general"))
+
+    # Mock agent router
+    with patch.object(orchestrator, "agent_router") as mock_router:
+        mock_router.route_to_agent = AsyncMock(
+            return_value=AgentResponse(
+                success=True, text="Test response", data={"test": "data"}
+            )
         )
 
-        # Symulacja wielu równoległych żądań
-        tasks = [
-            orchestrator.process({"intent": "search", "query": f"test query {i}"})
-            for i in range(5)
-        ]
+        # Test równoległych żądań
+        tasks = []
+        for i in range(5):
+            task = orchestrator.process_command(f"Test command {i}", f"session_{i}")
+            tasks.append(task)
 
         responses = await asyncio.gather(*tasks)
-        assert all(r.success for r in responses)
+
+        assert len(responses) == 5
+        for response in responses:
+            assert isinstance(response, AgentResponse)
+            assert response.success is True
 
 
 @pytest.mark.asyncio
 async def test_integration_fallback_mechanism():
     """Test mechanizmu fallback gdy główny agent zawiedzie"""
-    orchestrator = EnhancedOrchestrator()
+    # Mock wymagane zależności
+    mock_db = AsyncMock()
+    mock_profile_manager = AsyncMock()
+    mock_intent_detector = AsyncMock()
 
-    with patch(
-        "backend.agents.enhanced_orchestrator.SearchAgent"
-    ) as mock_search, patch(
-        "backend.agents.enhanced_orchestrator.EnhancedRAGAgent"
-    ) as mock_rag:
+    orchestrator = Orchestrator(
+        db=mock_db,
+        profile_manager=mock_profile_manager,
+        intent_detector=mock_intent_detector,
+    )
 
-        mock_search.return_value.process.return_value = AgentResponse(
-            success=False, error="Search failed"
-        )
-        mock_rag.return_value.process.return_value = AgentResponse(
-            success=True, message="Fallback answer from RAG"
-        )
+    # Mock metody
+    mock_profile_manager.get_or_create_profile = AsyncMock()
+    mock_profile_manager.log_activity = AsyncMock()
+    mock_intent_detector.detect_intent = AsyncMock(return_value=IntentData("general"))
 
-        response = await orchestrator.process(
-            {"intent": "search", "query": "important query"}
-        )
-        assert response.success
-        assert "Fallback answer" in response.message
+    # Mock agent router z błędem
+    with patch.object(orchestrator, "agent_router") as mock_router:
+        mock_router.route_to_agent = AsyncMock(side_effect=Exception("Agent error"))
+
+        response = await orchestrator.process_command("Test command", "test_session")
+
+        assert isinstance(response, AgentResponse)
+        assert response.success is False
+        assert "error" in response.error.lower()

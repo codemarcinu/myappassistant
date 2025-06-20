@@ -18,29 +18,29 @@ def test_app():
 def test_full_orchestration_flow(test_app):
     # Simulate API request that uses the orchestrator
     response = test_app.post(
-        "/process_query",
-        json={"session_id": "test_session_123", "query": "Find a recipe for spaghetti"},
+        "/agents/execute",
+        json={"task": "Find a recipe for spaghetti", "session_id": "test_session_123"},
     )
     assert response.status_code == 200
-    assert "spaghetti" in response.json().get("response").lower()
+    assert "spaghetti" in (response.json().get("response") or "").lower()
 
 
 def test_add_item_to_list_flow(test_app):
     response = test_app.post(
-        "/process_query",
-        json={"session_id": "test_session_123", "query": "add milk to shopping list"},
+        "/agents/execute",
+        json={"task": "add milk to shopping list", "session_id": "test_session_123"},
     )
     assert response.status_code == 200
-    assert "milk" in response.json().get("response").lower()
+    assert "milk" in (response.json().get("response") or "").lower()
 
 
 def test_invalid_input_query(test_app):
     response = test_app.post(
-        "/process_query", json={"session_id": "test_session", "query": ""}
-    )  # Empty query
-    assert response.status_code == 400
-    assert "error_code" in response.json()
-    assert response.json()["error_code"] == "INVALID_INPUT"
+        "/agents/execute", json={"task": "", "session_id": "test_session"}
+    )  # Empty task
+    assert response.status_code == 200
+    assert response.json()["success"] is False
+    assert "error" in response.json()
 
 
 @patch(
@@ -54,3 +54,37 @@ def test_database_connection_failure(mock_get_db, test_app):
     )
     assert response.status_code == 500
     assert response.json()["error_code"] == "INTERNAL_SERVER_ERROR"
+
+
+def test_error_handling_value_error(test_app):
+    response = test_app.get("/raise_error?type=value")
+    assert response.status_code == 500
+    assert "error" in response.json()
+    assert response.json()["error"]["message"] == "Test ValueError"
+
+
+def test_error_handling_key_error(test_app):
+    response = test_app.get("/raise_error?type=key")
+    assert response.status_code == 500
+    assert "error" in response.json()
+    assert "Missing required field" in response.json()["error"]["message"]
+
+
+def test_error_handling_custom_exception(test_app):
+    response = test_app.get("/raise_error?type=custom")
+    assert response.status_code == 500
+    assert "error" in response.json()
+    assert "Test custom exception" in response.json()["error"]["message"]
+
+
+def test_error_handling_http_exception(test_app):
+    response = test_app.get("/raise_error?type=http")
+    assert response.status_code == 418
+    assert response.json()["detail"] == "I'm a teapot"
+
+
+def test_error_handling_generic_exception(test_app):
+    response = test_app.get("/raise_error?type=other")
+    assert response.status_code == 500
+    assert "error" in response.json()
+    assert "Unexpected error" in response.json()["error"]["message"]

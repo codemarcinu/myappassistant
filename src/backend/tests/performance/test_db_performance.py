@@ -2,15 +2,27 @@ import time
 from datetime import datetime, timedelta
 
 import pytest
+from sqlalchemy import select
 
-from backend.core.database import AsyncSessionLocal
+from backend.core.database import AsyncSessionLocal, Base, engine
 from backend.models.conversation import Conversation, Message
 from backend.models.shopping import Product, ShoppingTrip
 
 
 @pytest.fixture
-async def unique_session_id():
+def unique_session_id():
     return f"perf_test_{str(hash(time.time()))[-8:]}"
+
+
+@pytest.fixture(scope="session", autouse=True)
+async def setup_database():
+    """Inicjalizacja bazy danych dla testów"""
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    yield
+    # Cleanup po testach
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
 
 
 @pytest.mark.asyncio
@@ -19,7 +31,7 @@ async def test_conversation_query_performance(unique_session_id):
     async with AsyncSessionLocal() as session:
         # Create test data
         conv = Conversation(session_id=unique_session_id)
-        await session.add(conv)
+        session.add(conv)
         await session.commit()
 
         # Add 100 test messages
@@ -30,13 +42,13 @@ async def test_conversation_query_performance(unique_session_id):
                 conversation_id=conv.id,
                 created_at=datetime.now() - timedelta(minutes=i),
             )
-            await session.add(msg)
+            session.add(msg)
         await session.commit()
 
         # Benchmark query with composite index
         start = time.time()
         result = await session.execute(
-            session.query(Message)
+            select(Message)
             .where(Message.conversation_id == conv.id)
             .order_by(Message.created_at.desc())
             .limit(10)
@@ -68,13 +80,13 @@ async def test_shopping_query_performance():
             )
             for i in range(50)
         ]
-        await session.add_all(products)
+        session.add_all(products)
         await session.commit()
 
         # Benchmark category query
         start = time.time()
         result = await session.execute(
-            session.query(Product)
+            select(Product)
             .where(Product.trip_id == trip.id)
             .where(Product.category == "test")
         )
@@ -90,15 +102,17 @@ async def test_memory_usage():
     async def _memory_test_operations():
         async with AsyncSessionLocal() as session:
             for i in range(100):
-                conv = Conversation(session_id=f"mem_test_{i}")
-                await session.add(conv)
+                conv = Conversation(
+                    session_id=f"mem_test_{i}_{int(time.time() * 1000)}"
+                )
+                session.add(conv)
                 await session.flush()  # Ensure conv.id is available
 
                 for j in range(10):
                     msg = Message(
                         content=f"Msg {j}", role="user", conversation_id=conv.id
                     )
-                    await session.add(msg)
+                    session.add(msg)
             await session.commit()
 
     # Get baseline memory usage

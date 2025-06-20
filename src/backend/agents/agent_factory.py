@@ -1,15 +1,28 @@
+import logging
 from typing import Any, Dict, Optional, Type
 
 from pydantic import BaseModel
 
+from ..core.decorators import handle_exceptions
 from .agent_builder import AgentBuilder
 from .agent_container import AgentContainer
-from .enhanced_base_agent import ImprovedBaseAgent
 from .agent_registry import AgentRegistry
+from .analytics_agent import AnalyticsAgent
+from .base_agent import BaseAgent
+from .categorization_agent import CategorizationAgent
+from .chef_agent import ChefAgent
+from .general_conversation_agent import GeneralConversationAgent
+from .meal_planner_agent import MealPlannerAgent
+from .ocr_agent import OCRAgent
+from .rag_agent import RAGAgent
+from .search_agent import SearchAgent
+from .weather_agent import WeatherAgent
 
 # Module-level configuration
-config = {}
-llm_client = None
+config: Dict[str, Any] = {}
+llm_client: Optional[Any] = None
+
+logger = logging.getLogger(__name__)
 
 
 class AgentConfig(BaseModel):
@@ -24,67 +37,108 @@ class AgentConfig(BaseModel):
 class AgentFactory:
     """Factory for creating agent instances with DI support."""
 
-    def __init__(self, container: Optional[AgentContainer] = None, agent_registry: Optional[AgentRegistry] = None):
+    def __init__(
+        self,
+        container: Optional[AgentContainer] = None,
+        agent_registry: Optional[AgentRegistry] = None,
+    ):
         self.container = container or AgentContainer()
-        self.config = {}
+        self.config: Dict[str, Any] = {}
+        self._agent_cache: Dict[str, BaseAgent] = {}  # Cache dla agentów
+        self._registry: Dict[str, BaseAgent] = {}  # Registry dla agentów (dla testów)
         self.agent_config = {
             "ocr": {"module": "ocr_agent"},
-            "weather": {"module": "enhanced_weather_agent"},
+            "weather": {"module": "weather_agent"},
             "search": {"module": "search_agent"},
             "chef": {"module": "chef_agent"},
             "meal_planner": {"module": "meal_planner_agent"},
             "categorization": {"module": "categorization_agent"},
             "analytics": {"module": "analytics_agent"},
-            "rag": {"module": "enhanced_rag_agent"},
+            "rag": {"module": "rag_agent"},
             "orchestrator": {"module": "orchestrator"},
         }
         self.agent_registry = agent_registry or AgentRegistry()
-        
-        # Register agent classes with the registry
-        self.agent_registry.register_agent_class("OCR", self._get_agent_class("OCRAgent"))
-        self.agent_registry.register_agent_class("Weather", self._get_agent_class("EnhancedWeatherAgent"))
-        self.agent_registry.register_agent_class("Search", self._get_agent_class("SearchAgent"))
-        self.agent_registry.register_agent_class("Chef", self._get_agent_class("ChefAgent"))
-        self.agent_registry.register_agent_class("MealPlanner", self._get_agent_class("MealPlannerAgent"))
-        self.agent_registry.register_agent_class("Categorization", self._get_agent_class("CategorizationAgent"))
-        self.agent_registry.register_agent_class("Analytics", self._get_agent_class("AnalyticsAgent"))
-        self.agent_registry.register_agent_class("RAG", self._get_agent_class("EnhancedRAGAgent"))
-        self.agent_registry.register_agent_class("Orchestrator", self._get_agent_class("Orchestrator"))
-        self.agent_registry.register_agent_class("CustomAgent", self._get_agent_class("EnhancedBaseAgent"))
 
-    def register_agent(
-        self, agent_type: str, agent_class: Type[ImprovedBaseAgent]
-    ) -> None:
+        # Register core services in container
+        if hasattr(self.container, "register_core_services"):
+            # We need a db session, but we don't have one here
+            # This will be handled when creating agents
+            pass
+
+        # Register agent classes with the registry
+        self.agent_registry.register_agent_class(
+            "OCR", self._get_agent_class("OCRAgent")
+        )
+        self.agent_registry.register_agent_class(
+            "Weather", self._get_agent_class("WeatherAgent")
+        )
+        self.agent_registry.register_agent_class(
+            "Search", self._get_agent_class("SearchAgent")
+        )
+        self.agent_registry.register_agent_class(
+            "Chef", self._get_agent_class("ChefAgent")
+        )
+        self.agent_registry.register_agent_class(
+            "MealPlanner", self._get_agent_class("MealPlannerAgent")
+        )
+        self.agent_registry.register_agent_class(
+            "Categorization", self._get_agent_class("CategorizationAgent")
+        )
+        self.agent_registry.register_agent_class(
+            "Analytics", self._get_agent_class("AnalyticsAgent")
+        )
+        self.agent_registry.register_agent_class(
+            "RAG", self._get_agent_class("RAGAgent")
+        )
+        self.agent_registry.register_agent_class(
+            "CustomAgent", self._get_agent_class("BaseAgent")
+        )
+
+    def register_agent(self, agent_type: str, agent_class: Type[BaseAgent]) -> None:
         """
         Register an agent class with the factory and registry.
 
         Args:
-            agent_type (str): Type of agent (e.g., 'enhanced_orchestrator')
-            agent_class (Type[ImprovedBaseAgent]): Agent class to register
+            agent_type (str): Type of agent (e.g., 'orchestrator')
+            agent_class (Type[BaseAgent]): Agent class to register
         """
         self.agent_registry.register_agent_class(agent_type, agent_class)
 
+    @handle_exceptions(max_retries=1)
     def create_agent(
-        self, agent_type: str, config: Optional[Dict] = None, **kwargs
-    ) -> ImprovedBaseAgent:
+        self,
+        agent_type: str,
+        config: Optional[Dict] = None,
+        use_cache: bool = True,
+        **kwargs,
+    ) -> BaseAgent:
         """
         Creates and configures an agent instance using AgentBuilder.
 
         Args:
             agent_type (str): Type of agent (e.g., 'ocr', 'weather')
             config (Optional[Dict]): Additional configuration for the agent
+            use_cache (bool): Whether to use cached agent instance
+            **kwargs: Additional arguments to pass to agent constructor
 
         Returns:
-            ImprovedBaseAgent: Configured agent instance
+            BaseAgent: Configured agent instance
 
         Raises:
             ValueError: If the agent type is not found in the registry.
         """
+        # Sprawdź cache jeśli włączony
+        if use_cache and not config and not kwargs:
+            cache_key = agent_type
+            if cache_key in self._agent_cache:
+                return self._agent_cache[cache_key]
+
         agent_class = self.agent_registry.get_agent_class(agent_type)
         if not agent_class:
-            if "Invalid configuration" in str(self.agent_config.get(agent_type, "")):
-                raise ValueError(f"Invalid configuration for agent type: {agent_type}")
-            raise ValueError(f"Unsupported agent type: {agent_type}")
+            logger.warning(
+                f"Unknown agent type: {agent_type}, using GeneralConversationAgent"
+            )
+            return GeneralConversationAgent()
 
         builder = AgentBuilder(self.container, self)
         builder.of_type(agent_type)
@@ -92,9 +146,17 @@ class AgentFactory:
         if config:
             builder.with_config(config)
 
-        return builder.build()
+        agent = builder.build(**kwargs)
 
-    def _get_agent_class(self, class_name: str) -> Type[ImprovedBaseAgent]:
+        # Zapisz w cache jeśli włączony i nie ma dodatkowej konfiguracji
+        if use_cache and not config and not kwargs:
+            cache_key = agent_type
+            self._agent_cache[cache_key] = agent
+
+        return agent
+
+    @handle_exceptions(max_retries=1, retry_delay=0.5)
+    def _get_agent_class(self, class_name: str) -> Type[BaseAgent]:
         """Dynamically import agent class to avoid circular imports"""
         import importlib
         import os
@@ -108,15 +170,15 @@ class AgentFactory:
         # Map class names to actual module files (relative imports)
         module_map = {
             "OCRAgent": "ocr_agent",
-            "EnhancedWeatherAgent": "enhanced_weather_agent",
+            "WeatherAgent": "weather_agent",
             "SearchAgent": "search_agent",
             "ChefAgent": "chef_agent",
             "MealPlannerAgent": "meal_planner_agent",
             "CategorizationAgent": "categorization_agent",
             "AnalyticsAgent": "analytics_agent",
-            "EnhancedRAGAgent": "enhanced_rag_agent",
+            "RAGAgent": "rag_agent",
             "Orchestrator": "orchestrator",
-            "EnhancedBaseAgent": "enhanced_base_agent",
+            "BaseAgent": "base_agent",
         }
 
         if class_name not in module_map:
@@ -140,3 +202,67 @@ class AgentFactory:
                     f"Failed to import {class_name} from {full_module_path}: {str(e)}\n"
                     f"Current sys.path: {sys.path}"
                 ) from e
+
+    def create_agent(self, agent_type: str) -> BaseAgent:
+        """Create an agent instance based on the agent type"""
+        agent_type_lower = agent_type.lower()
+
+        # Sprawdź cache dla singleton behavior
+        if agent_type_lower in self._agent_cache:
+            return self._agent_cache[agent_type_lower]
+
+        agent = None
+        if agent_type_lower in ["general_conversation", "general", "conversation"]:
+            agent = GeneralConversationAgent()
+        elif agent_type_lower in ["chef", "cooking", "recipe"]:
+            agent = ChefAgent()
+        elif agent_type_lower in ["weather", "pogoda"]:
+            agent = WeatherAgent()
+        elif agent_type_lower in ["search", "wyszukiwanie"]:
+            agent = SearchAgent()
+        elif agent_type_lower in ["rag", "document", "dokument"]:
+            agent = RAGAgent()
+        elif agent_type_lower in ["ocr", "image", "zdjęcie"]:
+            agent = OCRAgent()
+        elif agent_type_lower in ["categorization", "kategoryzacja"]:
+            agent = CategorizationAgent()
+        elif agent_type_lower in ["meal_planner", "planowanie_posiłków"]:
+            agent = MealPlannerAgent()
+        elif agent_type_lower in ["analytics", "analityka"]:
+            agent = AnalyticsAgent()
+        else:
+            # Default to general conversation agent
+            logger.warning(
+                f"Unknown agent type: {agent_type}, using GeneralConversationAgent"
+            )
+            agent = GeneralConversationAgent()
+
+        # Rejestruj agenta w cache i registry
+        self._agent_cache[agent_type_lower] = agent
+        self._registry[agent.name] = agent
+
+        return agent
+
+    def get_available_agents(self) -> Dict[str, str]:
+        """Return a dictionary of available agent types and their descriptions"""
+        return {
+            "general_conversation": "Agent do swobodnych konwersacji z RAG i wyszukiwaniem",
+            "chef": "Agent do przepisów kulinarnych",
+            "weather": "Agent do prognoz pogody",
+            "search": "Agent do wyszukiwania w internecie",
+            "rag": "Agent do analizy dokumentów",
+            "ocr": "Agent do analizy obrazów i paragonów",
+            "categorization": "Agent do kategoryzacji produktów",
+            "meal_planner": "Agent do planowania posiłków",
+            "analytics": "Agent do analizy danych",
+        }
+
+    def cleanup(self) -> None:
+        """Clear the agent cache and registry"""
+        self._agent_cache.clear()
+        self._registry.clear()
+
+    def reset(self) -> None:
+        """Reset the factory to initial state"""
+        self.cleanup()
+        self.config.clear()

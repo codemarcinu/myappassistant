@@ -1,4 +1,5 @@
-from unittest.mock import AsyncMock, MagicMock, patch
+import os
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -6,41 +7,75 @@ from backend.agents.chef_agent import ChefAgent
 from backend.agents.meal_planner_agent import MealPlannerAgent
 from backend.agents.search_agent import SearchAgent
 from backend.agents.weather_agent import WeatherAgent
+from backend.core.hybrid_llm_client import hybrid_llm_client
+
+
+# --- Wzorzec do mockowania LLM w testach agentów ---
+def make_llm_chat_mock(stream_content: str, non_stream_content: str = None):
+    """
+    Zwraca funkcję do mockowania llm_client.chat/hybrid_llm_client.chat,
+    która obsługuje zarówno stream=True (async generator), jak i stream=False (dict).
+    """
+
+    async def stream_chat(*args, **kwargs):
+        yield {"message": {"content": stream_content}}
+
+    async def non_stream_chat(*args, **kwargs):
+        return {"message": {"content": non_stream_content or stream_content}}
+
+    def chat_mock(*args, **kwargs):
+        if kwargs.get("stream"):
+            return stream_chat(*args, **kwargs)
+        else:
+            return non_stream_chat(*args, **kwargs)
+
+    class HybridLLMMock:
+        chat = staticmethod(chat_mock)
+
+    return chat_mock, HybridLLMMock
+
+
+# --- Testy agentów ---
 
 
 @pytest.mark.asyncio
 @patch("backend.agents.weather_agent.llm_client", new_callable=AsyncMock)
-@patch("backend.agents.weather_agent.httpx.AsyncClient")
-async def test_weather_agent(mock_http_client, mock_llm_client):
+async def test_weather_agent(mock_llm_client):
     """Tests the WeatherAgent's logic."""
 
+    # Mock API keys
+    os.environ["WEATHER_API_KEY"] = "dummy"
+    os.environ["OPENWEATHER_API_KEY"] = "dummy"
+
     # Arrange
-    async def stream_generator(content):
-        yield {"message": {"content": content}}
+    chat_mock, HybridLLMMock = make_llm_chat_mock("Słonecznie, 25 stopni.")
+    mock_llm_client.chat = chat_mock
 
-    mock_llm_client.chat.side_effect = [
-        {"message": {"content": "Warszawa"}},  # Location extraction is not streamed
-        stream_generator("Słonecznie, 25 stopni."),  # Formatting is streamed
-    ]
+    # Patch hybrid_llm_client.chat directly
+    with patch.object(hybrid_llm_client, "chat", new=chat_mock):
+        # Mock httpx.AsyncClient instance
+        with patch("httpx.AsyncClient") as mock_http_client_class:
+            mock_response = AsyncMock()
+            mock_response.json = AsyncMock(return_value={"current": {"temp_c": 25}})
+            mock_response.raise_for_status = AsyncMock()
 
-    mock_response = MagicMock()
-    mock_response.json.return_value = {"current": {"temp_c": 25}}
+            mock_async_client_instance = AsyncMock()
+            mock_async_client_instance.get.return_value = mock_response
+            mock_http_client_class.return_value = mock_async_client_instance
 
-    mock_async_client = AsyncMock()
-    mock_async_client.get.return_value = mock_response
-    mock_http_client.return_value.__aenter__.return_value = mock_async_client
+            agent = WeatherAgent()
 
-    agent = WeatherAgent()
+            # Act - przekazuję location zgodnie z modelem WeatherRequest
+            result = await agent.process(
+                {"location": "Warszawa", "model": "test-model"}
+            )
 
-    # Act
-    result = await agent.process({"query": "pogoda w warszawie", "model": "test-model"})
-
-    # Assert
-    assert result.success
-    response_text = ""
-    async for chunk in result.text_stream:
-        response_text += chunk
-    assert "Słonecznie, 25 stopni." in response_text
+            # Assert
+            assert result.success
+            response_text = ""
+            async for chunk in result.text_stream:
+                response_text += chunk
+            assert "Słonecznie, 25 stopni." in response_text
 
 
 @pytest.mark.asyncio
@@ -48,25 +83,26 @@ async def test_weather_agent(mock_http_client, mock_llm_client):
 @patch("backend.agents.search_agent.httpx.AsyncClient")
 async def test_search_agent(mock_http_client, mock_llm_client):
     """Tests the SearchAgent's logic."""
+    chat_mock, _ = make_llm_chat_mock("Wyniki dla 'Python'.")
+    mock_llm_client.chat = chat_mock
 
-    # Arrange
-    async def stream_generator(content):
-        yield {"message": {"content": content}}
-
-    mock_llm_client.chat.return_value = stream_generator("Wyniki dla 'Python'.")
-
+    # Mock response data properly
     mock_response = AsyncMock()
-    mock_response.json.return_value = {"RelatedTopics": [{"Text": "Python language"}]}
-
+    mock_response.json = AsyncMock(
+        return_value={
+            "RelatedTopics": [
+                {"Text": "Python language", "FirstURL": "http://example.com"}
+            ]
+        }
+    )
+    mock_response.raise_for_status = AsyncMock()
     mock_async_client = AsyncMock()
     mock_async_client.get.return_value = mock_response
     mock_http_client.return_value.__aenter__.return_value = mock_async_client
 
     agent = SearchAgent()
-
     # Act
     result = await agent.process({"query": "Python", "model": "test-model"})
-
     # Assert
     assert result.success
     response_text = ""
@@ -83,28 +119,29 @@ async def test_search_agent(mock_http_client, mock_llm_client):
 )
 async def test_chef_agent(mock_get_products, mock_llm_client):
     """Tests the ChefAgent's logic."""
-
-    # Arrange
-    async def stream_generator(content):
-        yield {"message": {"content": content}}
-
-    mock_get_products.return_value = [MagicMock(name="Mleko", id=1)]
-    mock_llm_client.chat.return_value = stream_generator(
-        "PRZEPIS: Zrób owsiankę. UŻYTE SKŁADNIKI: Mleko"
+    mock_get_products.return_value = [AsyncMock(name="Mleko", id=1)]
+    chat_mock, HybridLLMMock = make_llm_chat_mock(
+        "PRZEPIS: Zrób owsiankę. UŻYTE SKŁADNIKI: Mleko", "Mleko"
     )
+    mock_llm_client.chat = chat_mock
+    mock_llm_client.generate_stream = chat_mock
 
-    agent = ChefAgent()
-    mock_db = AsyncMock()
-
-    # Act
-    result = await agent.process({"db": mock_db, "model": "test-model"})
-
-    # Assert
-    assert result.success
-    response_text = ""
-    async for chunk in result.text_stream:
-        response_text += chunk
-    assert "Zrób owsiankę" in response_text
+    # Patch hybrid_llm_client.chat directly
+    with patch.object(hybrid_llm_client, "chat", new=chat_mock):
+        agent = ChefAgent()
+        mock_db = AsyncMock()
+        result = await agent.process(
+            {
+                "db": mock_db,
+                "model": "test-model",
+                "ingredients": ["Mleko", "Płatki owsiane"],
+            }
+        )
+        assert result.success
+        response_text = ""
+        async for chunk in result.text_stream:
+            response_text += chunk
+        assert "Zrób owsiankę" in response_text
 
 
 @pytest.mark.asyncio
@@ -114,25 +151,21 @@ async def test_chef_agent(mock_get_products, mock_llm_client):
 )
 async def test_meal_planner_agent(mock_get_products, mock_llm_client):
     """Tests the MealPlannerAgent's logic."""
-    # Arrange
-    product_mock = MagicMock()
+    product_mock = AsyncMock()
     product_mock.name = "Jajka"
     mock_get_products.return_value = [product_mock]
 
-    async def stream_generator(content):
-        yield {"message": {"content": content}}
+    async def stream_generator(*args, **kwargs):
+        yield {
+            "message": {
+                "content": '{"meal_plan": [{"day": "Monday", "breakfast": "Jajecznica"}]}'
+            }
+        }
 
-    mock_llm_client.chat.return_value = stream_generator(
-        '{"meal_plan": [{"day": "Monday", "breakfast": "Jajecznica"}]}'
-    )
-
+    mock_llm_client.generate_stream = stream_generator
     agent = MealPlannerAgent(name="TestMealPlanner")
     mock_db = AsyncMock()
-
-    # Act
     result = await agent.process({"db": mock_db})
-
-    # Assert
     assert result.success
     response_text = ""
     async for chunk in result.text_stream:

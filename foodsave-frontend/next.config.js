@@ -3,15 +3,21 @@ const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
   output: 'standalone',
+  experimental: {
+    outputFileTracingRoot: undefined,
+  },
   images: {
     domains: ['localhost'], // Add domains for image hosting if needed
+    unoptimized: true, // Dla środowiska Docker
   },
   async rewrites() {
     return [
       {
         // Proxy API requests to the backend during development
         source: '/api/:path*',
-        destination: 'http://localhost:8000/api/:path*',
+        destination: process.env.NODE_ENV === 'production'
+          ? 'http://backend:8000/api/:path*'
+          : 'http://localhost:8000/api/:path*',
       },
     ];
   },
@@ -22,6 +28,10 @@ const nextConfig = {
     // !! WARN !!
     ignoreBuildErrors: true,
   },
+  // Dodatkowe ustawienia dla Docker
+  poweredByHeader: false,
+  compress: true,
+  generateEtags: false,
 };
 
 module.exports = nextConfig;

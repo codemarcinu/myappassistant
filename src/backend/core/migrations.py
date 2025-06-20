@@ -51,3 +51,164 @@ async def run_migrations():
             print("Added category column to products table")
         else:
             print("Category column already exists")
+
+        # Check if created_at column exists in shopping_trips table
+        result = await conn.execute(
+            text(
+                """
+            SELECT name FROM pragma_table_info('shopping_trips')
+            WHERE name='created_at'
+        """
+            )
+        )
+        if not result.scalar():
+            # Add the created_at column if it doesn't exist
+            await conn.execute(
+                text(
+                    """
+                ALTER TABLE shopping_trips
+                ADD COLUMN created_at DATETIME
+            """
+                )
+            )
+            print("Added created_at column to shopping_trips table")
+        else:
+            print("Created_at column already exists in shopping_trips")
+
+        # Check if updated_at column exists in shopping_trips table
+        result = await conn.execute(
+            text(
+                """
+            SELECT name FROM pragma_table_info('shopping_trips')
+            WHERE name='updated_at'
+        """
+            )
+        )
+        if not result.scalar():
+            # Add the updated_at column if it doesn't exist
+            await conn.execute(
+                text(
+                    """
+                ALTER TABLE shopping_trips
+                ADD COLUMN updated_at DATETIME
+            """
+                )
+            )
+            print("Added updated_at column to shopping_trips table")
+        else:
+            print("Updated_at column already exists in shopping_trips")
+
+        # Check if created_at column exists in products table
+        result = await conn.execute(
+            text(
+                """
+            SELECT name FROM pragma_table_info('products')
+            WHERE name='created_at'
+        """
+            )
+        )
+        if not result.scalar():
+            # Add the created_at column if it doesn't exist
+            await conn.execute(
+                text(
+                    """
+                ALTER TABLE products
+                ADD COLUMN created_at DATETIME
+            """
+                )
+            )
+            print("Added created_at column to products table")
+        else:
+            print("Created_at column already exists in products")
+
+        # Check if updated_at column exists in products table
+        result = await conn.execute(
+            text(
+                """
+            SELECT name FROM pragma_table_info('products')
+            WHERE name='updated_at'
+        """
+            )
+        )
+        if not result.scalar():
+            # Add the updated_at column if it doesn't exist
+            await conn.execute(
+                text(
+                    """
+                ALTER TABLE products
+                ADD COLUMN updated_at DATETIME
+            """
+                )
+            )
+            print("Added updated_at column to products table")
+        else:
+            print("Updated_at column already exists in products")
+
+        # Check if price column exists in products table
+        result = await conn.execute(
+            text(
+                """
+            SELECT name FROM pragma_table_info('products')
+            WHERE name='price'
+        """
+            )
+        )
+        if not result.scalar():
+            # Add the price column if it doesn't exist
+            await conn.execute(
+                text(
+                    """
+                ALTER TABLE products
+                ADD COLUMN price FLOAT DEFAULT 0.0
+            """
+                )
+            )
+            print("Added price column to products table")
+        else:
+            print("Price column already exists in products")
+
+        # Check if unit column exists in products table
+        result = await conn.execute(
+            text(
+                """
+            SELECT name FROM pragma_table_info('products')
+            WHERE name='unit'
+        """
+            )
+        )
+        if not result.scalar():
+            # Add the unit column if it doesn't exist
+            await conn.execute(
+                text(
+                    """
+                ALTER TABLE products
+                ADD COLUMN unit VARCHAR
+            """
+                )
+            )
+            print("Added unit column to products table")
+        else:
+            print("Unit column already exists in products")
+
+        # Check if notes column exists in products table
+        result = await conn.execute(
+            text(
+                """
+            SELECT name FROM pragma_table_info('products')
+            WHERE name='notes'
+        """
+            )
+        )
+        if not result.scalar():
+            # Add the notes column if it doesn't exist
+            await conn.execute(
+                text(
+                    """
+                ALTER TABLE products
+                ADD COLUMN notes TEXT
+            """
+                )
+            )
+            print("Added notes column to products table")
+        else:
+            print("Notes column already exists in products")

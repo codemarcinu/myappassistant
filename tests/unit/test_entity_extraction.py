@@ -1,6 +1,7 @@
 import json
 import os
 from typing import Any, List
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -71,41 +72,48 @@ async def test_entity_extraction_parametrized(intent: str, user_prompt: str) -> 
             {"role": "user", "content": prompt},
         ]
 
-        response = await llm_client.chat(
-            model=settings.DEFAULT_CHAT_MODEL,
-            messages=messages,
-            stream=False,
-            options={"temperature": 0.0},
-        )
+        with patch(
+            "src.backend.core.llm_client.llm_client.chat",
+            new=AsyncMock(return_value={"message": {"content": '{"mocked": true}'}}),
+        ):
+            response = await llm_client.chat(
+                model=settings.DEFAULT_CHAT_MODEL,
+                messages=messages,
+                stream=False,
+                options={"temperature": 0.0},
+            )
 
-        raw_response = response["message"]["content"]
-        parsed_json = extract_json_from_text(raw_response)
+            raw_response = response["message"]["content"]
+            json_str = extract_json_from_text(raw_response)
 
-        assert parsed_json is not None, "Nie znaleziono JSON w odpowiedzi"
-        print("Krok 1: Ekstrakcja danych z LLM zakończona sukcesem.")
-        print(json.dumps(parsed_json, indent=2, ensure_ascii=False))
+            assert json_str is not None, "Nie znaleziono JSON w odpowiedzi"
+            parsed_json = json.loads(json_str)
+            print("Krok 1: Ekstrakcja danych z LLM zakończona sukcesem.")
+            print(json.dumps(parsed_json, indent=2, ensure_ascii=False))
 
-        # Krok 2: Wyszukiwanie w bazie i logika decyzyjna
-        print("\nKrok 2: Wyszukiwanie rekordów w bazie danych...")
-        async with AsyncSessionLocal() as db:
-            znalezione_obiekty = []
-            if intent == "CZYTAJ_PODSUMOWANIE":
-                pass
-            elif intent == "DODAJ_ZAKUPY":
-                pass
-            elif intent in ["UPDATE_ITEM", "DELETE_ITEM", "READ_ITEM"]:
-                znalezione_obiekty = await crud.find_item_for_action(
-                    db, entities=parsed_json
-                )
-            elif intent in ["UPDATE_PURCHASE", "DELETE_PURCHASE", "READ_PURCHASE"]:
-                znalezione_obiekty = await crud.find_purchase_for_action(
-                    db, entities=parsed_json
-                )
+            # Krok 2: Wyszukiwanie w bazie i logika decyzyjna
+            print("\nKrok 2: Wyszukiwanie rekordów w bazie danych...")
+            async with AsyncSessionLocal() as db:
+                znalezione_obiekty = []
+                if intent == "CZYTAJ_PODSUMOWANIE":
+                    pass
+                elif intent == "DODAJ_ZAKUPY":
+                    pass
+                elif intent in ["UPDATE_ITEM", "DELETE_ITEM", "READ_ITEM"]:
+                    znalezione_obiekty = await crud.find_item_for_action(
+                        db, entities=parsed_json
+                    )
+                elif intent in ["UPDATE_PURCHASE", "DELETE_PURCHASE", "READ_PURCHASE"]:
+                    znalezione_obiekty = await crud.find_purchase_for_action(
+                        db, entities=parsed_json
+                    )
 
-            if intent not in ["CZYTAJ_PODSUMOWANIE", "DODAJ_ZAKUPY"]:
-                if len(znalezione_obiekty) > 1:
-                    pytanie = generate_clarification_question_text(znalezione_obiekty)
-                    assert pytanie is not None
+                if intent not in ["CZYTAJ_PODSUMOWANIE", "DODAJ_ZAKUPY"]:
+                    if len(znalezione_obiekty) > 1:
+                        pytanie = generate_clarification_question_text(
+                            znalezione_obiekty
+                        )
+                        assert pytanie is not None
 
     except Exception as e:
         pytest.fail(f"Wystąpił krytyczny błąd: {e}")

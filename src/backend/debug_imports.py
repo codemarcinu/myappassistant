@@ -12,23 +12,19 @@ try:
 
     # Try importing main first
     print("Importing backend module...")
-    import backend
 
     print("Successfully imported backend module")
 
     print("Importing backend.main...")
-    import backend.main
 
     print("Successfully imported backend.main")
 
     # If that works, try the problem modules
-    print("Importing backend.agents.enhanced_orchestrator...")
-    from backend.agents.enhanced_orchestrator import EnhancedOrchestrator
+    print("Importing backend.agents.orchestrator...")
 
-    print("Successfully imported EnhancedOrchestrator")
+    print("Successfully imported Orchestrator")
 
     print("Importing backend.agents.agent_factory...")
-    from backend.agents.agent_factory import AgentFactory
 
     print("Successfully imported AgentFactory")
 

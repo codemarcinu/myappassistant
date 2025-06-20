@@ -1,32 +1,63 @@
+import json
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, List, Optional
 
-from backend.agents.base_agent import AgentResponse, BaseAgent
 from backend.agents.prompts import get_meal_plan_prompt
 from backend.agents.utils import extract_json_from_text
 from backend.core.crud import get_available_products
 from backend.core.llm_client import llm_client
 
+from .base_agent import BaseAgent
+from .interfaces import AgentResponse
+
 logger = logging.getLogger(__name__)
 
 
 class MealPlannerAgent(BaseAgent):
+    def __init__(
+        self,
+        name: str = "MealPlannerAgent",
+        error_handler=None,
+        fallback_manager=None,
+        **kwargs,
+    ):
+        super().__init__(
+            name=name, error_handler=error_handler, fallback_manager=fallback_manager
+        )
+
     async def process(self, context: Dict[str, Any]) -> AgentResponse:
         try:
             db = context["db"]
             available_products = await get_available_products(db)
 
-            products_dict = [
-                {"name": p.name, "quantity": p.quantity} for p in available_products
-            ]
+            # Sprawdź flagę use_bielik
+            use_bielik = context.get("use_bielik", True)
+            model = (
+                "SpeakLeash/bielik-11b-v2.3-instruct:Q5_K_M"
+                if use_bielik
+                else "gemma3:12b"
+            )
 
-            prompt = get_meal_plan_prompt(products_dict)
+            products_list = []
+            for p in available_products:
+                if hasattr(p, "name"):
+                    products_list.append(
+                        {"name": p.name, "quantity": getattr(p, "quantity", 1)}
+                    )
+                elif isinstance(p, dict) and "name" in p:
+                    products_list.append(
+                        {"name": p["name"], "quantity": p.get("quantity", 1)}
+                    )
+                else:
+                    continue
+
+            prompt = get_meal_plan_prompt(products_list)
 
             async def response_generator():
                 full_response = ""
                 try:
-                    async for chunk in llm_client.generate_stream(
-                        model="gemma3:12b",
+                    async for chunk in await llm_client.generate_stream(
+                        model=model,
                         messages=[
                             {
                                 "role": "system",
@@ -40,8 +71,12 @@ class MealPlannerAgent(BaseAgent):
                         yield content
 
                     # After streaming, parse the full_response to extract structured data
-                    parsed_data = extract_json_from_text(full_response)
-                    logger.debug(f"Meal plan data extracted: {parsed_data}")
+                    json_str = extract_json_from_text(full_response)
+                    if json_str:
+                        parsed_data = json.loads(json_str)
+                        logger.debug(f"Meal plan data extracted: {parsed_data}")
+                    else:
+                        logger.warning("No valid JSON found in meal plan response")
                 except Exception as e:
                     logger.error(f"Error in meal plan streaming: {e}", exc_info=True)
                     yield "Wystąpił błąd podczas generowania planu posiłków."

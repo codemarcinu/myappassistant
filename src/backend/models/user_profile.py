@@ -3,7 +3,7 @@ from enum import Enum
 from typing import Dict, List, Optional
 
 import pytz  # Needed for timezone validation
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, validator
 from sqlalchemy import JSON, Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
@@ -19,6 +19,7 @@ class InteractionType(str, Enum):
     CLICK = "click"
     FEEDBACK = "feedback"
     SETTING_CHANGE = "setting_change"
+    FILE_UPLOAD = "file_upload"
 
 
 class Formality(str, Enum):
@@ -53,16 +54,23 @@ class UserSchedule(BaseModel):
     lunch_time: time = Field(default_factory=lambda: time(12, 0))
     time_zone: str = "Europe/Warsaw"
 
-    @validator("time_zone")
+    @field_validator("time_zone")
+    @classmethod
     def validate_timezone(cls, v):
         if v not in pytz.all_timezones:
-            return "Europe/Warsaw"  # Default to Warsaw if invalid
+            return "Europe/Warsaw"
         return v
 
     def dict(self, *args, **kwargs):
         """Override dict() to serialize time objects to ISO format strings"""
         data = super().dict(*args, **kwargs)
-        for field in ['wake_time', 'sleep_time', 'work_start_time', 'work_end_time', 'lunch_time']:
+        for field in [
+            "wake_time",
+            "sleep_time",
+            "work_start_time",
+            "work_end_time",
+            "lunch_time",
+        ]:
             if field in data and isinstance(data[field], time):
                 data[field] = data[field].isoformat()
         return data
@@ -114,20 +122,26 @@ class UserProfile(Base):
 
     def get_preferences(self) -> UserPreferences:
         """Get user preferences as pydantic model"""
-        return UserPreferences.parse_obj(self.preferences)
+        return UserPreferences.model_validate(self.preferences)
 
     def get_schedule(self) -> UserSchedule:
         """Get user schedule as pydantic model"""
         if not self.schedule:
             return UserSchedule()
-        
+
         # Handle case where schedule might be stored as serialized strings
         schedule_data = self.schedule.copy()
-        for field in ['wake_time', 'sleep_time', 'work_start_time', 'work_end_time', 'lunch_time']:
+        for field in [
+            "wake_time",
+            "sleep_time",
+            "work_start_time",
+            "work_end_time",
+            "lunch_time",
+        ]:
             if field in schedule_data and isinstance(schedule_data[field], str):
                 schedule_data[field] = UserSchedule.parse_time(schedule_data[field])
-        
-        return UserSchedule.parse_obj(schedule_data)
+
+        return UserSchedule.model_validate(schedule_data)
 
 
 class UserProfileData(BaseModel):

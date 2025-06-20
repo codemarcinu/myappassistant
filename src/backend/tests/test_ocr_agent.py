@@ -1,10 +1,9 @@
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 
 import pytest
-from pydantic import ValidationError
 
-from backend.agents.enhanced_base_agent import EnhancedAgentResponse
-from backend.agents.ocr_agent import OCRAgent, OCRAgentInput
+from backend.agents.base_agent import AgentResponse
+from backend.agents.ocr_agent import OCRAgent
 
 
 @pytest.mark.asyncio
@@ -16,7 +15,7 @@ async def test_ocr_agent_success_image():
         mock_process.return_value = "Rozpoznany tekst z obrazu"
 
         response = await agent.process(mock_input)
-        assert isinstance(response, EnhancedAgentResponse)
+        assert isinstance(response, AgentResponse)
         assert response.success is True
         assert "Rozpoznany tekst z obrazu" in response.text
 
@@ -30,7 +29,7 @@ async def test_ocr_agent_success_pdf():
         mock_process.return_value = "Rozpoznany tekst z PDF"
 
         response = await agent.process(mock_input)
-        assert isinstance(response, EnhancedAgentResponse)
+        assert isinstance(response, AgentResponse)
         assert response.success is True
         assert "Rozpoznany tekst z PDF" in response.text
 
@@ -39,13 +38,10 @@ async def test_ocr_agent_success_pdf():
 async def test_ocr_agent_input_validation():
     agent = OCRAgent()
 
-    # Test missing required field
-    with pytest.raises(ValidationError):
-        await agent.process({"file_type": "image"})
-
-    # Test invalid file type
-    with pytest.raises(ValidationError):
-        await agent.process({"file_bytes": b"test", "file_type": "invalid"})
+    # Test with invalid input (missing required fields)
+    response = await agent.process({"invalid_field": "test"})
+    assert response.success is False
+    assert "validation error" in response.error.lower()
 
 
 @pytest.mark.asyncio

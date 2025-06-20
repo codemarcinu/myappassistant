@@ -1,4 +1,5 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
+import qs from 'qs';
 
 const IS_SERVER = typeof window === 'undefined';
 
@@ -15,6 +16,7 @@ class ApiServiceClass {
       headers: {
         'Content-Type': 'application/json',
       },
+      paramsSerializer: params => qs.stringify(params, { arrayFormat: 'repeat' }),
     });
 
     // Add request interceptor for authentication
@@ -123,38 +125,39 @@ class ApiServiceClass {
 
   // Send chat message
   public async sendChatMessage(
-    payload: {
+    request: {
       message: string;
       session_id: string;
       agent_states?: Record<string, boolean>;
+      usePerplexity?: boolean;
+      useBielik?: boolean;
     },
-    onStream: (chunk: any) => void
-  ): Promise<void> {
-    const response = await fetch(`${API_BASE_URL}/api/v1/chat/memory_chat`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    });
-
-    if (!response.body) {
-      throw new Error('Response body is null');
-    }
-
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) {
-        break;
-      }
-      const chunkStr = decoder.decode(value, { stream: true });
-      // In ndjson, each line is a separate JSON object
-      chunkStr.split('\n').filter(line => line.trim()).forEach(line => {
-        onStream(JSON.parse(line));
+    onChunk?: (chunk: any) => void
+  ): Promise<any> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/agents/agents/execute`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          task: request.message,
+          session_id: request.session_id,
+          agent_states: request.agent_states,
+          usePerplexity: request.usePerplexity,
+          useBielik: request.useBielik,
+        }),
       });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error sending chat message:', error);
+      throw error;
     }
   }
 
@@ -168,9 +171,9 @@ class ApiServiceClass {
     return this.get('/api/v1/pantry/products');
   }
 
-  // Get weather data
-  public async getWeatherData(location: string) {
-    return this.get('/api/v1/weather', { location });
+  // Get weather data for multiple locations
+  public async getWeather(locations: string[]) {
+    return this.get('/api/v2/weather', { locations });
   }
 }
 
@@ -179,7 +182,7 @@ export const ApiService = new ApiServiceClass();
 
 // Helper function for fetching weather data (used in Server Components)
 export async function fetchWeatherData(location: string) {
-  const response = await fetch(`${API_BASE_URL}/api/v1/weather?location=${encodeURIComponent(location)}`);
+  const response = await fetch(`${API_BASE_URL}/api/v2/weather?locations=${encodeURIComponent(location)}`);
   if (!response.ok) {
     throw new Error('Failed to fetch weather data');
   }

@@ -38,11 +38,9 @@ except ImportError:
             logger.warning(
                 "Stub AsyncSession.commit() called - operation will not persist data"
             )
-            pass
 
         async def close(self):
             logger.warning("Stub AsyncSession.close() called")
-            pass
 
         async def __aenter__(self):
             return self

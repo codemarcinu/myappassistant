@@ -39,6 +39,8 @@ export interface AgentExecuteRequest {
     shopping?: boolean;
     cooking?: boolean;
   };
+  usePerplexity?: boolean;
+  useBielik?: boolean;
 }
 
 export interface AgentExecuteResponse {

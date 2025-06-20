@@ -1,17 +1,44 @@
+import logging
 from typing import Any, Dict, Optional
+
+from ...core.hybrid_llm_client import ModelComplexity, hybrid_llm_client
+
+logger = logging.getLogger(__name__)
 
 
 class LLMClient:
-    def __init__(self, api_key: str):
+    def __init__(self, api_key: str = ""):
         self.api_key = api_key
 
     async def generate(self, prompt: str, **kwargs: Any) -> str:
-        raise NotImplementedError("LLMClient.generate() not implemented")
+        """Generate text using hybrid LLM client"""
+        try:
+            response = await hybrid_llm_client.generate_text(
+                prompt=prompt, complexity=ModelComplexity.MEDIUM, **kwargs
+            )
+            return response.get("text", "")
+        except Exception as e:
+            logger.error(f"Error generating text: {e}")
+            return ""
 
     async def embed(self, text: str) -> list[float]:
-        raise NotImplementedError("LLMClient.embed() not implemented")
+        """Generate embeddings using hybrid LLM client"""
+        try:
+            embeddings = await hybrid_llm_client.generate_embeddings([text])
+            return embeddings[0] if embeddings else []
+        except Exception as e:
+            logger.error(f"Error generating embeddings: {e}")
+            return []
 
     async def chat(
         self, messages: list[Dict[str, str]], **kwargs: Any
     ) -> Optional[str]:
-        raise NotImplementedError("LLMClient.chat() not implemented")
+        """Chat using hybrid LLM client"""
+        try:
+            response = await hybrid_llm_client.chat(
+                messages=messages, complexity=ModelComplexity.MEDIUM, **kwargs
+            )
+            return response.get("text", "")
+        except Exception as e:
+            logger.error(f"Error in chat: {e}")
+            return None

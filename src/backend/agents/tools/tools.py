@@ -1,13 +1,14 @@
 import logging
 from typing import Any, Dict, List
 
-import ollama
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.ext.asyncio import AsyncSession  # type: ignore
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.config import settings
-from backend.core import crud
-from backend.models.shopping import Product, ShoppingTrip
+from ...config import settings
+from ...core import crud
+from ...core.llm_client import llm_client
+from ...core.utils import extract_json_from_text
+from ...models.shopping import Product, ShoppingTrip
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +18,7 @@ async def recognize_intent(prompt: str) -> str:
     Narzędzie, które rozpoznaje intencję użytkownika na podstawie promptu.
     """
     try:
-        response = await ollama.AsyncClient().chat(
+        response = await llm_client.chat(
             model=settings.DEFAULT_CODE_MODEL,  # Use faster model for this task
             messages=[
                 {
@@ -30,7 +31,16 @@ async def recognize_intent(prompt: str) -> str:
             options={"temperature": 0.0},
         )
         if response and response.get("message"):
-            return response["message"]["content"]
+            content = response["message"]["content"]
+            # Use extract_json_from_text to handle markdown and other formats
+            json_str = extract_json_from_text(content)
+            if json_str:
+                return json_str
+            else:
+                logger.warning(
+                    f"No valid JSON found in intent recognition response: {content}"
+                )
+                return '{"intent": "UNKNOWN"}'
         return '{"intent": "UNKNOWN"}'
     except Exception as e:
         logger.error(f"Błąd podczas rozpoznawania intencji: {e}")
@@ -42,7 +52,7 @@ async def extract_entities(prompt: str) -> str:
     Narzędzie, które ekstrahuje encje z promptu.
     """
     try:
-        response = await ollama.AsyncClient().chat(
+        response = await llm_client.chat(
             model=settings.DEFAULT_CODE_MODEL,  # Use faster model for this task
             messages=[
                 {
@@ -55,7 +65,16 @@ async def extract_entities(prompt: str) -> str:
             options={"temperature": 0.0},
         )
         if response and response.get("message"):
-            return response["message"]["content"]
+            content = response["message"]["content"]
+            # Use extract_json_from_text to handle markdown and other formats
+            json_str = extract_json_from_text(content)
+            if json_str:
+                return json_str
+            else:
+                logger.warning(
+                    f"No valid JSON found in entity extraction response: {content}"
+                )
+                return "{}"
         return "{}"
     except Exception as e:
         logger.error(f"Błąd podczas ekstrakcji encji: {e}")

@@ -1,35 +1,45 @@
+import React from 'react';
 import { Card } from '../ui/Card';
 import { MessageList } from '../chat/MessageList';
 import { MessageInput } from '../chat/MessageInput';
 import { Message } from '@/types/chat';
 import { CookingChatProps } from '@/types/cooking';
+import { useCooking } from '@/hooks/useCooking';
 
-export function CookingChat({
-  pantryItems,
-  onSendMessage,
-  messages,
-  isLoading = false
-}: CookingChatProps) {
+export function CookingChat() {
+  const {
+    messages,
+    isLoading,
+    error,
+    sendCookingMessage,
+    usePerplexity,
+    togglePerplexity,
+    useBielik,
+    toggleModel
+  } = useCooking();
+
   return (
-    <Card className="h-[calc(100vh-200px)] flex flex-col">
-      <div className="p-4 border-b">
-        <h2 className="text-xl font-semibold">Asystent kulinarny</h2>
-        <p className="text-sm text-gray-500 mt-1">
-          Masz {pantryItems.length} {pantryItems.length === 1 ? 'produkt' : 'produktów'} w spiżarni
-        </p>
+    <div className="flex flex-col h-full">
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-xl font-semibold">Asystent Kulinarny</h2>
       </div>
 
-      <div className="flex-grow overflow-auto p-4">
-        <MessageList messages={messages} isLoading={isLoading} />
-      </div>
+      <MessageList messages={messages} />
 
-      <div className="p-4 border-t">
-        <MessageInput
-          onSendMessage={onSendMessage}
-          isLoading={isLoading}
-          placeholder="Zapytaj o przepisy, pomysły na obiad..."
-        />
-      </div>
-    </Card>
+      <MessageInput
+        onSendMessage={sendCookingMessage}
+        isLoading={isLoading}
+        usePerplexity={usePerplexity}
+        onTogglePerplexity={togglePerplexity}
+        useBielik={useBielik}
+        onToggleModel={toggleModel}
+      />
+
+      {error && (
+        <div className="mt-2 text-red-500 text-sm">
+          {error}
+        </div>
+      )}
+    </div>
   );
-};
+}

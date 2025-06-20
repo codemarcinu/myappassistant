@@ -1,0 +1,25 @@
+# Development Dockerfile dla Next.js
+FROM node:18-alpine
+
+# Instalacja zależności systemowych
+RUN apk add --no-cache libc6-compat
+
+# Ustawienie katalogu roboczego
+WORKDIR /app
+
+# Kopiowanie plików package
+COPY package.json package-lock.json* ./
+
+# Instalacja zależności
+RUN npm ci
+
+# Ekspozycja portu
+EXPOSE 3000
+
+# Zmienne środowiskowe
+ENV NODE_ENV=development
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
+
+# Komenda startowa dla development
+CMD ["npm", "run", "dev"]

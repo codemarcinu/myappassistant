@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { MaterialCard } from '@/components/ui/MaterialCard';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { PantryList } from '@/components/cooking/PantryList';
 import { CookingChat } from '@/components/cooking/CookingChat';
 import { useCooking } from '@/hooks/useCooking';
@@ -9,52 +9,50 @@ import { useCooking } from '@/hooks/useCooking';
 export default function CookingPage() {
   const {
     pantryItems,
-    messages,
     isLoading,
     error,
     addPantryItem,
-    deletePantryItem,
     updatePantryItem,
-    sendCookingMessage
+    deletePantryItem,
+    messages,
+    sendCookingMessage,
+    usePerplexity,
+    togglePerplexity,
   } = useCooking();
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 h-full">
-      {/* Lewa strona - Spiżarnia */}
-      <MaterialCard className="flex flex-col">
-        <div className="p-4 border-b">
-          <h2 className="text-xl font-semibold">Twoja spiżarnia</h2>
-        </div>
-        <div className="p-4 flex-grow">
+      {/* Lewa strona - Zarządzanie spiżarnią */}
+      <Card className="flex flex-col">
+        <CardHeader>
+          <CardTitle>Moja Spiżarnia</CardTitle>
+        </CardHeader>
+        <CardContent className="flex-grow">
           <PantryList
-            items={pantryItems}
-            isLoading={isLoading}
+            items={pantryItems || []}
             onAddItem={addPantryItem}
-            onDeleteItem={deletePantryItem}
             onUpdateItem={updatePantryItem}
+            onDeleteItem={deletePantryItem}
           />
-        </div>
-      </MaterialCard>
+        </CardContent>
+      </Card>
 
-      {/* Prawa strona - Chat kulinarny */}
-      <MaterialCard className="flex flex-col">
-        <div className="p-4 border-b">
-          <h2 className="text-xl font-semibold">Agent kulinarny</h2>
-        </div>
-        <div className="p-4 flex-grow">
+      {/* Prawa strona - Czat o gotowaniu */}
+      <Card className="flex flex-col">
+        <CardHeader>
+          <CardTitle>Asystent Gotowania</CardTitle>
+        </CardHeader>
+        <CardContent className="flex-grow">
           <CookingChat
             pantryItems={pantryItems}
+            onSendMessage={sendCookingMessage}
             messages={messages}
             isLoading={isLoading}
-            onSendMessage={sendCookingMessage}
+            usePerplexity={usePerplexity}
+            onTogglePerplexity={togglePerplexity}
           />
-        </div>
-         {error && (
-            <div className="mt-2 p-2 bg-red-100 text-red-700 rounded">
-              {error}
-            </div>
-          )}
-      </MaterialCard>
+        </CardContent>
+      </Card>
     </div>
   );
 }

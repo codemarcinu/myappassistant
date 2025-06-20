@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { MaterialCard } from '@/components/ui/MaterialCard';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { FloatingActionButton } from '@/components/ui/FloatingActionButton';
 import { MessageCircle } from 'lucide-react';
 import { MessageList } from '@/components/chat/MessageList';
@@ -9,32 +9,34 @@ import { MessageInput } from '@/components/chat/MessageInput';
 import { useChat } from '@/hooks/useChat';
 
 export default function ChatPage() {
-  const { messages, isLoading, error, sendMessage } = useChat('general');
+  const { messages, isLoading, error, sendMessage, usePerplexity, togglePerplexity } = useChat('general');
 
   return (
     <div className="relative h-[calc(100vh-100px)]">
-      <MaterialCard className="h-full flex flex-col">
-        <div className="p-4 border-b">
-          <h1 className="text-xl font-bold">Asystent AI</h1>
+      <Card className="h-full flex flex-col">
+        <CardHeader>
+          <CardTitle>Asystent AI</CardTitle>
           {error && (
             <div className="mt-2 p-2 bg-red-100 text-red-700 rounded">
               {error}
             </div>
           )}
-        </div>
+        </CardHeader>
 
-        <div className="flex-grow overflow-auto p-4">
+        <CardContent className="flex-grow overflow-auto p-4">
           <MessageList messages={messages} isLoading={isLoading} />
-        </div>
+        </CardContent>
 
         <div className="p-4 border-t">
           <MessageInput
             onSendMessage={sendMessage}
             isLoading={isLoading}
             placeholder="Zadaj pytanie lub opisz swój problem..."
+            usePerplexity={usePerplexity}
+            onTogglePerplexity={togglePerplexity}
           />
         </div>
-      </MaterialCard>
+      </Card>
       <FloatingActionButton
         onClick={() => { /* TODO: Implement new chat functionality */ }}
         icon={MessageCircle}

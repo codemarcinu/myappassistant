@@ -8,6 +8,8 @@ const navItems = [
   { name: 'Czat', href: '/chat', icon: '💬' },
   { name: 'Zakupy', href: '/shopping', icon: '🛒' },
   { name: 'Gotowanie', href: '/cooking', icon: '👨‍🍳' },
+  { name: 'RAG System', href: '/rag', icon: '📚' },
+  { name: 'Backup', href: '/backup', icon: '💾' },
 ];
 
 export function Sidebar() {

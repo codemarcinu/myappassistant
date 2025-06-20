@@ -8,6 +8,8 @@ export interface Message {
   content: string;
   data?: any;
   timestamp?: number;
+  usePerplexity?: boolean;
+  useBielik?: boolean;
 }
 
 export interface ChatState {
@@ -15,12 +17,14 @@ export interface ChatState {
   isLoading: boolean;
   error: string | null;
   conversationState: Record<string, any>;
+  usePerplexity: boolean;
 }
 
 export interface ChatContextType {
   state: ChatState;
-  sendMessage: (content: string) => Promise<void>;
+  sendMessage: (content: string, usePerplexity?: boolean) => Promise<void>;
   clearChat: () => void;
+  togglePerplexity: () => void;
 }
 
 export interface MessageItemProps {
@@ -29,9 +33,13 @@ export interface MessageItemProps {
 }
 
 export interface MessageInputProps {
-  onSendMessage: (message: string) => void;
+  onSendMessage: (message: string, usePerplexity?: boolean, useBielik?: boolean) => void;
   isLoading?: boolean;
   placeholder?: string;
+  usePerplexity?: boolean;
+  onTogglePerplexity?: () => void;
+  useBielik?: boolean;
+  onToggleModel?: () => void;
 }
 
 export interface MessageListProps {

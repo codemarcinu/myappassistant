@@ -60,9 +60,11 @@ export interface RecipeCardProps {
 
 export interface CookingChatProps {
   pantryItems: PantryItem[];
-  onSendMessage: (message: string) => Promise<void>;
+  onSendMessage: (message: string, usePerplexity?: boolean) => Promise<void>;
   messages: import('./chat').Message[];
   isLoading?: boolean;
+  usePerplexity?: boolean;
+  onTogglePerplexity?: () => void;
 }
 
 export interface CookingContextType {

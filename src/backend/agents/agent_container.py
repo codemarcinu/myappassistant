@@ -1,6 +1,7 @@
 from typing import Any, Dict
 
 from ..core.sqlalchemy_compat import AsyncSession
+from ..core.vector_store import VectorStore
 
 
 class AgentContainer:
@@ -19,11 +20,23 @@ class AgentContainer:
 
     def register_core_services(self, db: AsyncSession) -> None:
         """Register core services used by agents"""
-        from ..core.enhanced_vector_store import EnhancedVectorStore
         from ..core.hybrid_llm_client import hybrid_llm_client
         from ..core.profile_manager import ProfileManager
+        from .adapters.alert_service import AlertService
+        from .adapters.error_handler import ErrorHandler
+        from .adapters.fallback_manager import FallbackManager
+        from .interfaces import IAlertService, IErrorHandler, IFallbackProvider
 
         self.register("db", db)
         self.register("profile_manager", ProfileManager(db))
         self.register("llm_client", hybrid_llm_client)
-        self.register("vector_store", EnhancedVectorStore())
+        self.register("vector_store", VectorStore())
+
+        # Register interface implementations
+        self.register(IErrorHandler, ErrorHandler("global"))
+        self.register(IAlertService, AlertService("global"))
+        self.register(IFallbackProvider, FallbackManager())
+
+        # Initialize vector store if needed
+        if hasattr(self, "vector_store") and self.vector_store is None:
+            self.vector_store = VectorStore()

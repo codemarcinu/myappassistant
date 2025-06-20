@@ -1,18 +1,12 @@
 import asyncio
-import os
-
-# Dodanie ścieżki do sys.path dla importów
-import sys
-from typing import Any, AsyncGenerator, Dict, List
-from unittest.mock import AsyncMock, MagicMock, Mock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../..", "src"))
-
 from backend.agents.error_types import AgentError
 from backend.agents.search_agent import SearchAgent
-from backend.integrations.web_search import WebSearch
+
+# sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../..", "src"))  # Usuń jeśli niepotrzebne
 
 
 class TestSearchAgent:

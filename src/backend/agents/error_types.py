@@ -1,19 +1,12 @@
 from enum import Enum
 from typing import Any, AsyncGenerator, Dict, List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
+
+from .interfaces import AgentResponse, ErrorSeverity
 
 
-class ErrorSeverity(str, Enum):
-    """Severity levels for agent errors"""
-
-    LOW = "low"  # Non-critical errors, can be handled silently
-    MEDIUM = "medium"  # User-visible errors that don't require developer attention
-    HIGH = "high"  # Serious errors that should be logged for review
-    CRITICAL = "critical"  # Urgent errors requiring immediate attention
-
-
-class EnhancedAgentResponse(BaseModel):
+class AgentResponseEnhanced(BaseModel):
     """Enhanced agent response with additional context and error handling"""
 
     success: bool
@@ -27,9 +20,7 @@ class EnhancedAgentResponse(BaseModel):
     processed_with_fallback: bool = False
     processing_time: float = 0.0
     metadata: Dict[str, Any] = {}
-
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
 
 class AlertConfig(BaseModel):
@@ -57,4 +48,30 @@ class OrchestratorError(AgentError):
     """Error specific to orchestrator operations"""
 
     def __init__(self, message: str, severity: ErrorSeverity = ErrorSeverity.HIGH):
+        super().__init__(message, severity)
+
+
+class AgentProcessingError(AgentError):
+    """Error during agent processing"""
+
+    def __init__(
+        self,
+        message: str,
+        agent_type: str,
+        severity: ErrorSeverity = ErrorSeverity.MEDIUM,
+    ):
+        self.agent_type = agent_type
+        super().__init__(message, severity)
+
+
+class AgentInitializationError(AgentError):
+    """Error during agent initialization"""
+
+    def __init__(
+        self,
+        message: str,
+        agent_type: str,
+        severity: ErrorSeverity = ErrorSeverity.HIGH,
+    ):
+        self.agent_type = agent_type
         super().__init__(message, severity)

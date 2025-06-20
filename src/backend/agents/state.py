@@ -1,17 +1,9 @@
 # Skopiuj i wklej ten kod jako całą zawartość pliku state.py
 
 from dataclasses import dataclass, field
-from enum import Enum, auto
 from typing import Any, Dict, List, Optional
 
-
-class AgentStatus(Enum):
-    """Status of an agent"""
-
-    IDLE = auto()
-    PROCESSING = auto()
-    WAITING_FOR_INPUT = auto()
-    ERROR = auto()
+from .interfaces import AgentStatus
 
 
 @dataclass

@@ -5,6 +5,8 @@ from datetime import date, timedelta
 
 import ollama
 
+from ...core.utils import extract_json_from_text
+
 # Definiujemy dzisiejszą datę jako punkt odniesienia dla LLM
 # W prawdziwej aplikacji moglibyśmy ją dynamicznie aktualizować.
 TODAY = date(2025, 6, 15)
@@ -44,12 +46,16 @@ def parse_date_range_with_llm(text: str) -> dict | None:
             options={"temperature": 0.0},
         )
         content = response["message"]["content"]
-        # Czasami LLM dodaje dodatkowe znaki, próbujemy wyczyścić odpowiedź do czystego JSON-a
-        json_str = content[content.find("{") : content.rfind("}") + 1]
-        date_range = json.loads(json_str)
 
-        if date_range.get("start_date") and date_range.get("end_date"):
-            return date_range
+        # Use extract_json_from_text to handle markdown and other formats
+        json_str = extract_json_from_text(content)
+        if json_str:
+            date_range = json.loads(json_str)
+
+            if date_range.get("start_date") and date_range.get("end_date"):
+                return date_range
+        else:
+            print(f"No valid JSON found in date parsing response: {content}")
         return None
 
     except (json.JSONDecodeError, KeyError, Exception) as e:

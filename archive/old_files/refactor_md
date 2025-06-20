@@ -1,0 +1,395 @@
+# Kompleksowa instrukcja dla agenta AI - Iteracyjna naprawa projektu FoodSave AI
+
+## Instrukcja główna dla agenta
+
+Wykonaj następujący plan naprawy projektu FoodSave AI w sposób iteracyjny, realizując każdy krok z odpowiednimi testami walidacyjnymi. Po zakończeniu każdego kroku przeprowadź testy i przejdź do następnego etapu tylko po potwierdzeniu poprawności implementacji.
+
+## Krok 1: Analiza i naprawa cyklicznych zależności ✅
+
+### Zadania do wykonania:
+```
+1. Przeskanuj katalog src/backend/agents/ i wygeneruj mapę wszystkich importów między modułami
+2. Zidentyfikuj cykliczne zależności używając analizy grafowej
+3. Stwórz nowy moduł src/backend/agents/interfaces.py zawierający:
+   - Abstrakcyjną klasę BaseAgent
+   - Interfejsy dla wszystkich typów agentów
+   - Wspólne typy danych i enumeracje
+4. Refaktoryzuj każdy moduł agenta, zastępując bezpośrednie importy importami interfejsów
+5. Zaimplementuj wzorzec Dependency Injection w AgentOrchestrator
+```
+
+### Testy walidacyjne:
+```
+# Test 1: Sprawdzenie braku cyklicznych zależności
+python -c "
+import sys
+sys.path.append('src/backend')
+from agents import *
+print('✓ Brak cyklicznych zależności')
+"
+
+# Test 2: Sprawdzenie poprawności importów
+pytest tests/test_agents_imports.py -v
+
+# Test 3: Test integracyjny orchestratora
+pytest tests/test_agent_orchestrator.py -v
+```
+
+## Krok 2: Implementacja centralnego systemu obsługi błędów ✅
+
+### Zadania do wykonania:
+```
+1. Stwórz hierarchię wyjątków w src/backend/core/exceptions.py:
+   - BaseCustomException (klasa bazowa)
+   - ValidationError (błędy walidacji)
+   - AIModelError (błędy modeli AI)
+   - DatabaseError (błędy bazy danych)
+   - NetworkError (błędy sieciowe)
+   - FileProcessingError (błędy plików)
+
+2. Zaimplementuj decorator @handle_exceptions z następującą funkcjonalnością:
+   - Automatyczne logowanie błędów
+   - Konwersja wyjątków systemowych na niestandardowe
+   - Retry mechanism dla błędów przejściowych
+
+3. Dodaj middleware ErrorHandlingMiddleware do FastAPI:
+   - Centralne przechwytywanie wyjątków
+   - Formatowanie odpowiedzi błędów
+   - Monitoring i metryki błędów
+
+4. Zastosuj dekorator we wszystkich metodach publicznych klas agentów
+```
+
+### Testy walidacyjne:
+```
+# Test 1: Sprawdzenie hierarchii wyjątków
+python -c "
+from src.backend.core.exceptions import *
+assert issubclass(ValidationError, BaseCustomException)
+assert issubclass(AIModelError, BaseCustomException)
+print('✓ Hierarchia wyjątków poprawna')
+"
+
+# Test 2: Test dekoratora obsługi błędów
+pytest tests/test_error_handling.py::test_handle_exceptions_decorator -v
+
+# Test 3: Test middleware
+pytest tests/test_error_middleware.py -v
+
+# Test 4: Test integracyjny błędów w agentach
+pytest tests/test_agents_error_handling.py -v
+```
+
+## Krok 3: Standaryzacja konwencji nazewnictwa
+
+### Zadania do wykonania:
+```
+1. Przeskanuj projekt i znajdź wszystkie niespójne nazwy:
+   - grep -r "enhanced_\|improved_\|new_\|old_\|temp_" src/
+
+2. Stwórz mapę refaktoryzacji nazw:
+   - enhanced_agent → AgentEnhanced
+   - improved_search → SearchOptimized
+   - new_feature → FeatureImplementation
+
+3. Wykonaj refaktoryzację w następującej kolejności:
+   - Klasy: PascalCase
+   - Metody: snake_case
+   - Stałe: UPPER_CASE
+   - Zmienne prywatne: _snake_case
+
+4. Zaktualizuj wszystkie testy odpowiadające zmienionym nazwom
+```
+
+### Testy walidacyjne:
+```
+# Test 1: Sprawdzenie konwencji nazewnictwa
+python -c "
+import ast
+import os
+from pathlib import Path
+
+def check_naming_conventions(file_path):
+    with open(file_path, 'r') as f:
+        tree = ast.parse(f.read())
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ClassDef):
+            assert node.name[0].isupper(), f'Klasa {node.name} nie używa PascalCase'
+        elif isinstance(node, ast.FunctionDef):
+            assert '_' in node.name or node.name.islower(), f'Funkcja {node.name} nie używa snake_case'
+
+for py_file in Path('src/backend').rglob('*.py'):
+    check_naming_conventions(py_file)
+print('✓ Konwencje nazewnictwa poprawne')
+"
+
+# Test 2: Test kompilacji po refaktoryzacji
+python -m py_compile src/backend/**/*.py
+
+# Test 3: Testy regresyjne
+pytest tests/ -k "not integration" --tb=short
+```
+
+## Krok 4: Implementacja systemu uwierzytelniania i autoryzacji
+
+### Zadania do wykonania:
+```
+1. Stwórz strukturę modułu uwierzytelniania:
+   src/backend/auth/
+   ├── __init__.py
+   ├── jwt_handler.py
+   ├── auth_middleware.py
+   ├── models.py
+   ├── schemas.py
+   └── routes.py
+
+2. Zaimplementuj JWT handler z funkcjami:
+   - create_access_token()
+   - create_refresh_token()
+   - verify_token()
+   - decode_token()
+
+3. Stwórz modele bazy danych:
+   - User (id, email, password_hash, is_active, created_at)
+   - Role (id, name, description)
+   - UserRole (user_id, role_id)
+
+4. Dodaj middleware autoryzacji:
+   - Sprawdzanie tokenu w headers
+   - Walidacja uprawnień
+   - Rate limiting
+
+5. Zabezpiecz wszystkie endpointy API dekoratorami:
+   - @require_auth
+   - @require_role("admin")
+   - @require_role("user")
+```
+
+### Testy walidacyjne:
+```
+# Test 1: Test generowania i walidacji JWT
+pytest tests/test_jwt_handler.py -v
+
+# Test 2: Test modeli bazy danych
+pytest tests/test_auth_models.py -v
+
+# Test 3: Test middleware autoryzacji
+pytest tests/test_auth_middleware.py -v
+
+# Test 4: Test endpointów uwierzytelniania
+pytest tests/test_auth_routes.py -v
+
+# Test 5: Test integracyjny bezpieczeństwa
+pytest tests/test_security_integration.py -v
+```
+
+## Krok 5: Optymalizacja wydajności bazy danych
+
+### Zadania do wykonania:
+```
+1. Przeanalizuj wszystkie zapytania SQL i zidentyfikuj problemy:
+   - Brak indeksów
+   - N+1 queries
+   - Brak paginacji
+   - Brak connection pooling
+
+2. Dodaj indeksy do często używanych kolumn:
+   - CREATE INDEX idx_users_email ON users(email);
+   - CREATE INDEX idx_conversations_user_id ON conversations(user_id);
+   - CREATE INDEX idx_messages_conversation_id ON messages(conversation_id);
+
+3. Zaimplementuj connection pooling:
+   - Konfiguracja pool_size=20
+   - max_overflow=30
+   - pool_timeout=30
+
+4. Dodaj mechanizm buforowania Redis:
+   - Cache dla zapytań tylko do odczytu
+   - TTL dla różnych typów danych
+   - Cache invalidation
+
+5. Zoptymalizuj modele SQLAlchemy:
+   - Lazy loading dla relacji
+   - Eager loading gdzie potrzebne
+   - Query optimization
+```
+
+### Testy walidacyjne:
+```
+# Test 1: Test wydajności zapytań
+pytest tests/test_database_performance.py -v
+
+# Test 2: Test connection pooling
+python -c "
+from src.backend.database.connection import get_db_pool
+pool = get_db_pool()
+assert pool.size() >= 20
+print('✓ Connection pooling skonfigurowany')
+"
+
+# Test 3: Test mechanizmu cache
+pytest tests/test_redis_cache.py -v
+
+# Test 4: Test indeksów bazy danych
+python -c "
+from src.backend.database.models import User
+from sqlalchemy import inspect
+inspector = inspect(User.__table__.bind)
+indexes = inspector.get_indexes('users')
+assert any(idx['column_names'] == ['email'] for idx in indexes)
+print('✓ Indeksy bazy danych poprawne')
+"
+
+# Test 5: Load testing
+pytest tests/test_load_performance.py -v
+```
+
+## Krok 6: Uzupełnienie testów i dokumentacji
+
+### Zadania do wykonania:
+```
+1. Znajdź wszystkie metody z NotImplementedError:
+   grep -r "NotImplementedError" src/backend/
+
+2. Zaimplementuj brakujące metody i dodaj dla nich testy:
+   - Test jednostkowe (>90% coverage)
+   - Test integracyjne
+   - Test end-to-end
+
+3. Wygeneruj dokumentację API:
+   - OpenAPI/Swagger specs
+   - Przykłady użycia
+   - Dokumentacja błędów
+
+4. Stwórz dokumentację dla deweloperów:
+   - Architektura systemu
+   - Wzorce projektowe
+   - Instrukcje rozszerzania
+
+5. Dodaj testy wydajnościowe:
+   - Benchmark testów
+   - Memory profiling
+   - Response time testing
+```
+
+### Testy walidacyjne:
+```
+# Test 1: Sprawdzenie pokrycia kodu testami
+pytest --cov=src/backend --cov-report=html --cov-fail-under=90
+
+# Test 2: Test wszystkich nowych implementacji
+pytest tests/test_newly_implemented.py -v
+
+# Test 3: Walidacja dokumentacji API
+python -c "
+from fastapi.openapi.utils import get_openapi
+from src.backend.main import app
+schema = get_openapi(title='FoodSave AI', version='1.0.0', routes=app.routes)
+assert len(schema['paths']) > 0
+print('✓ Dokumentacja API wygenerowana')
+"
+
+# Test 4: Test wydajnościowy
+pytest tests/test_performance_benchmarks.py -v
+
+# Test 5: Test regresyjny pełny
+pytest tests/ --tb=short
+```
+
+## Krok 7: Konfiguracja środowisk i konteneryzacja
+
+### Zadania do wykonania:
+```
+1. Zoptymalizuj Dockerfile:
+   - Multi-stage build
+   - Obsługa GPU/CUDA
+   - Minimalizacja rozmiaru obrazu
+   - Security best practices
+
+2. Stwórz docker-compose dla różnych środowisk:
+   - docker-compose.dev.yml
+   - docker-compose.staging.yml
+   - docker-compose.prod.yml
+
+3. Zaimplementuj zarządzanie sekretami:
+   - Integracja z HashiCorp Vault
+   - Rotacja kluczy
+   - Szyfrowanie danych wrażliwych
+
+4. Dodaj health checks i monitoring:
+   - Liveness probes
+   - Readiness probes
+   - Metrics endpoint
+   - Logging configuration
+
+5. Skonfiguruj CI/CD pipeline:
+   - Automatyczne testy
+   - Security scanning
+   - Deployment automation
+```
+
+### Testy walidacyjne:
+```
+# Test 1: Test budowania obrazu Docker
+docker build -t foodsave-ai:test .
+
+# Test 2: Test docker-compose
+docker-compose -f docker-compose.dev.yml up -d
+docker-compose -f docker-compose.dev.yml exec backend python -c "print('✓ Kontener działa')"
+docker-compose -f docker-compose.dev.yml down
+
+# Test 3: Test health checks
+curl -f http://localhost:8000/health || exit 1
+
+# Test 4: Test zarządzania sekretami
+python -c "
+from src.backend.core.security import get_secret
+secret = get_secret('database_password')
+assert secret is not None
+print('✓ Zarządzanie sekretami działa')
+"
+
+# Test 5: Test pełnej integracji
+pytest tests/test_full_integration.py -v
+```
+
+## Instrukcja uruchamiania dla agenta
+
+```bash
+# Uruchom pełny proces naprawy
+python scripts/run_repair_process.py
+
+# Lub krok po kroku:
+python scripts/run_repair_process.py --step 1  # Cykliczne zależności
+python scripts/run_repair_process.py --step 2  # Obsługa błędów
+python scripts/run_repair_process.py --step 3  # Konwencje nazewnictwa
+python scripts/run_repair_process.py --step 4  # Uwierzytelnianie
+python scripts/run_repair_process.py --step 5  # Optymalizacja DB
+python scripts/run_repair_process.py --step 6  # Testy i dokumentacja
+python scripts/run_repair_process.py --step 7  # Konteneryzacja
+
+# Uruchom wszystkie testy walidacyjne
+python scripts/run_all_validation_tests.py
+
+# Wygeneruj raport postępów
+python scripts/generate_progress_report.py
+```
+
+## Kryteria sukcesu
+
+Każdy krok uznawany jest za ukończony gdy:
+- Wszystkie testy walidacyjne przechodzą pomyślnie
+- Pokrycie kodu testami > 90%
+- Brak błędów w statycznej analizie kodu
+- Dokumentacja jest kompletna i aktualna
+- Metryki wydajności są w akceptowalnych granicach
+
+## Monitoring postępów
+
+Agent powinien generować raporty po każdym kroku zawierające:
+- Status wykonania zadań
+- Wyniki testów
+- Metryki jakości kodu
+- Identyfikowane problemy
+- Rekomendacje dla następnych kroków

@@ -2,11 +2,13 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from backend.agents.adapters.fallback_manager import (FallbackManager,
-                                                      MinimalResponseStrategy,
-                                                      PromptRewritingStrategy,
-                                                      SimplifiedModelStrategy)
-from backend.agents.error_types import EnhancedAgentResponse
+from backend.agents.adapters.fallback_manager import (
+    FallbackManager,
+    MinimalResponseStrategy,
+    PromptRewritingStrategy,
+    SimplifiedModelStrategy,
+)
+from backend.agents.error_types import AgentResponse
 
 
 class TestFallbackStrategies:
@@ -39,14 +41,14 @@ class TestFallbackStrategies:
         ) as mock_chat:
             mock_chat.return_value = {"message": {"content": "simplified answer"}}
             result = await strategy.execute(input_data, error)
-            assert isinstance(result, EnhancedAgentResponse)
+            assert isinstance(result, AgentResponse)
             assert result.text == "simplified answer"
 
     @pytest.mark.asyncio
     async def test_minimal_response_strategy(self, input_data, error):
         strategy = MinimalResponseStrategy()
         result = await strategy.execute(input_data, error)
-        assert isinstance(result, EnhancedAgentResponse)
+        assert isinstance(result, AgentResponse)
         assert not result.success
         assert "Przepraszam" in result.error
 
@@ -64,7 +66,7 @@ class TestFallbackManager:
         with patch.object(
             PromptRewritingStrategy, "execute", new_callable=AsyncMock
         ) as mock_strategy:
-            mock_strategy.return_value = EnhancedAgentResponse(success=True)
+            mock_strategy.return_value = AgentResponse(success=True)
             response = await manager.execute_fallback(input_data, error)
             assert response.success
 

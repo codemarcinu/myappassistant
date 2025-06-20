@@ -1,5 +1,7 @@
 "use client";
 
+import { useState, useCallback, useEffect } from 'react';
+import { v4 as uuidv4 } from 'uuid';
 import { PantryItem, Recipe } from '@/types/cooking';
 import { Message } from '@/types/chat';
 import { ApiService } from '@/services/ApiService';
@@ -27,6 +29,7 @@ export function useCooking() {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [messages, setMessages] = useState<Message[]>([
     {
+      id: uuidv4(),
       role: 'assistant',
       content: 'Witaj w asystencie kulinarnym! Mogę pomóc Ci znaleźć przepisy na podstawie produktów w Twojej spiżarni lub doradzić, co można ugotować.'
     }
@@ -34,6 +37,10 @@ export function useCooking() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [conversationState, setConversationState] = useState<Record<string, any>>({});
+  const [usePerplexity, setUsePerplexity] = useState(false);
+  const [useBielik, setUseBielik] = useState(true); // Domyślnie używamy Bielika
+  const togglePerplexity = () => setUsePerplexity(prev => !prev);
+  const toggleModel = () => setUseBielik(prev => !prev);
 
   // Fetch pantry items
   const fetchPantryItems = useCallback(async () => {
@@ -129,25 +136,36 @@ export function useCooking() {
   }, []);
 
   // Send message to cooking assistant
-  const sendCookingMessage = useCallback(async (content: string) => {
+  const sendCookingMessage = useCallback(async (content: string, usePerplexity?: boolean, useBielik?: boolean) => {
     try {
       setError(null);
       setIsLoading(true);
 
       // Add user message to the chat
-      const userMessage: Message = { role: 'user', content };
+      const userMessage: Message = {
+        id: uuidv4(),
+        role: 'user',
+        content,
+        usePerplexity: usePerplexity || false,
+        useBielik: useBielik !== undefined ? useBielik : true
+      };
       setMessages(prev => [...prev, userMessage]);
 
       // Send message to the API
       const response = await ApiService.sendChatMessage({
-        task: content,
-        conversation_state: conversationState,
+        message: content,
+        session_id: uuidv4(), // Generate session ID
         agent_states: {
           weather: false,
           search: false,
           shopping: false,
           cooking: true,
-        }
+        },
+        usePerplexity: usePerplexity || false,
+        useBielik: useBielik !== undefined ? useBielik : true,
+      }, (chunk) => {
+        // Handle streaming response
+        console.log('Received chunk:', chunk);
       }) as ConversationResponse;
 
       // Update conversation state
@@ -157,9 +175,12 @@ export function useCooking() {
 
       // Add assistant response to the chat
       const assistantMessage: Message = {
+        id: uuidv4(),
         role: 'assistant',
         content: response.response || 'Przepraszam, wystąpił błąd w przetwarzaniu.',
-        data: response.data
+        data: response.data,
+        usePerplexity: usePerplexity || false,
+        useBielik: useBielik !== undefined ? useBielik : true,
       };
 
       setMessages(prev => [...prev, assistantMessage]);
@@ -193,20 +214,9 @@ export function useCooking() {
     deletePantryItem,
     updatePantryItem,
     sendCookingMessage,
+    usePerplexity,
+    togglePerplexity,
+    useBielik,
+    toggleModel,
   };
-}
-
-// Mock implementation for the React hooks since we can't import them directly
-function useState<T>(initialState: T): [T, (newState: T | ((prevState: T) => T)) => void] {
-  // This is a placeholder implementation
-  return [initialState, (newState) => {}];
-}
-
-function useCallback<T extends (...args: any[]) => any>(callback: T, deps: any[]): T {
-  // This is a placeholder implementation
-  return callback;
-}
-
-function useEffect(effect: () => void | (() => void), deps?: any[]): void {
-  // This is a placeholder implementation
 }

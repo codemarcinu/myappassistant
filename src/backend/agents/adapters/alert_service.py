@@ -2,8 +2,8 @@ import logging
 from datetime import datetime
 from typing import Any, Dict, Optional
 
-from ..core.agent_interface import IAlertService
 from ..error_types import ErrorSeverity
+from ..interfaces import IAlertService
 
 
 class AlertService(IAlertService):

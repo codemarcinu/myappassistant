@@ -10,6 +10,8 @@ from typing import Any, Dict, List, Optional
 import httpx
 from pydantic import BaseModel
 
+from ..config import settings
+
 logger = logging.getLogger(__name__)
 
 # Constants
@@ -72,7 +74,9 @@ class WebSearchClient:
         self.ttl = ttl
         self.sources: List[SourceConfig] = []
         self.source_usage: Dict[str, Dict[str, Any]] = {}
-        self.client = httpx.AsyncClient(timeout=REQUEST_TIMEOUT)
+        self.client = httpx.AsyncClient(
+            timeout=REQUEST_TIMEOUT, headers={"User-Agent": settings.USER_AGENT}
+        )
 
         # Create cache directory if it doesn't exist
         os.makedirs(cache_dir, exist_ok=True)
@@ -110,7 +114,10 @@ class WebSearchClient:
             source = SourceConfig(**src_config)
 
             # Get API key from environment
-            source.api_key = os.environ.get(source.api_key_env_var)
+            if hasattr(settings, source.api_key_env_var):
+                source.api_key = getattr(settings, source.api_key_env_var)
+            else:
+                source.api_key = os.environ.get(source.api_key_env_var)
 
             if source.api_key:
                 self.sources.append(source)
@@ -321,7 +328,7 @@ class WebSearchClient:
                 from urllib.parse import urlparse
 
                 domain = urlparse(url).netloc
-            except:
+            except Exception:
                 domain = "unknown"
 
             # Apply source verification

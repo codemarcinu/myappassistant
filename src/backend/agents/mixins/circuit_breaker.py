@@ -83,8 +83,6 @@ class CircuitBreaker:
 class CircuitOpenException(Exception):
     """Exception raised when circuit breaker is open"""
 
-    pass
-
 
 def circuit_breaker(
     failure_threshold: int = 3,

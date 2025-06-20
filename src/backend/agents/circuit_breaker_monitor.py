@@ -1,14 +1,16 @@
-from typing import Dict, List, Any
+from typing import Any, Dict, List
+
 from src.backend.agents.circuit_breaker_wrapper import AgentCircuitBreaker
+
 
 class CircuitBreakerMonitor:
     def __init__(self):
         self.breakers: Dict[str, AgentCircuitBreaker] = {}
-        
+
     def register_breaker(self, name: str, breaker: AgentCircuitBreaker):
         """Rejestruje Circuit Breaker do monitorowania."""
         self.breakers[name] = breaker
-        
+
     def get_health_status(self) -> Dict[str, Any]:
         """Zwraca statusy wszystkich zarejestrowanych Circuit Breakerów."""
         status = {}
@@ -20,7 +22,7 @@ class CircuitBreakerMonitor:
                 # ale można to rozszerzyć o własne metryki w AgentCircuitBreaker.
             }
         return status
-        
+
     def get_open_circuits(self) -> List[str]:
         """Zwraca listę nazw otwartych Circuit Breakerów."""
         return [name for name, breaker in self.breakers.items() if breaker.is_open()]

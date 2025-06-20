@@ -11,45 +11,46 @@ This module handles the process of preparing documents for RAG systems:
 import asyncio
 import hashlib
 import logging
-from datetime import datetime
+import os
+import re
+from datetime import datetime, timedelta
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
+# Import MMLW client
 try:
-    import faiss
+    from .mmlw_embedding_client import mmlw_client
 
-    FAISS_AVAILABLE = True
+    MMLW_AVAILABLE = True
 except ImportError:
-    FAISS_AVAILABLE = False
-    logging.warning("FAISS not available, falling back to simple vector store")
+    MMLW_AVAILABLE = False
 
+# Import existing clients
+from ..core.hybrid_llm_client import hybrid_llm_client
+from ..core.vector_store import VectorStore
+
+# LangChain imports (optional)
 try:
     from langchain.text_splitter import RecursiveCharacterTextSplitter
     from langchain_community.document_loaders import PyPDFLoader, WebBaseLoader
-    from langchain_community.document_loaders.email import \
-        UnstructuredEmailLoader
-    from langchain_community.document_loaders.markdown import \
-        UnstructuredMarkdownLoader
-    from langchain_community.document_loaders.powerpoint import \
-        UnstructuredPowerPointLoader
-    from langchain_community.document_loaders.word_document import \
-        UnstructuredWordDocumentLoader
+    from langchain_community.document_loaders.email import UnstructuredEmailLoader
+    from langchain_community.document_loaders.markdown import UnstructuredMarkdownLoader
+    from langchain_community.document_loaders.powerpoint import (
+        UnstructuredPowerPointLoader,
+    )
+    from langchain_community.document_loaders.word_document import (
+        UnstructuredWordDocumentLoader,
+    )
 
     LANGCHAIN_AVAILABLE = True
 except ImportError:
     LANGCHAIN_AVAILABLE = False
     logging.warning("LangChain not available, falling back to basic document loading")
 
-try:
-    import pinecone
-
-    PINECONE_AVAILABLE = True
-except ImportError:
-    PINECONE_AVAILABLE = False
-    logging.warning("Pinecone not available, falling back to local vector store")
-
+# SentenceTransformers imports (optional)
 try:
     from sentence_transformers import SentenceTransformer
 
@@ -60,9 +61,23 @@ except ImportError:
         "SentenceTransformers not available, falling back to LLM-based embeddings"
     )
 
-from ..core.enhanced_vector_store import (EnhancedVectorStore,
-                                          enhanced_vector_store)
-from ..core.hybrid_llm_client import hybrid_llm_client
+# FAISS imports (optional)
+try:
+    import faiss
+
+    FAISS_AVAILABLE = True
+except ImportError:
+    FAISS_AVAILABLE = False
+    logging.warning("FAISS not available, falling back to simple vector store")
+
+# Pinecone imports (optional)
+try:
+    import pinecone
+
+    PINECONE_AVAILABLE = True
+except ImportError:
+    PINECONE_AVAILABLE = False
+    logging.warning("Pinecone not available, falling back to local vector store")
 
 logger = logging.getLogger(__name__)
 
@@ -80,10 +95,10 @@ class RAGDocumentProcessor:
 
     def __init__(
         self,
-        vector_store: Optional[EnhancedVectorStore] = None,
+        vector_store: Optional[VectorStore] = None,
         chunk_size: int = 500,
         chunk_overlap: int = 50,
-        embedding_model: str = "deepseek-r1",
+        embedding_model: str = "gemma3:12b",
         use_local_embeddings: bool = False,
         pinecone_api_key: Optional[str] = None,
         pinecone_index: Optional[str] = None,
@@ -92,7 +107,7 @@ class RAGDocumentProcessor:
         Initialize the RAG document processor
 
         Args:
-            vector_store: Optional EnhancedVectorStore to use (uses global instance if None)
+            vector_store: Optional VectorStore to use (uses global instance if None)
             chunk_size: Target chunk size in tokens
             chunk_overlap: Overlap between chunks in tokens
             embedding_model: Model to use for embeddings
@@ -100,7 +115,11 @@ class RAGDocumentProcessor:
             pinecone_api_key: API key for Pinecone (if using Pinecone)
             pinecone_index: Index name for Pinecone (if using Pinecone)
         """
-        self.vector_store = vector_store or enhanced_vector_store
+        self.vector_store = vector_store
+        if self.vector_store is None:
+            from .vector_store import vector_store as global_vector_store
+
+            self.vector_store = global_vector_store
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
         self.embedding_model = embedding_model
@@ -153,31 +172,62 @@ class RAGDocumentProcessor:
         """
         Generate embeddings for a text chunk
 
-        Uses local SentenceTransformers if available and configured,
-        otherwise uses Ollama or hybrid_llm_client
+        Priority order:
+        1. MMLW model (if available and enabled) - najlepszy dla języka polskiego
+        2. Local SentenceTransformers (if available and configured)
+        3. Ollama embeddings
+        4. Hybrid LLM client as fallback
         """
-        if self.use_local_embeddings and self.embedding_model_local:
-            # Use SentenceTransformers (synchronous, but fast)
-            embedding = self.embedding_model_local.encode(
-                text, convert_to_tensor=False
-            ).tolist()
-            return embedding
+        # Import settings here to avoid circular imports
+        from ..config import settings
 
+        # Try MMLW first (best for Polish language)
+        if MMLW_AVAILABLE and settings.USE_MMLW_EMBEDDINGS:
+            try:
+                if not mmlw_client.is_available():
+                    await mmlw_client.initialize()
+
+                if mmlw_client.is_available():
+                    embedding = await mmlw_client.embed_text(text)
+                    if embedding:
+                        logger.debug("Using MMLW embeddings")
+                        return embedding
+            except Exception as e:
+                logger.warning(f"Failed to use MMLW embeddings: {e}")
+
+        # Try local SentenceTransformers
+        if self.use_local_embeddings and self.embedding_model_local:
+            try:
+                embedding = self.embedding_model_local.encode(
+                    text, convert_to_tensor=False
+                ).tolist()
+                logger.debug("Using local SentenceTransformers embeddings")
+                return embedding
+            except Exception as e:
+                logger.warning(f"Failed to use local embeddings: {e}")
+
+        # Try Ollama embeddings
         try:
-            # Try using Ollama directly for embeddings (much faster than the LLM API)
             import ollama
 
             response = await asyncio.to_thread(
                 ollama.embeddings, model=self.embedding_model, prompt=text
             )
+            logger.debug("Using Ollama embeddings")
             return response["embedding"]
         except Exception as e:
-            logger.warning(
-                f"Failed to use Ollama for embeddings: {e}, falling back to hybrid_llm_client"
+            logger.warning(f"Failed to use Ollama embeddings: {e}")
+
+        # Fall back to hybrid_llm_client
+        try:
+            embedding = await hybrid_llm_client.embed(
+                text=text, model=settings.DEFAULT_EMBEDDING_MODEL
             )
-            # Fall back to hybrid_llm_client
-            embedding = await hybrid_llm_client.embed(text=text, model="gemma3:12b")
+            logger.debug("Using hybrid LLM client embeddings")
             return embedding
+        except Exception as e:
+            logger.error(f"All embedding methods failed: {e}")
+            return []
 
     async def normalize_embedding(self, embedding: List[float]) -> np.ndarray:
         """Normalize embedding with L2 normalization"""
@@ -361,11 +411,13 @@ class RAGDocumentProcessor:
                 except Exception as e:
                     logger.error(f"Failed to store in Pinecone: {e}")
                     # Fall back to vector store
-                    await self.vector_store.add_document(chunk, chunk_metadata)
+                    await self.vector_store.add_document(
+                        chunk, source_id, chunk_metadata
+                    )
                     storage = "vector_store"
             else:
                 # Store in local vector store
-                await self.vector_store.add_document(chunk, chunk_metadata)
+                await self.vector_store.add_document(chunk, source_id, chunk_metadata)
                 storage = "vector_store"
 
             # Record processed chunk
@@ -458,9 +510,16 @@ class RAGDocumentProcessor:
                 }
             )
 
+            # Extract text if content is dict
+            section_text = (
+                content["content"]
+                if isinstance(content, dict) and "content" in content
+                else content
+            )
+
             # Process this section
             section_chunks = await self.process_document(
-                content, f"{source_id}#section{i}", section_metadata
+                section_text, f"{source_id}#section{i}", section_metadata
             )
 
             all_chunks.extend(section_chunks)

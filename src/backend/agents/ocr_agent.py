@@ -1,9 +1,13 @@
-from typing import Any, Dict
+import logging
+import os
+from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, ValidationError
 
+from ..core.decorators import handle_exceptions
 from ..core.ocr import process_image_file, process_pdf_file
-from .enhanced_base_agent import EnhancedAgentResponse, ImprovedBaseAgent
+from .base_agent import BaseAgent
+from .interfaces import AgentResponse
 
 
 class OCRAgentInput(BaseModel):
@@ -13,17 +17,29 @@ class OCRAgentInput(BaseModel):
     file_type: str
 
 
-class OCRAgent(ImprovedBaseAgent):
+class OCRAgent(BaseAgent):
     """Agent odpowiedzialny za optyczne rozpoznawanie znaków (OCR) z obrazów i dokumentów PDF.
 
     Wykorzystuje Tesseract OCR z obsługą języka polskiego.
     """
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        name: str = "OCRAgent",
+        error_handler=None,
+        fallback_manager=None,
+        **kwargs,
+    ):
         """Inicjalizuje OCRAgent."""
-        super().__init__(name="OCR Agent")
+        super().__init__(
+            name=name, error_handler=error_handler, fallback_manager=fallback_manager
+        )
+        # Dodaję atrybuty konfiguracyjne
+        self.TIMEOUT = kwargs.get("timeout", 30)
+        self.default_language = kwargs.get("language", "eng")
 
-    async def process(self, input_data: Dict[str, Any]) -> EnhancedAgentResponse:
+    @handle_exceptions(max_retries=1, retry_delay=0.5)
+    async def process(self, input_data: Dict[str, Any]) -> AgentResponse:
         """
         Przetwarza pliki obrazów lub PDF-ów za pomocą OCR.
 
@@ -38,10 +54,9 @@ class OCRAgent(ImprovedBaseAgent):
                 # Walidacja i konwersja przez Pydantic
                 input_data = OCRAgentInput.parse_obj(input_data)
         except ValidationError as ve:
-            return EnhancedAgentResponse(
+            return AgentResponse(
                 success=False,
                 error=f"Błąd walidacji danych wejściowych: {ve}",
-                error_severity="medium",
             )
 
         file_bytes: bytes = input_data.file_bytes
@@ -53,35 +68,33 @@ class OCRAgent(ImprovedBaseAgent):
             elif file_type == "pdf":
                 text = process_pdf_file(file_bytes)
             else:
-                return EnhancedAgentResponse(
+                return AgentResponse(
                     success=False,
                     error=f"Nieobsługiwany typ pliku: {file_type}",
-                    error_severity="medium",
                 )
 
             if not text:
-                return EnhancedAgentResponse(
+                return AgentResponse(
                     success=False,
                     error="Nie udało się rozpoznać tekstu z pliku",
-                    error_severity="medium",
                 )
 
-            return EnhancedAgentResponse(
+            return AgentResponse(
                 success=True,
                 text=text,
                 message="Pomyślnie wyodrębniono tekst z pliku",
                 metadata={"file_type": file_type},
             )
         except Exception as e:
-            return EnhancedAgentResponse(
+            return AgentResponse(
                 success=False,
                 error=f"Wystąpił błąd podczas przetwarzania pliku: {str(e)}",
-                error_severity="high",
             )
 
+    @handle_exceptions(max_retries=1)
     async def execute(
         self, task_description: str, context: Dict[str, Any] = {}
-    ) -> EnhancedAgentResponse:
+    ) -> AgentResponse:
         """
         Wykonuje OCR na przesłanym pliku.
 

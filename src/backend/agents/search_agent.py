@@ -1,238 +1,292 @@
+import asyncio
 import logging
-from typing import Any, AsyncGenerator, Dict, List
+import time
+from typing import Any, Dict, List, Optional
 
 import httpx
 
-from backend.agents.base_agent import AgentResponse
-from backend.agents.enhanced_base_agent import ImprovedBaseAgent
-from backend.core.llm_client import llm_client
+from ..config import settings
+from ..core.decorators import handle_exceptions
+from ..core.hybrid_llm_client import hybrid_llm_client
+from ..core.perplexity_client import perplexity_client
+from .base_agent import BaseAgent
+from .interfaces import AgentResponse
 
 logger = logging.getLogger(__name__)
 
 
-class SearchAgent(ImprovedBaseAgent):
-    """Agent that performs web searches using DuckDuckGo"""
+class SearchAgentInput:
+    """Input model for SearchAgent"""
 
-    def __init__(
-        self,
-        name: str = "SearchAgent",
-        error_handler=None,
-        fallback_manager=None,
-        alert_service=None,
-    ):
-        super().__init__(
-            name=name,
-            error_handler=error_handler,
-            fallback_manager=fallback_manager,
-            alert_service=alert_service,
-        )
+    def __init__(self, query: str, model: str = None, max_results: int = 5):
+        self.query = query
+        self.model = model or "gemma3:12b"  # Użyj domyślnego modelu
+        self.max_results = max_results
+
+
+class SearchAgent(BaseAgent):
+    """Agent that performs web searches using DuckDuckGo and Perplexity"""
+
+    def __init__(self, name: str = "SearchAgent"):
+        super().__init__(name)
         self.search_url = "https://api.duckduckgo.com/"
+        self.http_client = httpx.AsyncClient(
+            timeout=30.0, headers={"User-Agent": settings.USER_AGENT}
+        )
+        self.llm_client = hybrid_llm_client  # Dodaję atrybut llm_client dla testów
+        self.web_search = perplexity_client  # Dodaję atrybut web_search dla testów
 
-    async def process(self, input_data: Any) -> AgentResponse:
-        """Process a search request and return formatted results"""
-        if not isinstance(input_data, dict):
-            return AgentResponse(
-                success=False,
-                error="Nieprawidłowy format danych wejściowych.",
-                text="Przepraszam, nie mogłem przetworzyć tego zapytania.",
-            )
-
+    @handle_exceptions(max_retries=2)
+    async def process(self, input_data: Dict[str, Any]) -> AgentResponse:
+        """Main processing method - performs search and returns results"""
         try:
-            query_value = input_data.get("query", "")
-            if not isinstance(query_value, str):
-                return AgentResponse(
-                    success=False,
-                    error="Nieprawidłowy typ zapytania - oczekiwano tekstu.",
-                    text="Proszę podać zapytanie w formie tekstowej.",
-                )
-
-            query = query_value.strip()
-            model = input_data.get(
-                "model", "SpeakLeash/bielik-11b-v2.3-instruct:Q8_0"
-            )  # Default model
-
+            # Validate input
+            query = input_data.get("query", "")
             if not query:
                 return AgentResponse(
                     success=False,
-                    error="Brak zapytania wyszukiwania.",
-                    text="Proszę podać zapytanie wyszukiwania.",
+                    error="Query is required",
+                    text="Przepraszam, ale potrzebuję zapytania do wyszukania.",
                 )
 
-            # Get search results
-            search_results = await self._perform_search(query)
-            if not search_results:
+            # Extract parameters
+            use_bielik = input_data.get("use_bielik", True)
+            model = (
+                "SpeakLeash/bielik-11b-v2.3-instruct:Q5_K_M"
+                if use_bielik
+                else "gemma3:12b"
+            )
+            max_results = input_data.get("max_results", 5)
+            use_perplexity = input_data.get("use_perplexity", False)
 
-                async def empty_stream():
-                    if False:
-                        yield
-
-                return AgentResponse(
-                    success=True,
-                    text=f"Brak wyników dla zapytania: {query}",
-                    text_stream=empty_stream(),
-                )
-
-            try:
-                # Format search results using LLM
-                response_stream = self._format_search_results(
-                    query, search_results, model
-                )
-
-                return AgentResponse(
-                    success=True,
-                    data={"query": query, "results": search_results},
-                    text_stream=response_stream,
-                    message=f"Wyniki wyszukiwania dla: {query}",
-                )
-            except Exception as e:
-                logger.error(f"Error formatting search results: {e}")
-                return AgentResponse(
-                    success=False,
-                    error=f"Błąd formatowania wyników wyszukiwania: {str(e)}",
-                    text="Przepraszam, wystąpił problem z formatowaniem wyników wyszukiwania.",
-                )
-        except Exception as e:
-            logger.error(f"Error processing search request: {e}")
-            return AgentResponse(
-                success=False,
-                error=f"Wystąpił błąd podczas przetwarzania zapytania: {str(e)}",
-                text="Przepraszam, wystąpił problem z wykonaniem wyszukiwania.",
+            logger.info(
+                f"[SearchAgent] Processing search query: {query[:100]}... use_perplexity={use_perplexity}, use_bielik={use_bielik}"
             )
 
-    async def _perform_search(self, query: str) -> List[Dict[str, str]]:
-        """Perform a search using DuckDuckGo API"""
-        try:
-            async with httpx.AsyncClient() as client:
-                response = await client.get(
-                    self.search_url,
-                    params={
-                        "q": query,
-                        "format": "json",
-                        "no_html": 1,
-                        "no_redirect": 1,
-                    },
-                    timeout=10.0,
+            if use_perplexity:
+                # Wymuś Perplexity
+                search_result = await perplexity_client.search(
+                    query, model=None, max_results=max_results
                 )
-                response.raise_for_status()
-                data = response.json()
-                logger.debug(f"Search API response for '{query}': {data}")
+            else:
+                # Lokalny model
+                search_result = await self._perform_search(query, model, max_results)
 
-                # Extract relevant fields from the response
-                results = []
-                if "Results" in data:
-                    for r in data["Results"]:
-                        if r.get("Text") and r.get("FirstURL"):
-                            results.append(
-                                {
-                                    "title": r.get("Text"),
-                                    "url": r.get("FirstURL"),
-                                    "snippet": r.get("Result", ""),
-                                }
-                            )
-                if "RelatedTopics" in data:
-                    for r in data["RelatedTopics"]:
-                        if r.get("Text") and r.get("FirstURL"):
-                            results.append(
-                                {
-                                    "title": r.get("Text"),
-                                    "url": r.get("FirstURL"),
-                                    "snippet": r.get("Result", ""),
-                                }
-                            )
+            if search_result["success"]:
+                return AgentResponse(
+                    success=True,
+                    text=search_result["content"],
+                    data=search_result,
+                    model_used=model,
+                )
+            else:
+                # Fallback to DuckDuckGo
+                logger.warning(f"Perplexity search failed: {search_result['error']}")
+                duckduckgo_result = await self._duckduckgo_search(query)
 
-                if not results:
-                    # Fallback to simple result if no structured data found
-                    if "AbstractText" in data and data["AbstractText"]:
-                        results.append(
-                            {
-                                "title": data.get("Heading", "Wynik wyszukiwania"),
-                                "url": data.get("AbstractURL", ""),
-                                "snippet": data["AbstractText"],
-                            }
-                        )
+                if duckduckgo_result["success"]:
+                    return AgentResponse(
+                        success=True,
+                        text=duckduckgo_result["content"],
+                        data=duckduckgo_result,
+                        model_used="duckduckgo",
+                        fallback_used=True,
+                    )
+                else:
+                    return AgentResponse(
+                        success=False,
+                        error=f"Search failed: {search_result['error']}",
+                        text="Przepraszam, nie udało się wykonać wyszukiwania. Spróbuj ponownie później.",
+                    )
 
-                return results
-        except httpx.HTTPStatusError as e:
-            logger.error(f"HTTP error performing search for '{query}': {e}")
-            return []
-        except httpx.RequestError as e:
-            logger.error(f"Network error performing search for '{query}': {e}")
-            return []
         except Exception as e:
-            logger.error(f"Error performing search for '{query}': {e}", exc_info=True)
-            return []
+            logger.error(f"[SearchAgent] Error processing search: {str(e)}")
+            return AgentResponse(
+                success=False,
+                error=str(e),
+                text=f"Przepraszam, wystąpił błąd podczas wyszukiwania: {str(e)}",
+            )
 
-    async def _extract_search_query(self, user_input: str, model: str) -> str:
-        """Extract search query from user input using LLM"""
+    async def _perform_search(
+        self, query: str, model: str, max_results: int
+    ) -> Dict[str, Any]:
+        """Perform search using Perplexity API"""
+        try:
+            # Translate query to English for better results
+            english_query = await self._translate_to_english(query, model)
+
+            # Perform search with Perplexity
+            result = await perplexity_client.search(
+                query=english_query,
+                model=None,  # Użyj domyślnego modelu
+                max_results=max_results,
+            )
+
+            if result["success"]:
+                # Translate response back to Polish if needed
+                polish_response = await self._translate_to_polish(
+                    result["content"], model
+                )
+                result["content"] = polish_response
+
+            return result
+
+        except Exception as e:
+            logger.error(f"Error in Perplexity search: {e}")
+            return {"success": False, "error": str(e), "content": ""}
+
+    async def _duckduckgo_search(self, query: str) -> Dict[str, Any]:
+        """Fallback search using DuckDuckGo"""
+        try:
+            # Simple DuckDuckGo search implementation
+            search_url = f"https://api.duckduckgo.com/?q={query}&format=json&no_html=1&skip_disambig=1"
+
+            response = await self.http_client.get(search_url)
+            response.raise_for_status()
+
+            data = response.json()
+
+            # Extract relevant information
+            abstract = data.get("Abstract", "")
+            answer = data.get("Answer", "")
+            related_topics = data.get("RelatedTopics", [])
+
+            # Combine results
+            content_parts = []
+            if answer:
+                content_parts.append(f"Odpowiedź: {answer}")
+            if abstract:
+                content_parts.append(f"Opis: {abstract}")
+            if related_topics:
+                topics = [topic.get("Text", "") for topic in related_topics[:3]]
+                content_parts.append(f"Powiązane tematy: {'; '.join(topics)}")
+
+            content = (
+                "\n\n".join(content_parts)
+                if content_parts
+                else "Nie znaleziono odpowiednich wyników."
+            )
+
+            return {
+                "success": True,
+                "content": content,
+                "source": "duckduckgo",
+                "query": query,
+            }
+
+        except Exception as e:
+            logger.error(f"Error in DuckDuckGo search: {e}")
+            return {"success": False, "error": str(e), "content": ""}
+
+    async def _translate_to_english(self, polish_query: str, model: str) -> str:
+        """Translate Polish query to English for better search results"""
         prompt = (
-            f"Przeanalizuj poniższą wiadomość użytkownika i wyodrębnij zapytanie wyszukiwania:\n\n"
-            f"Wiadomość: '{user_input}'\n\n"
-            f"Zwróć tylko zapytanie wyszukiwania, bez dodatkowego tekstu."
+            f"Przetłumacz poniższe zapytanie z języka polskiego na angielski:\n\n"
+            f"Zapytanie: '{polish_query}'\n\n"
+            f"Zwróć tylko tłumaczenie, bez dodatkowego tekstu."
         )
 
         try:
-            response = await llm_client.chat(
+            response = await hybrid_llm_client.chat(
                 model=model,
                 messages=[
                     {
                         "role": "system",
-                        "content": "Jesteś pomocnym asystentem, który ekstrahuje zapytania wyszukiwania z tekstu.",
+                        "content": "Jesteś pomocnym asystentem, który tłumaczy zapytania z polskiego na angielski.",
                     },
                     {"role": "user", "content": prompt},
                 ],
                 stream=False,
             )
 
-            if not response or not response.get("message"):
-                return user_input
+            if not response or not isinstance(response, dict):
+                return polish_query
 
-            query = response["message"]["content"].strip()
-            return query
-        except Exception as e:
-            logger.error(f"Error extracting search query: {e}")
-            return user_input
+            # Sprawdź różne możliwe struktury odpowiedzi
+            content = None
+            if "message" in response:
+                message = response["message"]
+                if isinstance(message, dict) and "content" in message:
+                    content = message["content"]
+                elif isinstance(message, list) and len(message) > 0:
+                    # Jeśli message jest listą, weź pierwszy element
+                    first_msg = message[0]
+                    if isinstance(first_msg, dict) and "content" in first_msg:
+                        content = first_msg["content"]
 
-    async def _format_search_results(
-        self, query: str, results: List[Dict[str, str]], model: str
-    ) -> AsyncGenerator[str, None]:
-        """Format search results into a user-friendly response using LLM"""
-        try:
-            # Create a summary of search results for the LLM
-            results_summary = f"Wyniki wyszukiwania dla zapytania: '{query}'\n\n"
+            if not content:
+                return polish_query
 
-            for i, result in enumerate(results, 1):
-                title = result.get("title", "Brak tytułu")
-                url = result.get("url", "")
-                snippet = result.get("snippet", "Brak opisu")
-
-                results_summary += f"{i}. {title}\n"
-                results_summary += f"   URL: {url}\n"
-                results_summary += f"   Opis: {snippet}\n\n"
-
-            # Let the LLM format this into a nice response
-            prompt = (
-                f"Na podstawie poniższych wyników wyszukiwania, utwórz przyjazną i "
-                f"pomocną odpowiedź w języku polskim. Uwzględnij najważniejsze "
-                f"informacje z wyników i podaj źródła (URL):\n\n{results_summary}"
+            english_query = content.strip()
+            logger.info(
+                f"[SearchAgent] Translated '{polish_query}' to '{english_query}'"
             )
+            return english_query
+        except Exception as e:
+            logger.error(f"Error translating query: {e}")
+            return polish_query
 
-            # Call LLM with streaming
-            response = await llm_client.chat(
+    async def _translate_to_polish(self, english_content: str, model: str) -> str:
+        """Translate English content back to Polish"""
+        prompt = (
+            f"Przetłumacz poniższą treść z języka angielskiego na polski:\n\n"
+            f"Treść: '{english_content}'\n\n"
+            f"Zwróć tylko tłumaczenie, bez dodatkowego tekstu."
+        )
+
+        try:
+            response = await hybrid_llm_client.chat(
                 model=model,
                 messages=[
                     {
                         "role": "system",
-                        "content": "Jesteś pomocnym asystentem wyszukiwania.",
+                        "content": "Jesteś pomocnym asystentem, który tłumaczy treści z angielskiego na polski.",
                     },
                     {"role": "user", "content": prompt},
                 ],
-                stream=True,
+                stream=False,
             )
 
-            # Stream the response chunks
-            async for chunk in response:
-                yield chunk["message"]["content"]
+            if not response or not isinstance(response, dict):
+                return english_content
 
+            # Sprawdź różne możliwe struktury odpowiedzi
+            content = None
+            if "message" in response:
+                message = response["message"]
+                if isinstance(message, dict) and "content" in message:
+                    content = message["content"]
+                elif isinstance(message, list) and len(message) > 0:
+                    # Jeśli message jest listą, weź pierwszy element
+                    first_msg = message[0]
+                    if isinstance(first_msg, dict) and "content" in first_msg:
+                        content = first_msg["content"]
+
+            if not content:
+                return english_content
+
+            polish_content = content.strip()
+            logger.info(f"[SearchAgent] Translated response to Polish")
+            return polish_content
         except Exception as e:
-            logger.error(f"Error formatting search results: {e}")
-            raise  # Re-raise the exception to be handled in process()
+            logger.error(f"Error translating response: {e}")
+            return english_content
+
+    @handle_exceptions(max_retries=1)
+    def get_dependencies(self) -> list[str]:
+        """Return list of dependencies this agent requires"""
+        return ["httpx", "hybrid_llm_client", "perplexity_client"]
+
+    def get_metadata(self) -> dict:
+        """Return metadata about this agent"""
+        return {
+            "name": self.name,
+            "description": "Agent that performs web searches using Perplexity and DuckDuckGo",
+            "version": "1.0.0",
+            "search_url": self.search_url,
+            "capabilities": ["web_search", "translation", "fallback_search"],
+        }
+
+    def is_healthy(self) -> bool:
+        """Check if the agent is healthy and ready to process requests"""
+        return True  # Simple health check - could be enhanced

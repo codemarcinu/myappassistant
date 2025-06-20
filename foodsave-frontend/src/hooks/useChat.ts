@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { Message } from '@/types/chat';
 import { ApiService } from '@/services/ApiService';
@@ -10,6 +10,8 @@ export function useChat(context: 'general' | 'shopping' | 'cooking' = 'general')
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sessionId, setSessionId] = useState<string>('');
+  const [usePerplexity, setUsePerplexity] = useState(false);
+  const [useBielik, setUseBielik] = useState(true); // Domyślnie używamy Bielika
 
   useEffect(() => {
     // Initialize session on component mount
@@ -24,54 +26,55 @@ export function useChat(context: 'general' | 'shopping' | 'cooking' = 'general')
     ]);
   }, []);
 
-  const sendMessage = async (content: string) => {
-    if (!content.trim() || isLoading) return;
-
-    setError(null);
-    setIsLoading(true);
-
-    const userMessage: Message = { id: uuidv4(), role: 'user', content };
-    setMessages((prev: Message[]) => [...prev, userMessage]);
-
-    // Add a placeholder for the assistant's response
-    const assistantMessageId = uuidv4();
-    setMessages((prev: Message[]) => [...prev, { id: assistantMessageId, role: 'assistant', content: '' }]);
-
+  const sendMessage = useCallback(async (content: string, usePerplexity?: boolean, useBielik?: boolean) => {
     try {
-      await ApiService.sendChatMessage(
-        {
-          message: content,
-          session_id: sessionId,
-          agent_states: {
-            weather: context === 'general',
-            search: context === 'general',
-            shopping: context === 'shopping',
-            cooking: context === 'cooking',
-          },
+      setError(null);
+      setIsLoading(true);
+
+      // Add user message to the chat
+      const userMessage: Message = {
+        id: uuidv4(),
+        role: 'user',
+        content,
+        usePerplexity: usePerplexity || false,
+        useBielik: useBielik !== undefined ? useBielik : true
+      };
+      setMessages(prev => [...prev, userMessage]);
+
+      // Send message to the API
+      const response = await ApiService.sendChatMessage({
+        message: content,
+        session_id: sessionId,
+        agent_states: {
+          weather: true,
+          search: true,
+          shopping: context === 'shopping',
+          cooking: context === 'cooking',
         },
-        (chunk) => {
-          setMessages((prev: Message[]) =>
-            prev.map((msg: Message) =>
-              msg.id === assistantMessageId
-                ? { ...msg, content: msg.content + (chunk.response || '') }
-                : msg
-            )
-          );
-        }
-      );
+        usePerplexity: usePerplexity || false,
+        useBielik: useBielik !== undefined ? useBielik : true,
+      }, (chunk) => {
+        // Handle streaming response
+        console.log('Received chunk:', chunk);
+      });
+
+      // Add assistant response to the chat
+      const assistantMessage: Message = {
+        id: uuidv4(),
+        role: 'assistant',
+        content: response.response || 'Przepraszam, wystąpił błąd w przetwarzaniu.',
+        data: response.data,
+        usePerplexity: usePerplexity || false,
+        useBielik: useBielik !== undefined ? useBielik : true,
+      };
+
+      setMessages(prev => [...prev, assistantMessage]);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unknown error occurred');
-      setMessages((prev: Message[]) =>
-        prev.map((msg: Message) =>
-          msg.id === assistantMessageId
-            ? { ...msg, content: 'Przepraszam, wystąpił błąd.' }
-            : msg
-        )
-      );
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [sessionId, context]);
 
   // Function to clear chat history
   const clearChat = () => {
@@ -86,11 +89,25 @@ export function useChat(context: 'general' | 'shopping' | 'cooking' = 'general')
     ]);
   };
 
+  // Function to toggle Perplexity
+  const togglePerplexity = () => {
+    setUsePerplexity((prev: boolean) => !prev);
+  };
+
+  // Function to toggle model (Bielik/Gemma)
+  const toggleModel = () => {
+    setUseBielik((prev: boolean) => !prev);
+  };
+
   return {
     messages,
     isLoading,
     error,
     sendMessage,
     clearChat,
+    usePerplexity,
+    togglePerplexity,
+    useBielik,
+    toggleModel,
   };
 }

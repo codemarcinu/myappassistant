@@ -2,18 +2,19 @@ from typing import Any, Dict, Optional
 
 from fastapi import status
 
-from ..core.exceptions import ErrorCodes, FoodSaveException
+from ..api.v2.exceptions import APIErrorCodes
+from ..core.exceptions import BaseCustomException
 
 
-class OrchestratorError(FoodSaveException):
+class OrchestratorError(BaseCustomException):
     """Base class for orchestrator errors."""
 
     def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
         super().__init__(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            error_code=ErrorCodes.INTERNAL_ERROR,
             message=message,
+            error_code=APIErrorCodes.INTERNAL_ERROR,
             details=details,
+            severity="high",
         )
 
 
@@ -29,10 +30,10 @@ class ServiceUnavailableError(OrchestratorError):
 
     def __init__(self, service_name: str, details: Optional[Dict[str, Any]] = None):
         super().__init__(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            error_code=ErrorCodes.SERVICE_UNAVAILABLE,
             message=f"Service {service_name} is unavailable",
+            error_code=APIErrorCodes.SERVICE_UNAVAILABLE,
             details=details,
+            severity="high",
         )
 
 

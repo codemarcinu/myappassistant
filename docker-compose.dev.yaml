@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  # Serwis Ollama dla lokalnych modeli LLM
+  ollama:
+    image: ollama/ollama:latest
+    container_name: foodsave-ollama-dev
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - foodsave-network
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    command: ["ollama", "serve"]
+
+  # Backend FastAPI - Development Mode
+  backend:
+    build:
+      context: ./src/backend
+      dockerfile: Dockerfile.dev
+    container_name: foodsave-backend-dev
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./src/backend:/app
+      - /app/venv
+    environment:
+      - PYTHONPATH=/app
+      - ENVIRONMENT=development
+    networks:
+      - foodsave-network
+    depends_on:
+      - ollama
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+  # Frontend Next.js - Development Mode
+  frontend:
+    build:
+      context: ./foodsave-frontend
+      dockerfile: Dockerfile.dev
+    container_name: foodsave-frontend-dev
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./foodsave-frontend:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - NEXT_TELEMETRY_DISABLED=1
+    networks:
+      - foodsave-network
+    depends_on:
+      - backend
+
+volumes:
+  ollama_data:
+    driver: local
+
+networks:
+  foodsave-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

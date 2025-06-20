@@ -192,7 +192,7 @@ async def execute_action(
             all_ops_successful = True
             for op in operations:
                 human_field_name = op.get("pole_do_zmiany")
-                new_value = op.get("nowa_wartosc")
+                updated_value = op.get("nowa_wartosc")
 
                 # Używamy naszego słownika do tłumaczenia nazwy pola
                 actual_field_name = FIELD_MAP.get(
@@ -209,9 +209,9 @@ async def execute_action(
                     all_ops_successful = False
                     continue  # Przejdź do następnej operacji
 
-                setattr(target_object, actual_field_name, new_value)
+                setattr(target_object, actual_field_name, updated_value)
                 logger.info(
-                    f"Zmieniono pole '{actual_field_name}' na wartość '{new_value}'"
+                    f"Zmieniono pole '{actual_field_name}' na wartość '{updated_value}'"
                 )
 
             if all_ops_successful:
@@ -262,8 +262,8 @@ async def create_shopping_trip(db: AsyncSession, data: Dict[str, Any]) -> Shoppi
             # Upewniamy się, że ID paragonu jest dodane
             product_kwargs["trip_id"] = nowy_paragon.id
 
-            nowy_produkt = Product(**product_kwargs)
-            db.add(nowy_produkt)
+            created_product = Product(**product_kwargs)
+            db.add(created_product)
 
         await db.commit()
         await db.refresh(nowy_paragon)
@@ -361,8 +361,8 @@ async def add_products_to_trip(
                 and mapped_key in Product.__table__.columns
             }
             product_kwargs["trip_id"] = shopping_trip.id
-            new_product = Product(**product_kwargs)
-            db.add(new_product)
+            created_product = Product(**product_kwargs)
+            db.add(created_product)
 
         # Opcjonalnie: Zaktualizuj sumę na paragonie
         total_products_price = sum(p.get("cena_calkowita", 0) for p in products_data)

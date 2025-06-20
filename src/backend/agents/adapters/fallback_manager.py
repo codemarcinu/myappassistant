@@ -4,8 +4,8 @@ from typing import Any, Dict, Optional
 
 from backend.core.hybrid_llm_client import ModelComplexity, hybrid_llm_client
 
-from ..core.agent_interface import IFallbackProvider
-from ..error_types import EnhancedAgentResponse, ErrorSeverity
+from ..error_types import AgentResponse, ErrorSeverity
+from ..interfaces import IFallbackProvider
 
 
 class FallbackStrategy(ABC):
@@ -14,7 +14,7 @@ class FallbackStrategy(ABC):
     @abstractmethod
     async def execute(
         self, input_data: Dict[str, Any], error: Exception
-    ) -> Optional[EnhancedAgentResponse]:
+    ) -> Optional[AgentResponse]:
         pass
 
 
@@ -23,7 +23,7 @@ class PromptRewritingStrategy(FallbackStrategy):
 
     async def execute(
         self, input_data: Dict[str, Any], error: Exception
-    ) -> Optional[EnhancedAgentResponse]:
+    ) -> Optional[AgentResponse]:
         query = self._extract_query(input_data)
         if not query:
             return None
@@ -52,7 +52,7 @@ class PromptRewritingStrategy(FallbackStrategy):
             rewritten_query = response["message"]["content"].strip()
             new_input = input_data.copy()
             self._update_input(new_input, rewritten_query)
-            return EnhancedAgentResponse(
+            return AgentResponse(
                 success=True,
                 data=new_input,
                 message="Prompt rewritten successfully",
@@ -78,7 +78,7 @@ class SimplifiedModelStrategy(FallbackStrategy):
 
     async def execute(
         self, input_data: Dict[str, Any], error: Exception
-    ) -> Optional[EnhancedAgentResponse]:
+    ) -> Optional[AgentResponse]:
         query = self._extract_query(input_data)
         if not query:
             return None
@@ -102,7 +102,7 @@ class SimplifiedModelStrategy(FallbackStrategy):
         )
 
         if response and "message" in response:
-            return EnhancedAgentResponse(
+            return AgentResponse(
                 success=True,
                 text=response["message"]["content"].strip(),
                 message="Odpowiedź wygenerowana w trybie uproszczonym",
@@ -122,8 +122,8 @@ class MinimalResponseStrategy(FallbackStrategy):
 
     async def execute(
         self, input_data: Dict[str, Any], error: Exception
-    ) -> EnhancedAgentResponse:
-        return EnhancedAgentResponse(
+    ) -> AgentResponse:
+        return AgentResponse(
             success=False,
             error=f"Przepraszam, nie mogłem przetworzyć Twojego zapytania: {str(error)}",
             error_severity=ErrorSeverity.MEDIUM,
@@ -144,7 +144,7 @@ class FallbackManager(IFallbackProvider):
 
     async def execute_fallback(
         self, input_data: Dict[str, Any], error: Exception
-    ) -> EnhancedAgentResponse:
+    ) -> AgentResponse:
         """Execute fallback strategies in order"""
         for strategy in self.strategies:
             try:
@@ -156,3 +156,9 @@ class FallbackManager(IFallbackProvider):
 
         # If all strategies fail, return minimal response
         return await MinimalResponseStrategy().execute(input_data, error)
+
+    async def get_fallback_response(self, context: Dict[str, Any]) -> AgentResponse:
+        """Get fallback response when primary agent fails"""
+        error = context.get("error", Exception("Unknown error"))
+        input_data = context.get("input_data", {})
+        return await self.execute_fallback(input_data, error)

@@ -6,8 +6,9 @@ from datetime import datetime, timedelta
 from enum import Enum
 from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
+from ..config import settings
 from ..core.llm_client import LLMCache, llm_client
 
 logger = logging.getLogger(__name__)
@@ -25,6 +26,7 @@ class ModelComplexity(str, Enum):
 class ModelConfig(BaseModel):
     """Configuration for a specific LLM model"""
 
+    model_config = ConfigDict()
     name: str
     complexity_levels: List[ModelComplexity]
     max_tokens: int
@@ -67,6 +69,11 @@ class HybridLLMClient:
     and automatic fallback.
     """
 
+    default_model = "SpeakLeash/bielik-11b-v2.3-instruct:Q5_K_M"
+    fallback_model = "gemma3:12b"
+    use_perplexity_fallback = True
+    perplexity_client = None  # do mockowania w testach
+
     def __init__(self):
         """Initialize hybrid LLM client"""
         self.base_client = llm_client
@@ -94,34 +101,45 @@ class HybridLLMClient:
     def _init_model_configs(self) -> Dict[str, ModelConfig]:
         """Initialize model configurations"""
         return {
-            "gemma:2b": ModelConfig(
-                name="gemma:2b",
-                complexity_levels=[ModelComplexity.SIMPLE],
-                max_tokens=4096,
-                cost_per_token=0.01,
-                priority=1,
-                concurrency_limit=20,
-            ),
-            "gemma3:latest": ModelConfig(
-                name="gemma3:latest",
+            "SpeakLeash/bielik-11b-v2.3-instruct:Q5_K_M": ModelConfig(
+                name="SpeakLeash/bielik-11b-v2.3-instruct:Q5_K_M",
                 complexity_levels=[
+                    ModelComplexity.SIMPLE,
                     ModelComplexity.STANDARD,
                     ModelComplexity.COMPLEX,
                     ModelComplexity.CRITICAL,
                 ],
                 max_tokens=32768,
-                cost_per_token=0.10,
-                priority=2,
-                concurrency_limit=5,
-            ),
-            "SpeakLeash/bielik-11b-v2.3-instruct:Q8_0": ModelConfig(
-                name="SpeakLeash/bielik-11b-v2.3-instruct:Q8_0",
-                complexity_levels=[ModelComplexity.COMPLEX, ModelComplexity.CRITICAL],
-                max_tokens=32768,
                 cost_per_token=0.15,
+                priority=1,  # Najwyższy priorytet - domyślny model
+                concurrency_limit=5,
+                supports_embedding=True,
+                description="Polish language specialized model - primary model",
+            ),
+            "gemma3:12b": ModelConfig(
+                name="gemma3:12b",
+                complexity_levels=[
+                    ModelComplexity.SIMPLE,
+                    ModelComplexity.STANDARD,
+                    ModelComplexity.COMPLEX,
+                ],
+                max_tokens=4096,
+                cost_per_token=0.01,
+                priority=2,  # Niższy priorytet - model zapasowy
+                concurrency_limit=20,
+                supports_embedding=True,
+                description="Fallback model for simple queries",
+            ),
+            "nomic-embed-text": ModelConfig(
+                name="nomic-embed-text",
+                complexity_levels=[ModelComplexity.SIMPLE],
+                max_tokens=8192,
+                cost_per_token=0.0,
                 priority=3,
-                concurrency_limit=3,
-                description="Polish language specialized model",
+                concurrency_limit=10,
+                supports_embedding=True,
+                supports_streaming=False,
+                description="Embedding model",
             ),
         }
 
@@ -259,12 +277,12 @@ class HybridLLMClient:
         ]
 
         if not eligible_models:
-            # Fallback to standard model if no models support the complexity level
+            # Fallback to Bielik if no models support the complexity level
             fallback_msg = (
-                f"No models support {complexity_level}, falling back to gemma3:12b"
+                f"No models support {complexity_level}, falling back to Bielik"
             )
             logger.warning(fallback_msg)
-            return "gemma3:12b", fallback_msg
+            return "SpeakLeash/bielik-11b-v2.3-instruct:Q5_K_M", fallback_msg
 
         # Sort by priority (lower number = higher priority)
         eligible_models.sort(key=lambda x: x[1].priority)
@@ -291,11 +309,26 @@ class HybridLLMClient:
         system_prompt: Optional[str] = None,
         options: Optional[Dict[str, Any]] = None,
         force_complexity: Optional[ModelComplexity] = None,
+        use_bielik: Optional[bool] = None,
+        use_perplexity: Optional[bool] = None,
+        **kwargs,
     ) -> Any:
         """
-        Enhanced chat method with automatic model selection
+        Enhanced chat method with automatic model selection and explicit model toggling
         """
         start_time = time.time()
+
+        # 1. Perplexity override
+        if use_perplexity:
+            if self.perplexity_client:
+                return await self.perplexity_client.chat(
+                    messages=messages, stream=stream
+                )
+            raise NotImplementedError("Perplexity client not configured")
+
+        # 2. Model selection by toggle
+        if use_bielik is not None:
+            model = self.default_model if use_bielik else self.fallback_model
 
         try:
             # Auto-determine complexity if model not explicitly provided
@@ -343,14 +376,12 @@ class HybridLLMClient:
             else:
                 # Ensure the model exists in our configs
                 if model not in self.model_configs:
-                    logger.warning(
-                        f"Unknown model: {model}, falling back to gemma3:12b"
-                    )
-                    model = "gemma3:12b"
+                    logger.warning(f"Unknown model: {model}, falling back to Bielik")
+                    model = "SpeakLeash/bielik-11b-v2.3-instruct:Q5_K_M"
 
             # Check model stats for disabled models
             if not self.model_configs[model].is_enabled:
-                fallback_model = "gemma3:12b"
+                fallback_model = "SpeakLeash/bielik-11b-v2.3-instruct:Q5_K_M"
                 logger.warning(
                     f"Model {model} is disabled, falling back to {fallback_model}"
                 )
@@ -479,7 +510,7 @@ class HybridLLMClient:
     async def embed(self, text: str, model: Optional[str] = None) -> List[float]:
         """Get embeddings with automatic model selection"""
         if not model:
-            # Use smallest model that supports embeddings
+            # Use Bielik as default embedding model
             embedding_models = [
                 name
                 for name, config in self.model_configs.items()
@@ -487,17 +518,19 @@ class HybridLLMClient:
             ]
 
             if embedding_models:
-                model = embedding_models[0]
+                # Prefer Bielik for embeddings
+                if "SpeakLeash/bielik-11b-v2.3-instruct:Q5_K_M" in embedding_models:
+                    model = "SpeakLeash/bielik-11b-v2.3-instruct:Q5_K_M"
+                else:
+                    model = embedding_models[0]
             else:
-                # Default to standard model
-                model = "gemma3:12b"
+                # Default to Bielik
+                model = "SpeakLeash/bielik-11b-v2.3-instruct:Q5_K_M"
 
         # Ensure the model exists
         if model not in self.model_configs:
-            logger.warning(
-                f"Unknown embedding model: {model}, falling back to gemma3:12b"
-            )
-            model = "gemma3:12b"
+            logger.warning(f"Unknown embedding model: {model}, falling back to Bielik")
+            model = "SpeakLeash/bielik-11b-v2.3-instruct:Q5_K_M"
 
         # Update usage stats
         self.model_stats[model].total_requests += 1
@@ -608,7 +641,7 @@ class HybridLLMClient:
             if fallback_candidates:
                 fallback_model = fallback_candidates[0]
             else:
-                fallback_model = "gemma2:2b"  # Simplest model as last resort
+                fallback_model = "gemma3:12b"  # Gemma as last resort
 
         # Try fallback model
         logger.warning(
@@ -628,6 +661,22 @@ class HybridLLMClient:
                 },
                 "response": f"Error processing request with all models: {str(e)}",
             }
+
+    def get_available_models(self):
+        return list(self.model_configs.keys()) + ["perplexity"]
+
+    def get_model_info(self, model_name):
+        if model_name == "perplexity":
+            return {"name": "perplexity", "type": "api", "default": False}
+        if model_name in self.model_configs:
+            config = self.model_configs[model_name]
+            return {
+                "name": config.name,
+                "type": "local",
+                "default": model_name == self.default_model,
+                "description": config.description,
+            }
+        raise ValueError(f"Unknown model: {model_name}")
 
 
 # Initialize hybrid client

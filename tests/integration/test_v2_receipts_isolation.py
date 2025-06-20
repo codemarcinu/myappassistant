@@ -5,6 +5,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from backend.agents.base_agent import AgentResponse, BaseAgent
 from src.backend.api.v2.endpoints.receipts import router
 from src.backend.api.v2.exceptions import APIErrorCodes
 
@@ -13,10 +14,24 @@ app.include_router(router)
 client = TestClient(app)
 
 
+class DummyAgent(BaseAgent):
+    async def process(self, input_data):
+        return AgentResponse(success=True, text="dummy")
+
+    def get_metadata(self):
+        return {}
+
+    def get_dependencies(self):
+        return []
+
+    def is_healthy(self):
+        return True
+
+
 @pytest.fixture
 def mock_ocr_agent():
     with patch("src.backend.api.v2.endpoints.receipts.OCRAgent") as mock:
-        mock_instance = MagicMock()
+        mock_instance = DummyAgent()
         mock.return_value = mock_instance
 
         # Create an async mock for the process method

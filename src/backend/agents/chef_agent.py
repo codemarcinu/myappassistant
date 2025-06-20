@@ -2,23 +2,22 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
-from backend.agents.base_agent import AgentResponse, BaseAgent
-from backend.agents.tools.tools import get_available_products_from_pantry
-from backend.core.llm_client import llm_client
+from ..core.llm_client import llm_client
+from .base_agent import BaseAgent
+from .interfaces import AgentResponse
+from .tools.tools import get_available_products_from_pantry
 
 
 class ChefAgentInput(BaseModel):
     """Input model for ChefAgent"""
 
-    ingredients: List[str] = Field(
-        ..., min_items=1, description="List of available ingredients"
+    available_ingredients: List[str] = Field(
+        default_factory=list, min_length=1, description="List of available ingredients"
     )
     dietary_restrictions: Optional[str] = Field(
         None, description="Dietary restrictions"
     )
-    model: Optional[str] = Field(
-        "SpeakLeash/bielik-11b-v2.3-instruct:Q8_0", description="LLM model to use"
-    )
+    model: Optional[str] = Field("gemma3:12b", description="LLM model to use")
 
 
 class RecipeSuggestion(BaseModel):
@@ -31,18 +30,35 @@ class RecipeSuggestion(BaseModel):
 class ChefAgent(BaseAgent):
     """Agent that suggests recipes based on available pantry items"""
 
-    def __init__(self, name: str = "ChefAgent", error_handler=None, fallback_manager=None):
-        super().__init__(name, error_handler=error_handler, fallback_manager=fallback_manager)
+    def __init__(
+        self, name: str = "ChefAgent", error_handler=None, fallback_manager=None
+    ):
+        super().__init__(
+            name, error_handler=error_handler, fallback_manager=fallback_manager
+        )
+        self.input_model = ChefAgentInput
+        self.llm_client = llm_client  # Dodaję atrybut llm_client dla testów
 
-    async def process(self, input_data: Any) -> AgentResponse:
+    async def process(self, input_data: Dict[str, Any]) -> AgentResponse:
         """Main processing method - validates input and generates recipe"""
         try:
+            # Sprawdź flagę use_bielik
+            use_bielik = input_data.get("use_bielik", True)
+            model = (
+                "SpeakLeash/bielik-11b-v2.3-instruct:Q5_K_M"
+                if use_bielik
+                else "gemma3:12b"
+            )
+
+            # Aktualizuj input_data z wybranym modelem
+            input_data["model"] = model
+
             # Validate input
             validated_input = ChefAgentInput.parse_obj(input_data)
 
             # Generate recipe
             return await self._generate_recipe(
-                ingredients=validated_input.ingredients,
+                ingredients=validated_input.available_ingredients,
                 dietary_restrictions=validated_input.dietary_restrictions,
                 model=validated_input.model,
             )
@@ -53,11 +69,28 @@ class ChefAgent(BaseAgent):
                 text=f"Przepraszam, wystąpił błąd: {str(e)}",
             )
 
+    def get_metadata(self) -> Dict[str, Any]:
+        """Return agent metadata including capabilities"""
+        return {
+            "name": self.name,
+            "type": "chef",
+            "capabilities": ["recipe_generation", "ingredient_analysis"],
+            "description": "Generates recipes based on available ingredients",
+        }
+
+    def get_dependencies(self) -> List[type]:
+        """List of agent types this agent depends on"""
+        return []
+
+    def is_healthy(self) -> bool:
+        """Check if agent is functioning properly"""
+        return True
+
     async def _generate_recipe(
         self,
         ingredients: List[str],
         dietary_restrictions: Optional[str] = None,
-        model: str = "SpeakLeash/bielik-11b-v2.3-instruct:Q8_0",
+        model: str = "gemma3:12b",
     ) -> AgentResponse:
         """Generate recipe from given ingredients"""
         if not ingredients:
@@ -80,7 +113,7 @@ class ChefAgent(BaseAgent):
         async def recipe_generator():
             try:
                 # Call LLM with streaming
-                response = await llm_client.chat(
+                response = await self.llm_client.chat(
                     model=model,
                     messages=[
                         {"role": "system", "content": "Jesteś pomocnym szefem kuchni."},
@@ -101,19 +134,20 @@ class ChefAgent(BaseAgent):
 
         return AgentResponse(
             success=True,
+            text="Recipe generation started",
             text_stream=recipe_generator(),
             message="Recipe generation started",
         )
 
     async def generate_recipe_idea(
-        self, db: Any, model: str = "SpeakLeash/bielik-11b-v2.3-instruct:Q8_0"
+        self, db: Any, model: str = "gemma3:12b"
     ) -> AgentResponse:
         """
         Generates recipe ideas based on available pantry items.
 
         Args:
             db: Database session
-            model: LLM model to use for generating the recipe (default: llama3)
+            model: LLM model to use for generating the recipe (default: gemma3:12b)
 
         Returns:
             AgentResponse with recipe suggestion or error message
@@ -146,7 +180,7 @@ class ChefAgent(BaseAgent):
         async def response_generator():
             # Call LLM with specified model and stream the response
             full_response = ""
-            async for chunk in llm_client.generate_stream(
+            async for chunk in await self.llm_client.generate_stream(
                 model=model,
                 messages=[
                     {"role": "system", "content": "Jesteś pomocnym szefem kuchni."},

@@ -119,5 +119,3 @@ def rate_limited(agent_type: str, user_id_key: Optional[str] = None):
 
 class RateLimitExceeded(Exception):
     """Exception raised when rate limit is exceeded"""
-
-    pass

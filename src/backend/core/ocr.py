@@ -7,6 +7,8 @@ import pytesseract
 from PIL import Image
 from pydantic import BaseModel
 
+from .decorators import handle_exceptions
+
 logger = logging.getLogger(__name__)
 
 
@@ -87,6 +89,7 @@ class OCRProcessor:
             return OCRResult(text="", confidence=0, metadata={"error": str(e)})
 
 
+@handle_exceptions(max_retries=1)
 def _extract_text_from_image_obj(image: Image.Image) -> str:
     """
     Prywatna funkcja pomocnicza, która wykonuje OCR na obiekcie obrazu PIL.
@@ -95,6 +98,7 @@ def _extract_text_from_image_obj(image: Image.Image) -> str:
     return pytesseract.image_to_string(image, config=custom_config)
 
 
+@handle_exceptions(max_retries=1, retry_delay=0.5)
 def process_image_file(file_bytes: bytes) -> Optional[str]:
     """
     Przetwarza plik obrazu (jpg, png) i wyciąga z niego tekst.
@@ -110,6 +114,7 @@ def process_image_file(file_bytes: bytes) -> Optional[str]:
         return None
 
 
+@handle_exceptions(max_retries=1, retry_delay=1.0)
 def process_pdf_file(file_bytes: bytes) -> Optional[str]:
     """
     Przetwarza plik PDF, konwertując każdą stronę na obraz i odczytując tekst.

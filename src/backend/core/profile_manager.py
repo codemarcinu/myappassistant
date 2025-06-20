@@ -3,8 +3,12 @@ from typing import Dict, List, Optional, Union
 
 import pytz
 
-from ..models.user_profile import (InteractionType, UserPreferences,
-                                   UserProfileData, UserSchedule)
+from ..models.user_profile import (
+    InteractionType,
+    UserPreferences,
+    UserProfileData,
+    UserSchedule,
+)
 
 
 class ProfileManager:
@@ -21,8 +25,10 @@ class ProfileManager:
             return self.active_sessions[session_id]
 
         # Look up in database
-        from src.backend.core.crud import (create_user_profile,
-                                           get_user_profile_by_session)
+        from src.backend.core.crud import (
+            create_user_profile,
+            get_user_profile_by_session,
+        )
 
         profile = await get_user_profile_by_session(self.db, session_id)
         if not profile:

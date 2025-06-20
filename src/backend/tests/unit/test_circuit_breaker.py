@@ -3,10 +3,12 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from backend.agents.mixins.circuit_breaker import (CircuitBreaker,
-                                                   CircuitOpenException,
-                                                   CircuitState,
-                                                   circuit_breaker)
+from backend.agents.mixins.circuit_breaker import (
+    CircuitBreaker,
+    CircuitOpenException,
+    CircuitState,
+    circuit_breaker,
+)
 
 
 class TestCircuitBreaker:

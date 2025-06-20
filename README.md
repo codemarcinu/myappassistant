@@ -1,5 +1,30 @@
 # FoodSave AI - Enhanced Modular Agent System
 
+## 🚀 Quick Start
+
+**Najszybszy sposób uruchomienia aplikacji:**
+
+```bash
+# 1. Sklonuj repozytorium
+git clone https://github.com/yourusername/foodsave-ai.git
+cd foodsave-ai
+
+# 2. Uruchom aplikację jednym poleceniem
+./run_all.sh
+```
+
+**Aplikacja będzie dostępna pod adresami:**
+- Frontend: http://localhost:3000
+- Backend API: http://localhost:8000
+- Dokumentacja API: http://localhost:8000/docs
+
+**Aby zatrzymać aplikację:**
+```bash
+./stop_all.sh
+```
+
+---
+
 ## Overview
 
 FoodSave AI is a sophisticated, agent-based AI system designed to provide a conversational interface for various household tasks with a focus on food management and sustainability. It features an enhanced agent architecture with improved RAG capabilities, memory management, and specialized agents to manage shopping, assist with cooking, provide weather updates, and perform web searches. The system leverages locally-hosted language models via Ollama to ensure user privacy and data control.
@@ -92,6 +117,168 @@ graph TD
 - **Testing**: pytest, pytest-cov, pytest-asyncio, Locust
 - **Code Quality**: black, isort, flake8, ruff, mypy
 
+## Setup & Installation
+
+### Prerequisites
+
+- **Python 3.12+**
+- **Node.js 18.x or higher**
+- **[Ollama](https://ollama.com/)** for local language models
+- **[Poetry](https://python-poetry.org/)** for Python dependency management
+
+### Automatic Setup (Recommended)
+
+The easiest way to get started is using the provided script:
+
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/foodsave-ai.git
+cd foodsave-ai
+
+# Run the setup script (this will install everything and start the app)
+./run_all.sh
+```
+
+The script will:
+- ✅ Check all prerequisites
+- ✅ Install Python dependencies
+- ✅ Install Node.js dependencies
+- ✅ Set up environment variables
+- ✅ Start the backend and frontend
+- ✅ Verify everything is working
+
+### Manual Setup
+
+If you prefer to set up manually:
+
+1. **Clone the repository:**
+    ```bash
+    git clone https://github.com/yourusername/foodsave-ai.git
+    cd foodsave-ai
+    ```
+
+2. **Set up the Backend:**
+    ```bash
+    # Install Python dependencies
+    poetry install
+
+    # Activate the virtual environment
+    poetry shell
+    ```
+
+3. **Set up the Frontend:**
+    ```bash
+    # Navigate to the frontend directory
+    cd foodsave-frontend
+
+    # Install Node.js dependencies
+    npm install
+    ```
+
+4. **Configure Environment Variables:**
+    The `run_all.sh` script will create a `.env` file automatically, or you can create it manually:
+    ```bash
+    cp .env.example .env
+    ```
+
+    Required API keys (optional - app will work without them):
+    - **NEWS_API_KEY**: Register at [newsapi.org](https://newsapi.org/register)
+    - **BING_SEARCH_API_KEY**: Create a Bing Search API resource in [Azure Cognitive Services](https://portal.azure.com/#create/Microsoft.CognitiveServicesBingSearch-v7)
+
+5. **Set up Ollama:**
+    ```bash
+    # Install Ollama
+    curl -fsSL https://ollama.com/install.sh | sh
+
+    # Pull required models (minimum 16GB RAM recommended)
+    ollama pull gemma3:latest  # ~5GB
+    ollama pull SpeakLeash/bielik-11b-v2.3-instruct:Q6_K  # ~7GB
+    ollama pull nomic-embed-text  # ~0.5GB
+
+    # Start Ollama
+    ollama serve
+    ```
+
+6. **Start the Application:**
+    ```bash
+    # Start backend
+    cd src/backend
+    uvicorn main:app --reload --host 0.0.0.0 --port 8000
+
+    # In another terminal, start frontend
+    cd foodsave-frontend
+    npm run dev
+    ```
+
+### Docker Setup
+
+For containerized deployment:
+
+```bash
+# Build and run with Docker Compose
+docker-compose up --build
+
+# Or use the rebuild script
+./rebuild.sh
+```
+
+## Usage
+
+### Starting the Application
+
+```bash
+# Quick start (recommended)
+./run_all.sh
+
+# Manual start
+./stop_all.sh  # Stop any running instances first
+./run_all.sh   # Start fresh
+```
+
+### Stopping the Application
+
+```bash
+./stop_all.sh
+```
+
+### Accessing the Application
+
+- **Frontend**: http://localhost:3000
+- **Backend API**: http://localhost:8000
+- **API Documentation**: http://localhost:8000/docs
+- **Alternative API Docs**: http://localhost:8000/redoc
+
+### Troubleshooting
+
+**Common Issues:**
+
+1. **Port already in use:**
+   ```bash
+   ./stop_all.sh  # Stop existing processes
+   ./run_all.sh   # Start fresh
+   ```
+
+2. **Ollama not running:**
+   ```bash
+   ollama serve
+   ```
+
+3. **Dependencies not installed:**
+   ```bash
+   poetry install
+   cd foodsave-frontend && npm install
+   ```
+
+4. **Permission denied:**
+   ```bash
+   chmod +x run_all.sh stop_all.sh
+   ```
+
+**Logs:**
+- Backend logs: `backend.log`
+- Frontend logs: `frontend.log`
+- Ollama logs: `journalctl -u ollama -f` (Linux)
+
 ## Testing Approach
 
 The project uses a comprehensive testing strategy:
@@ -122,103 +309,42 @@ locust -f locustfile.py
   pytest --cov=src --cov-report=html tests/
   ```
 
-### Mocking Strategy
-- External services are mocked using unittest.mock
-- Database connections use test fixtures
+### Mockowanie LLM w testach agentów
 
-## Setup & Installation
+Aby testować agentów korzystających z LLM (np. llm_client.chat lub hybrid_llm_client.chat), użyj poniższego wzorca, który obsługuje zarówno tryb stream (stream=True), jak i zwykły (stream=False):
 
-### Prerequisites
+```python
+def make_llm_chat_mock(stream_content: str, non_stream_content: str = None):
+    """
+    Zwraca funkcję do mockowania llm_client.chat/hybrid_llm_client.chat,
+    która obsługuje zarówno stream=True (async generator), jak i stream=False (dict).
+    """
+    async def chat_mock(*args, **kwargs):
+        if kwargs.get("stream"):
+            async def stream():
+                yield {"message": {"content": stream_content}}
+            return stream()
+        else:
+            return {"message": {"content": non_stream_content or stream_content}}
+    return chat_mock
+```
 
-- Python 3.12+
-- Node.js 18.x or higher
-- [Ollama](https://ollama.com/) for local language models
-- [Poetry](https://python-poetry.org/) for Python dependency management
+**Przykład użycia w teście:**
 
-### Installation Steps
+```python
+@patch("backend.agents.weather_agent.llm_client", new_callable=AsyncMock)
+def test_weather_agent(mock_llm_client):
+    mock_llm_client.chat = make_llm_chat_mock(
+        stream_content="Słonecznie, 25 stopni.",
+        non_stream_content="Słonecznie, 25 stopni."
+    )
+    # ...reszta testu...
+```
 
-1.  **Clone the repository:**
-    ```bash
-    git clone https://github.com/yourusername/foodsave-ai.git
-    cd foodsave-ai
-    ```
+Możesz użyć tego wzorca dla wszystkich agentów korzystających z LLM, zarówno dla streamowania, jak i odpowiedzi jednorazowych.
 
-2.  **Set up the Backend:**
-    ```bash
-    # Install Python dependencies with grouped organization
-    poetry install
+## Model Requirements
 
-    # Activate the virtual environment
-    poetry shell
-    ```
-
-3.  **Alternative: Docker Setup:**
-    ```bash
-    # Use the provided rebuild script to build Docker containers
-    ./rebuild.sh
-
-    # Or manually build and run using docker-compose
-    docker-compose up --build
-    ```
-
-3.  **Set up the Frontend:**
-    ```bash
-    # Navigate to the frontend directory
-    cd foodsave-frontend
-
-    # Install Node.js dependencies
-    npm install
-    ```
-
-4.  **Configure Environment Variables:**
-    Create a `.env` file in the project root by copying `.env.example` and customize the variables.
-    ```bash
-    cp .env.example .env
-    ```
-
-    Required API keys:
-    - **NEWS_API_KEY**: Register at [newsapi.org](https://newsapi.org/register) to get a free API key
-    - **BING_SEARCH_API_KEY**: Create a Bing Search API resource in [Azure Cognitive Services](https://portal.azure.com/#create/Microsoft.CognitiveServicesBingSearch-v7) to obtain a key
-    - **DATABASE_URL**: Configure your database connection string (SQLite is used by default)
-
-    Edit the `.env` file and replace the placeholder values with your actual API keys.
-
-5.  **Set up Ollama:**
-    Install Ollama from the [official website](https://ollama.com/) and pull the required models:
-    ```bash
-    # Install Ollama
-    curl -fsSL https://ollama.com/install.sh | sh
-
-    # Pull required models (minimum 16GB RAM recommended)
-    ollama pull gemma3:latest  # ~5GB
-    ollama pull SpeakLeash/bielik-11b-v2.3-instruct:Q6_K  # ~7GB
-    ollama pull nomic-embed-text  # ~0.5GB
-
-    # Verify installation
-    ollama list
-    ```
-
-    For GPU acceleration (recommended for better performance):
-    ```bash
-    # Install NVIDIA drivers and CUDA first
-    ./scripts/setup_nvidia_docker.sh
-
-    # Then run Ollama with GPU support
-    OLLAMA_GPU=1 ollama serve
-    ```
-
-    Common troubleshooting:
-    - If models fail to load, check available RAM (minimum 16GB recommended for best performance)
-    - For slow performance, try smaller models or enable GPU
-    - Use `ollama ps` to check running models
-    - Refer to the [GPU Setup Guide](GPU_SETUP.md) for advanced configuration
-    - Check logs with `journalctl -u ollama -f` (Linux) or Event Viewer (Windows)
-    - For CUDA errors, verify driver version with `nvidia-smi`
-    - For out-of-memory errors, try smaller models or reduce context window
-    - If models won't download, check network connectivity and storage space
-    - For persistent issues, try `ollama serve --verbose` for detailed logs
-
-### Model Requirements
 Different models have varying hardware requirements:
 
 | Model Name            | RAM Required | VRAM Required | Disk Space |
@@ -228,175 +354,32 @@ Different models have varying hardware requirements:
 | nomic-embed-text      | 4GB          | 2GB           | 0.5GB      |
 
 ### Performance Optimization
+
 1. **GPU Acceleration**:
    - Install NVIDIA drivers and CUDA toolkit
    - Set `OLLAMA_GPU=1` environment variable
-   - Use `--gpu` flag when pulling models
+   - Use `--gpu` flag with Ollama
 
-2. **Memory Management**:
-   - Limit concurrent models with `OLLAMA_MAX_LOADED_MODELS`
-   - Adjust context window size for memory-constrained systems
+2. **Memory Optimization**:
+   - Use smaller models for limited RAM
+   - Reduce context window size
+   - Enable swap space if needed
 
-3. **Network Optimization**:
-   - Use `OLLAMA_HOST` to bind to specific interface
-   - Enable compression with `OLLAMA_COMPRESSION=true`
+## Contributing
 
-6.  **Initialize the Database:**
-    ```bash
-    # Make sure you are in the root directory with the Poetry shell activated
-    python scripts/seed_db.py
-    ```
-
-7.  **Set up RAG System (Optional):**
-    To utilize the enhanced RAG capabilities:
-    ```bash
-    # Index your documents
-    python scripts/rag_cli.py --index-dir ./data/docs
-    ```
-
-### Running the Application
-
-1.  **Start the Backend Server:**
-    ```bash
-    # From the project root, with Poetry shell activated
-    uvicorn src.backend.main:app --reload --host 0.0.0.0 --port 8000
-    ```
-
-2.  **Start the Frontend Development Server:**
-    In a new terminal, navigate to the frontend directory:
-    ```bash
-    cd foodsave-frontend
-    npm run dev
-    ```
-
-The application will be available at `http://localhost:3000`.
-
-## API Documentation
-
-The backend API is documented using OpenAPI/Swagger. After starting the backend server, access the interactive documentation at:
-
-```
-http://localhost:8000/docs
-```
-
-This provides:
-- Full API endpoint documentation
-- Interactive testing capabilities
-- Request/response schemas
-- Authentication requirements
-
-## Contribution Guidelines
-
-We welcome contributions! Please follow these guidelines:
-
-1. **Branching Strategy**:
-   - Create feature branches from `main`
-   - Use descriptive branch names (e.g., `feature/add-recipe-search`)
-
-2. **Code Style**:
-   - Follow PEP 8 for Python
-   - Use TypeScript best practices for frontend
-   - Run formatters before committing:
-     ```bash
-     black .
-     isort .
-     ```
-
-3. **Testing**:
-   - Add tests for new features
-   - Maintain test coverage
-   - Run all tests before submitting PRs
-
-4. **Pull Requests**:
-   - Include clear description of changes
-   - Reference related issues
-   - Request reviews from maintainers
-
-5. **Issue Reporting**:
-   - Use clear, descriptive titles
-   - Include steps to reproduce
-   - Specify expected vs actual behavior
-
-## Project Status
-
-### Current Implementation
-- ✅ Enhanced multi-agent orchestration system
-- ✅ Next.js chat interface
-- ✅ FastAPI backend with database integration
-- ✅ Local LLM integration via Ollama with hybrid capabilities
-- ✅ Recipe suggestion based on pantry items
-- ✅ Enhanced weather information retrieval
-- ✅ OCR for receipt processing
-- ✅ Advanced conversation state management
-- ✅ Enhanced RAG for superior Q&A capabilities
-- ✅ Improved vector storage for knowledge retrieval
-- ✅ Advanced analytics for shopping patterns
-- ✅ Automated categorization of products
-- ✅ Meal planning and shopping list generation
-- ✅ Advanced memory management system
-- ✅ Basic budget tracking functionality (recently added)
-
-### Upcoming Features
-- ❌ Enhanced budget visualization
-- ❌ Enhanced API versioning (v2)
-- ❌ Improved error handling standardization
-- ❌ Comprehensive test coverage (>90%)
-- ❌ Mobile-friendly interface (in progress)
-
-### Note
-This is a personal application designed for single-user use on desktop/laptop computers. No mobile support or authentication system is planned as it's intended for individual computer use only.
-
-### Refactoring Progress
-See [REFACTORING_PLAN.md](REFACTORING_PLAN.md) for detailed refactoring roadmap and progress.
-
-## Development Tools
-
-The project includes several development tools in the `dev/` directory:
-- `check_imports.py`: Validates import availability
-- `check_langchain.py`: Tests LangChain integration
-- `find_text_splitter.py`: Utility for text processing optimization
-
-## Working with Git
-
-This project uses Git for version control. Here are some common Git operations:
-
-```bash
-# Check status of changes
-git status
-
-# Add all changes to staging
-git add .
-
-# Add specific files
-git add README.md
-
-# Commit changes
-git commit -m "Your descriptive commit message"
-
-# Push changes to remote repository
-git push origin main
-
-# Pull latest changes
-git pull origin main
-
-# Create a new branch
-git checkout -b feature/your-new-feature
-```
-
-## Docker Support
-
-The project includes Docker support for easier deployment and development:
-
-- `Dockerfile`: Main application container
-- `docker-compose.yml`: Multi-container setup
-- `rebuild.sh`: Helper script to rebuild containers
-- `.dockerignore`: Optimizes Docker builds
-
-For GPU acceleration with NVIDIA Docker, use the provided setup script:
-```bash
-./scripts/setup_nvidia_docker.sh
-```
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
 ## License
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Support
+
+For support and questions:
+- Create an issue on GitHub
+- Check the troubleshooting section above
+- Review the logs in `backend.log` and `frontend.log`

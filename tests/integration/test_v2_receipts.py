@@ -4,10 +4,25 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
+from backend.agents.base_agent import AgentResponse, BaseAgent
 from src.backend.api.v2.exceptions import APIErrorCodes
 from src.backend.main import app
 
 client = TestClient(app)
+
+
+class DummyAgent(BaseAgent):
+    async def process(self, input_data):
+        return AgentResponse(success=True, text="dummy")
+
+    def get_metadata(self):
+        return {}
+
+    def get_dependencies(self):
+        return []
+
+    def is_healthy(self):
+        return True
 
 
 @pytest.fixture
@@ -18,7 +33,7 @@ def mock_ocr_agent():
 
 def test_upload_receipt_success_image(mock_ocr_agent):
     """Test successful receipt upload with image"""
-    mock_agent = MagicMock()
+    mock_agent = DummyAgent()
     mock_agent.process.return_value = MagicMock(
         success=True, text="Test receipt text", message="Processed successfully"
     )
@@ -40,7 +55,7 @@ def test_upload_receipt_success_image(mock_ocr_agent):
 
 def test_upload_receipt_success_pdf(mock_ocr_agent):
     """Test successful receipt upload with PDF"""
-    mock_agent = MagicMock()
+    mock_agent = DummyAgent()
     mock_agent.process.return_value = MagicMock(
         success=True, text="Test PDF receipt", message="PDF processed"
     )
@@ -86,7 +101,7 @@ def test_upload_receipt_unsupported_type():
 
 def test_upload_receipt_processing_error(mock_ocr_agent):
     """Test receipt processing failure"""
-    mock_agent = MagicMock()
+    mock_agent = DummyAgent()
     mock_agent.process.return_value = MagicMock(
         success=False, error="OCR processing failed"
     )
@@ -104,7 +119,7 @@ def test_upload_receipt_processing_error(mock_ocr_agent):
 
 def test_upload_receipt_internal_error(mock_ocr_agent):
     """Test unexpected internal error"""
-    mock_agent = MagicMock()
+    mock_agent = DummyAgent()
     mock_agent.process.side_effect = Exception("Unexpected error")
     mock_ocr_agent.return_value = mock_agent
 
