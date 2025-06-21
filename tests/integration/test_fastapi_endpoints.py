@@ -3,7 +3,7 @@ from unittest.mock import patch
 import pytest
 from fastapi.testclient import TestClient
 
-from backend.main import app  # Import main FastAPI instance
+from src.backend.main import app  # Import main FastAPI instance
 
 client = TestClient(app)
 

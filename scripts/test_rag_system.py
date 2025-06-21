@@ -11,17 +11,21 @@ This script tests the RAG system functionality including:
 
 import asyncio
 import logging
+import os
 import sys
 from pathlib import Path
 
-# Add project root to path
-project_root = Path(__file__).parent.parent
-sys.path.append(str(project_root))
+# Dodaj src/backend do PYTHONPATH dla importów absolutnych
+backend_path = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "../src/backend")
+)
+if backend_path not in sys.path:
+    sys.path.insert(0, backend_path)
 
-from src.backend.core.rag_document_processor import RAGDocumentProcessor
-from src.backend.core.rag_integration import rag_integration
-from src.backend.core.vector_store import vector_store
-from src.backend.infrastructure.database.database import AsyncSessionLocal
+from backend.core.rag_document_processor import RAGDocumentProcessor
+from backend.core.rag_integration import rag_integration
+from backend.core.vector_store import vector_store
+from backend.infrastructure.database.database import AsyncSessionLocal
 
 # Configure logging
 logging.basicConfig(

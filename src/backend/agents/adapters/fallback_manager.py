@@ -4,8 +4,7 @@ from typing import Any, Dict, Optional
 
 from backend.core.hybrid_llm_client import ModelComplexity, hybrid_llm_client
 
-from ..error_types import AgentResponse, ErrorSeverity
-from ..interfaces import IFallbackProvider
+from ..interfaces import AgentResponse, ErrorSeverity, IFallbackProvider
 
 
 class FallbackStrategy(ABC):

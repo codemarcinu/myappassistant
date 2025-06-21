@@ -1,7 +1,7 @@
 from typing import Dict, List, Optional
 
-from .base_agent import BaseAgent
-from .plugin_interface import AgentPlugin
+from backend.agents.base_agent import BaseAgent
+from backend.agents.plugin_interface import AgentPlugin
 
 
 class PluginManager:

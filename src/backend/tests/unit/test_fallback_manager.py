@@ -1,6 +1,7 @@
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from unittest.mock import MagicMock
 
 from backend.agents.adapters.fallback_manager import (
     FallbackManager,
@@ -8,7 +9,7 @@ from backend.agents.adapters.fallback_manager import (
     PromptRewritingStrategy,
     SimplifiedModelStrategy,
 )
-from backend.agents.error_types import AgentResponse
+from backend.agents.interfaces import AgentResponse, ErrorSeverity
 
 
 class TestFallbackStrategies:

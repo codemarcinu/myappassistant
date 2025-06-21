@@ -1,10 +1,9 @@
-from typing import Any, Dict, List
+from typing import Any, Dict
 
+from backend.agents.base_agent import BaseAgent
+from backend.agents.interfaces import AgentResponse
 from backend.agents.prompts import get_categorization_prompt
-from backend.core.llm_client import llm_client
-
-from .base_agent import BaseAgent
-from .interfaces import AgentResponse
+from backend.core.hybrid_llm_client import hybrid_llm_client
 
 
 class CategorizationAgent(BaseAgent):
@@ -30,7 +29,7 @@ class CategorizationAgent(BaseAgent):
 
         prompt = get_categorization_prompt(product_name)
 
-        response = await llm_client.chat(
+        response = await hybrid_llm_client.chat(
             model=model,
             messages=[
                 {

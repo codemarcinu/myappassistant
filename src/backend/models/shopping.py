@@ -15,11 +15,12 @@ from sqlalchemy import (
 from sqlalchemy.orm import deferred, relationship
 from sqlalchemy.sql import func
 
-from ..core.database import Base
+from backend.core.database import Base
 
 
 class ShoppingTrip(Base):
     __tablename__ = "shopping_trips"
+    __table_args__ = {"extend_existing": True}
 
     id = Column(Integer, primary_key=True, index=True)
     trip_date = Column(Date, nullable=False, index=True)
@@ -33,17 +34,18 @@ class ShoppingTrip(Base):
     # Ta relacja tworzy połączenie z produktami.
     # Jeden paragon (ShoppingTrip) może mieć wiele produktów (Product).
     products = relationship(
-        "Product", back_populates="trip", cascade="all, delete-orphan"
+        "Product", back_populates="trip", cascade="all, delete-orphan", lazy="selectin"
     )
 
 
 class Product(Base):
     __tablename__ = "products"
+    __table_args__ = {"extend_existing": True}
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False, index=True)
     category = Column(String, nullable=True, index=True)
-    price = Column(Float, nullable=True)
+    unit_price = Column(Float, nullable=True)
     quantity = Column(Float, nullable=True)
     unit = Column(String, nullable=True)
     expiration_date = Column(Date, nullable=True, index=True)
@@ -62,7 +64,7 @@ class Product(Base):
     )
 
     # Relacja zwrotna do paragonu.
-    trip = relationship("ShoppingTrip", back_populates="products", lazy="selectin")
+    trip = relationship("ShoppingTrip", back_populates="products", lazy="joined")
 
 
 # Composite indexes for common product queries

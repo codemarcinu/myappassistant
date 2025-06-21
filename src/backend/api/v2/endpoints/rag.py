@@ -27,16 +27,16 @@ from fastapi import (
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.backend.api.v2.exceptions import (
+from backend.api.v2.exceptions import (
     APIErrorCodes,
     BadRequestError,
     UnprocessableEntityError,
 )
-from src.backend.core.rag_document_processor import rag_document_processor
-from src.backend.core.rag_integration import rag_integration
-from src.backend.core.vector_store import vector_store
-from src.backend.infrastructure.database.database import get_db
-from src.backend.schemas.rag_schemas import (
+from backend.core.rag_document_processor import rag_document_processor
+from backend.core.rag_integration import rag_integration
+from backend.core.vector_store import vector_store
+from backend.infrastructure.database.database import get_db
+from backend.schemas.rag_schemas import (
     RAGDocumentInfo,
     RAGQueryRequest,
     RAGQueryResponse,

@@ -7,9 +7,9 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from ..models.conversation import Conversation, Message
-from ..models.shopping import Product, ShoppingTrip
-from ..models.user_profile import UserActivity, UserProfile
+from backend.models.conversation import Conversation, Message
+from backend.models.shopping import Product, ShoppingTrip
+from backend.models.user_profile import UserActivity, UserProfile
 
 logger = logging.getLogger(__name__)
 
@@ -508,7 +508,7 @@ async def create_user_profile(
     Creates a new user profile with default preferences and schedule.
     Returns the created UserProfile object.
     """
-    from ..models.user_profile import UserPreferences, UserSchedule
+    from backend.models.user_profile import UserPreferences, UserSchedule
 
     profile = UserProfile(
         user_id=user_id,
@@ -615,3 +615,31 @@ async def update_user_topics(db: AsyncSession, user_id: str, topics: List[str]) 
         logger.error(f"Error updating user topics: {e}")
         await db.rollback()
         return False
+
+
+def get_products_paginated(session, limit: int = 100, offset: int = 0):
+    stmt = select(Product).order_by(Product.id.desc()).limit(limit).offset(offset)
+    return session.execute(stmt)
+
+
+def get_shopping_trips_paginated(session, limit: int = 100, offset: int = 0):
+    stmt = (
+        select(ShoppingTrip)
+        .order_by(ShoppingTrip.id.desc())
+        .limit(limit)
+        .offset(offset)
+    )
+    return session.execute(stmt)
+
+
+def get_messages_paginated(
+    session, conversation_id: int, limit: int = 100, offset: int = 0
+):
+    stmt = (
+        select(Message)
+        .where(Message.conversation_id == conversation_id)
+        .order_by(Message.created_at.desc())
+        .limit(limit)
+        .offset(offset)
+    )
+    return session.execute(stmt)

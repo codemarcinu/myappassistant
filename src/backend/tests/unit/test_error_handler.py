@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from backend.agents.adapters.error_handler import ErrorHandler
-from backend.agents.error_types import AgentResponse, ErrorSeverity
+from backend.agents.interfaces import AgentResponse, ErrorSeverity
 
 
 class ConcreteErrorHandler(ErrorHandler):

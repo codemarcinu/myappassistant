@@ -383,3 +383,303 @@ For support and questions:
 - Create an issue on GitHub
 - Check the troubleshooting section above
 - Review the logs in `backend.log` and `frontend.log`
+
+# FoodSave AI Backend
+
+Inteligentny system asystenta kulinarnego z wieloma agentami AI, optymalizacją pamięci i monitoringiem w czasie rzeczywistym.
+
+## Architektura Systemu
+
+### Diagram Architektury
+
+```mermaid
+flowchart TD
+    subgraph API_Layer
+        A1[FastAPI Endpoints]
+        A2[MemoryMonitoringMiddleware]
+        A3[PerformanceMonitoringMiddleware]
+        A4[ErrorHandlingMiddleware]
+    end
+    subgraph Orchestration
+        B1[Orchestrator Pool]
+        B2[Request Queue]
+        B3[CircuitBreakerMonitor]
+    end
+    subgraph Agents
+        C1[ChefAgent]
+        C2[SearchAgent]
+        C3[MealPlannerAgent]
+        C4[OCRAgent]
+        C5[RAGAgent]
+        C6[WeatherAgent]
+    end
+    subgraph Core_Services
+        D1[MemoryManager]
+        D2[VectorStore]
+        D3[RAGDocumentProcessor]
+        D4[CacheManager]
+        D5[HybridLLMClient]
+        D6[ProfileManager]
+    end
+    subgraph Infrastructure
+        E1[Database_SQLAlchemy_Async]
+        E2[Redis_Cache]
+        E3[FAISS_Index]
+        E4[Prometheus_Metrics]
+        E5[OpenTelemetry_Tracing]
+    end
+    subgraph Monitoring_Alerting
+        F1[Prometheus_Metrics_Endpoint]
+        F2[AlertManager]
+        F3[Health_Checks]
+    end
+
+    A1 -->|Request| A2 --> A3 --> A4 --> B1
+    B1 -->|Dispatch| B2
+    B1 -->|Route| C1
+    B1 -->|Route| C2
+    B1 -->|Route| C3
+    B1 -->|Route| C4
+    B1 -->|Route| C5
+    B1 -->|Route| C6
+    C1 --> D1
+    C2 --> D2
+    C3 --> D1
+    C4 --> D3
+    C5 --> D2
+    C6 --> D1
+    D1 --> E1
+    D2 --> E3
+    D3 --> E1
+    D4 --> E2
+    D5 --> E1
+    D6 --> E1
+    A1 --> F1
+    D1 --> F1
+    D2 --> F1
+    D3 --> F1
+    D4 --> F1
+    D5 --> F1
+    D6 --> F1
+    F1 -->|Metrics| E4
+    A1 --> F2
+    F2 -->|Alert| A1
+    F2 -->|Alert| F3
+    F3 -->|Status| A1
+    E5 -.-> A1
+    E5 -.-> D1
+    E5 -.-> D2
+    E5 -.-> D3
+    E5 -.-> D4
+    E5 -.-> D5
+    E5 -.-> D6
+    E5 -.-> B1
+    E5 -.-> C1
+    E5 -.-> C2
+    E5 -.-> C3
+    E5 -.-> C4
+    E5 -.-> C5
+    E5 -.-> C6
+    E4 -.-> Prometheus[Prometheus_Server]
+    E5 -.-> Jaeger[Jaeger_Tracing_Backend]
+```
+
+### Opis Komponentów
+
+#### API Layer
+- **FastAPI Endpoints**: RESTful API z automatyczną dokumentacją
+- **MemoryMonitoringMiddleware**: Monitorowanie użycia pamięci w czasie rzeczywistym
+- **PerformanceMonitoringMiddleware**: Śledzenie wydajności endpointów
+- **ErrorHandlingMiddleware**: Centralne zarządzanie błędami i logowanie
+
+#### Orchestration
+- **Orchestrator Pool**: Pula orkiestratorów do zarządzania agentami
+- **Request Queue**: Kolejka żądań z obsługą backpressure
+- **CircuitBreakerMonitor**: Monitorowanie stanu circuit breakers
+
+#### Agents
+- **ChefAgent**: Agent kulinarny do planowania posiłków
+- **SearchAgent**: Agent wyszukiwania przepisów
+- **MealPlannerAgent**: Agent planowania posiłków
+- **OCRAgent**: Agent OCR do przetwarzania paragonów
+- **RAGAgent**: Agent RAG do wyszukiwania dokumentów
+- **WeatherAgent**: Agent pogodowy
+
+#### Core Services
+- **MemoryManager**: Zarządzanie pamięcią z weak references
+- **VectorStore**: FAISS-based vector store z memory mapping
+- **RAGDocumentProcessor**: Przetwarzanie dokumentów RAG
+- **CacheManager**: Redis cache manager
+- **HybridLLMClient**: Klient LLM z fallback strategies
+- **ProfileManager**: Zarządzanie profilami użytkowników
+
+#### Infrastructure
+- **Database**: SQLAlchemy Async z connection pooling
+- **Redis Cache**: Cache z TTL i eviction policies
+- **FAISS Index**: Vector index z memory optimization
+- **Prometheus Metrics**: Metryki systemowe i aplikacyjne
+- **OpenTelemetry Tracing**: Distributed tracing
+
+#### Monitoring & Alerting
+- **Prometheus Metrics Endpoint**: `/metrics` endpoint
+- **AlertManager**: System alertów z regułami
+- **Health Checks**: Endpointy `/health`, `/ready`, `/api/v1/status`
+
+## Performance i Optymalizacje
+
+### Zoptymalizowane Komponenty
+
+1. **Memory Management**
+   - Weak references dla unikania memory leaks
+   - Context managers dla proper resource cleanup
+   - `__slots__` dla klas z dużą liczbą instancji
+   - Memory profiling z tracemalloc
+
+2. **Async Patterns**
+   - FastAPI z async/await
+   - SQLAlchemy Async z connection pooling
+   - asyncio.gather() dla parallel operations
+   - Backpressure mechanizmy
+
+3. **Database Optimization**
+   - Connection pooling (pool_size=20, max_overflow=10)
+   - Lazy loading dla relationships
+   - Query batching dla bulk operations
+   - Pagination dla large result sets
+
+4. **Vector Store Optimization**
+   - FAISS IndexIVFFlat z Product Quantization
+   - Memory mapping dla vector files
+   - LRU cache dla embeddings
+   - Batch processing dla vector operations
+
+5. **Monitoring & Observability**
+   - Prometheus metrics dla wszystkich komponentów
+   - OpenTelemetry distributed tracing
+   - Custom alerting system
+   - Health checks dla wszystkich services
+
+### Benchmarki Wydajności
+
+```
+test_snapshot_creation_benchmark:     561.9950 ns (Min) - 47,179,392.9974 ns (Max)
+test_async_snapshot_benchmark:        1,151.9951 ns (Min) - 59,956.0008 ns (Max)
+test_performance_metrics_benchmark:   227,381.0023 ns (Min) - 365,519.0012 ns (Max)
+```
+
+### Endpointy Monitoringu
+
+- `/metrics` - Prometheus metrics
+- `/api/v1/metrics` - JSON metrics
+- `/api/v1/status` - Detailed system status
+- `/api/v1/alerts` - Active alerts
+- `/api/v1/alerts/history` - Alert history
+- `/health` - Basic health check
+- `/ready` - Readiness check
+
+## Instalacja i Uruchomienie
+
+### Wymagania
+- Python 3.12+
+- Redis
+- SQLite (lub PostgreSQL)
+- Tesseract OCR
+
+### Instalacja
+```bash
+# Klonowanie repozytorium
+git clone <repository-url>
+cd my_ai_assistant
+
+# Instalacja zależności
+poetry install
+
+# Konfiguracja środowiska
+cp .env.example .env
+# Edytuj .env z odpowiednimi wartościami
+
+# Uruchomienie
+poetry run python src/backend/main.py
+```
+
+### Docker
+```bash
+# Uruchomienie z Docker Compose
+docker-compose up -d
+
+# Uruchomienie w trybie development
+docker-compose -f docker-compose.dev.yaml up -d
+```
+
+## Testy
+
+### Uruchomienie testów
+```bash
+# Wszystkie testy
+poetry run pytest
+
+# Testy wydajnościowe
+poetry run pytest src/backend/tests/performance/ --benchmark-only
+
+# Testy z coverage
+poetry run pytest --cov=backend --cov-report=html
+```
+
+### Struktura testów
+- `tests/unit/` - Testy jednostkowe
+- `tests/integration/` - Testy integracyjne
+- `tests/performance/` - Testy wydajnościowe
+- `tests/e2e/` - Testy end-to-end
+
+## Dokumentacja API
+
+Dokumentacja API jest dostępna pod adresem `/docs` (Swagger UI) po uruchomieniu aplikacji.
+
+## Monitoring i Alerty
+
+### Prometheus
+Metryki są eksportowane na endpoint `/metrics` w formacie Prometheus.
+
+### Alerty
+System alertów monitoruje:
+- Użycie pamięci > 80%
+- Użycie CPU > 90%
+- Błędy bazy danych > 5
+- Error rate > 10%
+- Response time > 2s
+
+### Health Checks
+- `/health` - Podstawowy health check
+- `/ready` - Sprawdzenie gotowości wszystkich komponentów
+- `/api/v1/status` - Szczegółowy status systemu
+
+## Rozwój
+
+### Struktura projektu
+```
+src/backend/
+├── agents/           # Agenty AI
+├── api/             # Endpointy API
+├── core/            # Core services
+├── infrastructure/  # Infrastructure layer
+├── models/          # Database models
+├── tests/           # Testy
+└── main.py          # Entry point
+```
+
+### Dodawanie nowego agenta
+1. Utwórz nową klasę w `src/backend/agents/`
+2. Zaimplementuj interfejs `IBaseAgent`
+3. Dodaj do `AgentFactory`
+4. Napisz testy jednostkowe
+5. Dodaj do dokumentacji
+
+### Dodawanie nowego endpointu
+1. Utwórz router w `src/backend/api/`
+2. Dodaj endpointy z proper error handling
+3. Dodaj testy integracyjne
+4. Zaktualizuj dokumentację API
+
+## Licencja
+
+MIT License - zobacz plik [LICENSE](LICENSE) dla szczegółów.

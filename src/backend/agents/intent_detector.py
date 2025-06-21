@@ -1,12 +1,10 @@
 import json
 import logging
 import subprocess
-from typing import Any, Dict
 
-from src.backend.core.llm_client import llm_client
-from src.backend.core.utils import extract_json_from_text
-
-from .orchestration_components import IntentData, MemoryContext
+from backend.agents.interfaces import IntentData, MemoryContext
+from backend.core.hybrid_llm_client import hybrid_llm_client
+from backend.core.utils import extract_json_from_text
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +51,7 @@ class SimpleIntentDetector:
             ]
 
             logger.debug(f"Sending intent detection request for text: {text}")
-            response = await llm_client.chat(
+            response = await hybrid_llm_client.chat(
                 model="gemma3:12b",
                 messages=messages,
                 stream=False,

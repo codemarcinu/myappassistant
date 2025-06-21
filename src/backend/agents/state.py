@@ -3,7 +3,7 @@
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-from .interfaces import AgentStatus
+from backend.agents.interfaces import AgentStatus
 
 
 @dataclass

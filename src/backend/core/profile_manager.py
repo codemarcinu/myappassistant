@@ -3,7 +3,7 @@ from typing import Dict, List, Optional, Union
 
 import pytz
 
-from ..models.user_profile import (
+from backend.models.user_profile import (
     InteractionType,
     UserPreferences,
     UserProfileData,
@@ -25,10 +25,7 @@ class ProfileManager:
             return self.active_sessions[session_id]
 
         # Look up in database
-        from src.backend.core.crud import (
-            create_user_profile,
-            get_user_profile_by_session,
-        )
+        from backend.core.crud import create_user_profile, get_user_profile_by_session
 
         profile = await get_user_profile_by_session(self.db, session_id)
         if not profile:
@@ -64,7 +61,7 @@ class ProfileManager:
         profile_data.preferences = preferences
 
         # Update in database
-        from src.backend.core.crud import update_user_preferences
+        from backend.core.crud import update_user_preferences
 
         await update_user_preferences(self.db, profile_data.user_id, preferences.dict())
 
@@ -84,7 +81,7 @@ class ProfileManager:
         profile_data.schedule = schedule
 
         # Update in database
-        from src.backend.core.crud import update_user_schedule
+        from backend.core.crud import update_user_schedule
 
         await update_user_schedule(self.db, profile_data.user_id, schedule.dict())
 
@@ -101,7 +98,7 @@ class ProfileManager:
         profile_data = await self.get_or_create_profile(session_id)
 
         # Create activity record
-        from src.backend.core.user_activity import create_user_activity
+        from backend.core.user_activity import create_user_activity
 
         await create_user_activity(
             self.db, profile_data.user_id, interaction_type, content, metadata
@@ -172,7 +169,7 @@ class ProfileManager:
 
     async def analyze_interests(self, session_id: str) -> List[str]:
         """Analyze user activities to determine interests"""
-        from src.backend.core.crud import get_user_activities
+        from backend.core.crud import get_user_activities
 
         profile_data = await self.get_or_create_profile(session_id)
 
@@ -214,7 +211,7 @@ class ProfileManager:
             profile_data.topics_of_interest = top_interests
 
             # Update in database
-            from src.backend.core.crud import update_user_topics
+            from backend.core.crud import update_user_topics
 
             await update_user_topics(self.db, profile_data.user_id, top_interests)
 

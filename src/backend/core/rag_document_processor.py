@@ -1,20 +1,14 @@
 """
-RAG Document Processor
-
-This module handles the process of preparing documents for RAG systems:
-1. Loading documents from various sources and formats
-2. Chunking text with appropriate overlap
-3. Generating embeddings
-4. Storing in vector databases (FAISS or Pinecone)
+RAG Document Processor with Memory Management
+Zgodnie z regułami MDC dla zarządzania pamięcią i optymalizacji
 """
 
 import asyncio
 import hashlib
 import logging
-import os
-import re
-from datetime import datetime, timedelta
-from functools import lru_cache
+import weakref
+from contextlib import asynccontextmanager
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
@@ -22,15 +16,18 @@ import numpy as np
 
 # Import MMLW client
 try:
-    from .mmlw_embedding_client import mmlw_client
+    from backend.core.mmlw_embedding_client import mmlw_client
 
     MMLW_AVAILABLE = True
 except ImportError:
     MMLW_AVAILABLE = False
 
+from backend.config import settings
+
 # Import existing clients
-from ..core.hybrid_llm_client import hybrid_llm_client
-from ..core.vector_store import VectorStore
+from backend.core.hybrid_llm_client import hybrid_llm_client
+from backend.core.llm_client import llm_client
+from backend.core.vector_store import DocumentChunk, VectorStore
 
 # LangChain imports (optional)
 try:
@@ -83,15 +80,7 @@ logger = logging.getLogger(__name__)
 
 
 class RAGDocumentProcessor:
-    """
-    Comprehensive document processor for RAG systems
-
-    This processor handles the end-to-end flow of:
-    - Loading documents from various sources
-    - Chunking text appropriately
-    - Generating embeddings
-    - Storing vectors in FAISS or Pinecone
-    """
+    """RAG Document Processor with proper memory management and cleanup"""
 
     def __init__(
         self,
@@ -115,11 +104,23 @@ class RAGDocumentProcessor:
             pinecone_api_key: API key for Pinecone (if using Pinecone)
             pinecone_index: Index name for Pinecone (if using Pinecone)
         """
-        self.vector_store = vector_store
-        if self.vector_store is None:
-            from .vector_store import vector_store as global_vector_store
+        self.vector_store = vector_store or VectorStore()
 
-            self.vector_store = global_vector_store
+        # Memory management
+        self._processed_documents: Dict[str, weakref.ref[Dict[str, Any]]] = {}
+        self._document_hashes: Dict[str, str] = {}
+        self._max_documents = 1000
+        self._cleanup_threshold = 800
+        self._cleanup_lock = asyncio.Lock()
+
+        # Performance tracking
+        self._stats = {
+            "total_processed": 0,
+            "total_chunks": 0,
+            "last_cleanup": None,
+            "cleanup_count": 0,
+        }
+
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
         self.embedding_model = embedding_model
@@ -179,7 +180,7 @@ class RAGDocumentProcessor:
         4. Hybrid LLM client as fallback
         """
         # Import settings here to avoid circular imports
-        from ..config import settings
+        from backend.config import settings
 
         # Try MMLW first (best for Polish language)
         if MMLW_AVAILABLE and settings.USE_MMLW_EMBEDDINGS:
@@ -690,6 +691,308 @@ class RAGDocumentProcessor:
 
         # Process concurrently
         return await asyncio.gather(*tasks)
+
+    def _cleanup_callback(self, weak_ref):
+        """Callback when document is garbage collected"""
+        for doc_id, ref in list(self._processed_documents.items()):
+            if ref is weak_ref:
+                del self._processed_documents[doc_id]
+                if doc_id in self._document_hashes:
+                    del self._document_hashes[doc_id]
+                logger.debug(f"Cleaned up garbage collected document: {doc_id}")
+                break
+
+    def _calculate_document_hash(self, content: str) -> str:
+        """Calculate hash for document content"""
+        return hashlib.sha256(content.encode("utf-8")).hexdigest()
+
+    async def process_document(
+        self,
+        content: str,
+        metadata: Dict[str, Any],
+        chunk_size: int = 1000,
+        overlap: int = 200,
+    ) -> List[str]:
+        """Process document with memory management and deduplication"""
+
+        # Check if document already processed
+        doc_hash = self._calculate_document_hash(content)
+        if doc_hash in self._document_hashes:
+            logger.debug(f"Document already processed, skipping: {doc_hash[:8]}")
+            return []
+
+        # Cleanup if needed
+        if len(self._processed_documents) >= self._max_documents:
+            await self._cleanup_old_documents()
+
+        # Create chunks
+        chunks = self._create_chunks(content, metadata, chunk_size, overlap)
+
+        # Create document chunks with embeddings
+        document_chunks = []
+        for i, chunk_text in enumerate(chunks):
+            chunk_id = f"{doc_hash}_{i}"
+            chunk_metadata = {
+                **metadata,
+                "chunk_index": i,
+                "total_chunks": len(chunks),
+                "chunk_id": chunk_id,
+            }
+
+            # Create document chunk
+            doc_chunk = DocumentChunk(
+                id=chunk_id, content=chunk_text, metadata=chunk_metadata
+            )
+            document_chunks.append(doc_chunk)
+
+        # Generate embeddings for chunks
+        await self._generate_embeddings(document_chunks)
+
+        # Add to vector store
+        await self.vector_store.add_documents(document_chunks)
+
+        # Store document info with weak reference
+        doc_info = {
+            "hash": doc_hash,
+            "chunk_count": len(chunks),
+            "processed_at": datetime.now().isoformat(),
+            "metadata": metadata,
+        }
+        self._processed_documents[doc_hash] = weakref.ref(
+            doc_info, self._cleanup_callback
+        )
+        self._document_hashes[doc_hash] = doc_hash
+
+        # Update stats
+        self._stats["total_processed"] += 1
+        self._stats["total_chunks"] += len(chunks)
+
+        logger.info(f"Processed document with {len(chunks)} chunks")
+        return [chunk.id for chunk in document_chunks]
+
+    def _create_chunks(
+        self, content: str, metadata: Dict[str, Any], chunk_size: int, overlap: int
+    ) -> List[str]:
+        """Create text chunks with overlap"""
+        chunks = []
+        start = 0
+
+        while start < len(content):
+            end = start + chunk_size
+
+            # If not the last chunk, try to break at sentence boundary
+            if end < len(content):
+                # Look for sentence endings
+                for i in range(end, max(start + chunk_size - 100, start), -1):
+                    if content[i] in ".!?":
+                        end = i + 1
+                        break
+
+            chunk = content[start:end].strip()
+            if chunk:
+                chunks.append(chunk)
+
+            # Move start position with overlap
+            start = end - overlap
+            if start >= len(content):
+                break
+
+        return chunks
+
+    async def _generate_embeddings(self, document_chunks: List[DocumentChunk]) -> None:
+        """Generate embeddings for document chunks"""
+        try:
+            for chunk in document_chunks:
+                if chunk.embedding is None:
+                    embedding = await llm_client.embed(
+                        model=settings.DEFAULT_EMBEDDING_MODEL, text=chunk.content
+                    )
+                    chunk.embedding = embedding
+
+        except Exception as e:
+            logger.error(f"Error generating embeddings: {e}")
+            raise
+
+    async def search_documents(
+        self, query: str, k: int = 5, filter_metadata: Optional[Dict[str, Any]] = None
+    ) -> List[Dict[str, Any]]:
+        """Search documents with proper error handling"""
+        try:
+            # Generate query embedding
+            query_embedding = await llm_client.embed(
+                model=settings.DEFAULT_EMBEDDING_MODEL, text=query
+            )
+
+            # Search in vector store
+            results = await self.vector_store.search(query_embedding, k)
+
+            # Format results
+            formatted_results = []
+            for doc_chunk, distance in results:
+                # Apply metadata filter if specified
+                if filter_metadata and not self._matches_filter(
+                    doc_chunk.metadata, filter_metadata
+                ):
+                    continue
+
+                formatted_results.append(
+                    {
+                        "chunk_id": doc_chunk.id,
+                        "content": doc_chunk.content,
+                        "metadata": doc_chunk.metadata,
+                        "similarity": 1.0
+                        - distance / 2.0,  # Convert distance to similarity
+                        "distance": float(distance),
+                    }
+                )
+
+            return formatted_results
+
+        except Exception as e:
+            logger.error(f"Error searching documents: {e}")
+            return []
+
+    def _matches_filter(
+        self, metadata: Dict[str, Any], filter_criteria: Dict[str, Any]
+    ) -> bool:
+        """Check if metadata matches filter criteria"""
+        for key, val in filter_criteria.items():
+            if key not in metadata:
+                return False
+
+            if isinstance(val, list):
+                # List means "any of these values"
+                if metadata[key] not in val:
+                    return False
+            elif metadata[key] != val:
+                return False
+
+        return True
+
+    async def get_document_info(self, doc_hash: str) -> Optional[Dict[str, Any]]:
+        """Get document info by hash with cleanup"""
+        weak_ref = self._processed_documents.get(doc_hash)
+        if weak_ref:
+            doc_info = weak_ref()
+            if doc_info:  # Check if weak reference is still valid
+                return doc_info
+            else:
+                # Clean up invalid reference
+                del self._processed_documents[doc_hash]
+                if doc_hash in self._document_hashes:
+                    del self._document_hashes[doc_hash]
+                logger.debug(
+                    f"Cleaned up invalid weak reference for document: {doc_hash}"
+                )
+        return None
+
+    async def remove_document(self, doc_hash: str) -> bool:
+        """Remove document from processor"""
+        if doc_hash in self._processed_documents:
+            del self._processed_documents[doc_hash]
+            if doc_hash in self._document_hashes:
+                del self._document_hashes[doc_hash]
+            self._stats["total_processed"] = len(self._processed_documents)
+            logger.debug(f"Removed document: {doc_hash}")
+            return True
+        return False
+
+    async def _cleanup_old_documents(self) -> None:
+        """Remove old documents when limit is reached with proper locking"""
+        async with self._cleanup_lock:
+            if len(self._processed_documents) <= self._cleanup_threshold:
+                return
+
+            # Get valid documents and their timestamps
+            valid_documents = []
+            for doc_hash, weak_ref in self._processed_documents.items():
+                doc_info = weak_ref()
+                if doc_info:
+                    valid_documents.append(
+                        (doc_hash, doc_info, doc_info["processed_at"])
+                    )
+                else:
+                    # Clean up invalid references
+                    del self._processed_documents[doc_hash]
+                    if doc_hash in self._document_hashes:
+                        del self._document_hashes[doc_hash]
+
+            # Sort by processed_at and remove oldest
+            valid_documents.sort(key=lambda x: x[2], reverse=True)
+
+            # Keep only the newest documents
+            docs_to_keep = valid_documents[: self._cleanup_threshold]
+
+            # Rebuild documents dict with weak references
+            new_documents = {}
+            new_hashes = {}
+            for doc_hash, doc_info, _ in docs_to_keep:
+                new_documents[doc_hash] = weakref.ref(doc_info, self._cleanup_callback)
+                new_hashes[doc_hash] = doc_hash
+
+            removed_count = len(self._processed_documents) - len(new_documents)
+            self._processed_documents = new_documents
+            self._document_hashes = new_hashes
+            self._stats["total_processed"] = len(self._processed_documents)
+            self._stats["last_cleanup"] = asyncio.get_event_loop().time()
+            self._stats["cleanup_count"] += 1
+
+            logger.info(
+                f"Cleaned up {removed_count} old documents. "
+                f"Total documents: {len(self._processed_documents)}"
+            )
+
+    async def get_stats(self) -> Dict[str, Any]:
+        """Get processor statistics with cleanup"""
+        # Clean up invalid references before stats
+        await self._cleanup_old_documents()
+
+        valid_documents = []
+        for weak_ref in self._processed_documents.values():
+            doc_info = weak_ref()
+            if doc_info:
+                valid_documents.append(doc_info)
+
+        vector_store_stats = await self.vector_store.get_stats()
+
+        return {
+            "total_processed": len(valid_documents),
+            "total_chunks": self._stats["total_chunks"],
+            "max_documents": self._max_documents,
+            "cleanup_threshold": self._cleanup_threshold,
+            "vector_store_stats": vector_store_stats,
+            "processor_stats": self._stats,
+        }
+
+    async def clear_all(self) -> None:
+        """Clear all documents and reset processor"""
+        async with self._cleanup_lock:
+            self._processed_documents.clear()
+            self._document_hashes.clear()
+            await self.vector_store.clear_all()
+            self._stats["total_processed"] = 0
+            self._stats["total_chunks"] = 0
+            self._stats["last_cleanup"] = asyncio.get_event_loop().time()
+            self._stats["cleanup_count"] += 1
+            logger.info("Cleared all documents from processor")
+
+    @asynccontextmanager
+    async def context_manager(self):
+        """Async context manager for processor lifecycle"""
+        try:
+            yield self
+        finally:
+            # Optional cleanup on exit
+            await self._cleanup_old_documents()
+            logger.debug("RAG document processor context manager exited")
+
+    async def __aenter__(self):
+        """Async context manager entry"""
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Async context manager exit with cleanup"""
+        await self.clear_all()
 
 
 # Create default instance

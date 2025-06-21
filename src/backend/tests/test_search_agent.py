@@ -2,7 +2,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from backend.agents.base_agent import AgentResponse
+from backend.agents.interfaces import AgentResponse
 from backend.agents.search_agent import SearchAgent
 
 

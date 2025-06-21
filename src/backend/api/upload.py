@@ -3,9 +3,8 @@ from typing import Any, Dict
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.backend.infrastructure.database.database import get_db
-
-from ..agents.orchestrator import Orchestrator
+from backend.agents.orchestrator import Orchestrator
+from backend.infrastructure.database.database import get_db
 
 router = APIRouter()
 

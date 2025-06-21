@@ -1,8 +1,8 @@
 import logging
 from typing import Any, Dict, List
 
-from src.backend.core.vector_store import VectorStore
-from src.backend.infrastructure.llm_api.llm_client import LLMClient
+from backend.core.vector_store import VectorStore
+from backend.infrastructure.llm_api.llm_client import LLMClient
 
 logger = logging.getLogger(__name__)
 

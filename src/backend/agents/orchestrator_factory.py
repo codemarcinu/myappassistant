@@ -1,15 +1,17 @@
+import logging
+from typing import Optional
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.backend.agents.agent_factory import AgentFactory
-from src.backend.agents.agent_registry import AgentRegistry
+from backend.agents.agent_router import AgentRouter
+from backend.agents.intent_detector import SimpleIntentDetector
+from backend.agents.memory_manager import MemoryManager
+from backend.agents.orchestrator import Orchestrator
+from backend.core.profile_manager import ProfileManager
+from backend.core.response_generator import ResponseGenerator
 
-# from src.backend.agents.intent_detector import SimpleIntentDetector # No longer needed
-from src.backend.agents.agent_router import AgentRouter
-from src.backend.agents.intent_detector import SimpleIntentDetector
-from src.backend.agents.memory_manager import MemoryManager
-from src.backend.agents.orchestrator import Orchestrator
-from src.backend.core.profile_manager import ProfileManager
-from src.backend.core.response_generator import ResponseGenerator
+from .agent_factory import AgentFactory
+from .agent_registry import AgentRegistry
 
 
 def create_orchestrator(db: AsyncSession) -> Orchestrator:
@@ -22,8 +24,6 @@ def create_orchestrator(db: AsyncSession) -> Orchestrator:
     Returns:
         Instancja Orchestrator
     """
-    import logging
-
     logger = logging.getLogger(__name__)
 
     # Utwórz menedżer profilów

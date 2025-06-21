@@ -3,20 +3,20 @@ from typing import Any, Dict, Optional, Type
 
 from pydantic import BaseModel
 
-from ..core.decorators import handle_exceptions
-from .agent_builder import AgentBuilder
-from .agent_container import AgentContainer
-from .agent_registry import AgentRegistry
-from .analytics_agent import AnalyticsAgent
-from .base_agent import BaseAgent
-from .categorization_agent import CategorizationAgent
-from .chef_agent import ChefAgent
-from .general_conversation_agent import GeneralConversationAgent
-from .meal_planner_agent import MealPlannerAgent
-from .ocr_agent import OCRAgent
-from .rag_agent import RAGAgent
-from .search_agent import SearchAgent
-from .weather_agent import WeatherAgent
+from backend.agents.agent_builder import AgentBuilder
+from backend.agents.agent_container import AgentContainer
+from backend.agents.agent_registry import AgentRegistry
+from backend.agents.analytics_agent import AnalyticsAgent
+from backend.agents.base_agent import BaseAgent
+from backend.agents.categorization_agent import CategorizationAgent
+from backend.agents.chef_agent import ChefAgent
+from backend.agents.general_conversation_agent import GeneralConversationAgent
+from backend.agents.meal_planner_agent import MealPlannerAgent
+from backend.agents.ocr_agent import OCRAgent
+from backend.agents.rag_agent import RAGAgent
+from backend.agents.search_agent import SearchAgent
+from backend.agents.weather_agent import WeatherAgent
+from backend.core.decorators import handle_exceptions
 
 # Module-level configuration
 config: Dict[str, Any] = {}

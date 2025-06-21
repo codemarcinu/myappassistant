@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useCallback, useEffect } from 'react';
 import { Product, Receipt } from '@/types/shopping';
 import { ApiService } from '@/services/ApiService';
 
@@ -37,16 +38,14 @@ export function useShopping() {
   }, []);
 
   // Upload receipt
-  const uploadReceipt = useCallback(async (file: File) => {
+  const uploadReceipt = useCallback(async (file: File): Promise<void> => {
     try {
       setIsLoading(true);
       setError(null);
-      const result = await ApiService.uploadReceipt(file);
+      await ApiService.uploadReceipt(file);
 
       // Refresh products after upload
       await fetchProducts();
-
-      return result;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to upload receipt');
       console.error('Error uploading receipt:', err);
@@ -105,19 +104,4 @@ export function useShopping() {
     deleteProduct,
     updateProduct,
   };
-}
-
-// Mock implementation for the React hooks since we can't import them directly
-function useState<T>(initialState: T): [T, (newState: T | ((prevState: T) => T)) => void] {
-  // This is a placeholder implementation
-  return [initialState, (newState) => {}];
-}
-
-function useCallback<T extends (...args: any[]) => any>(callback: T, deps: any[]): T {
-  // This is a placeholder implementation
-  return callback;
-}
-
-function useEffect(effect: () => void | (() => void), deps?: any[]): void {
-  // This is a placeholder implementation
 }

@@ -9,7 +9,7 @@ from typing import Dict, Optional, Union
 import jwt
 from passlib.context import CryptContext
 
-from ..config import settings
+from backend.config import settings
 
 logger = logging.getLogger(__name__)
 

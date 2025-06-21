@@ -5,11 +5,6 @@ import sys
 import uuid
 from contextlib import asynccontextmanager
 
-# Set User-Agent environment variable early to prevent warnings
-os.environ.setdefault(
-    "USER_AGENT", "FoodSave-AI/1.0.0 (https://github.com/foodsave-ai)"
-)
-
 import structlog
 from fastapi import APIRouter, BackgroundTasks, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -21,36 +16,47 @@ from sqlalchemy.sql import text
 from starlette.middleware.base import BaseHTTPMiddleware
 from structlog.contextvars import bind_contextvars, clear_contextvars
 
-from src.backend.agents.orchestrator_factory import create_orchestrator
-from src.backend.api import agents, chat, food, pantry, upload
-from src.backend.api.v1.endpoints import receipts
-from src.backend.api.v2.endpoints import rag as rag_v2
-from src.backend.api.v2.endpoints import receipts as receipts_v2
-from src.backend.api.v2.endpoints import weather as weather_v2
-from src.backend.api.v2.exceptions import APIErrorDetail, APIException
-from src.backend.config import settings
-from src.backend.core.container import Container
-from src.backend.core.exceptions import (
+from backend.agents.orchestrator_factory import create_orchestrator
+from backend.api import agents, chat, food, pantry, upload
+from backend.api.v1.endpoints import receipts
+from backend.api.v2.endpoints import rag as rag_v2
+from backend.api.v2.endpoints import receipts as receipts_v2
+from backend.api.v2.endpoints import weather as weather_v2
+from backend.api.v2.exceptions import APIErrorDetail, APIException
+from backend.config import settings
+from backend.core.container import Container
+from backend.core.database import AsyncSessionLocal
+from backend.core.exceptions import (
     BaseCustomException,
     convert_system_exception,
     log_exception_with_context,
 )
-from src.backend.core.middleware import CORSMiddleware as CustomCORSMiddleware
-from src.backend.core.middleware import (
+from backend.core.middleware import (
     ErrorHandlingMiddleware,
     PerformanceMonitoringMiddleware,
     RequestLoggingMiddleware,
     SecurityHeadersMiddleware,
 )
-from src.backend.core.migrations import run_migrations
-from src.backend.core.seed_data import seed_database
-from src.backend.infrastructure.database.database import AsyncSessionLocal, Base, engine
-from src.backend.orchestrator_management.orchestrator_pool import orchestrator_pool
-from src.backend.orchestrator_management.request_queue import request_queue
+from backend.core.migrations import run_migrations
+from backend.core.seed_data import seed_database
+from backend.core.telemetry import setup_telemetry
+from backend.infrastructure.database.database import (
+    AsyncSessionLocal as DBAsyncSessionLocal,
+    Base,
+    check_database_health,
+    engine,
+)
+from backend.orchestrator_management.orchestrator_pool import orchestrator_pool
+from backend.orchestrator_management.request_queue import request_queue
+
+# Set User-Agent environment variable early to prevent warnings
+os.environ.setdefault(
+    "USER_AGENT", "FoodSave-AI/1.0.0 (https://github.com/foodsave-ai)"
+)
 
 # Dodaj import klienta MMLW
 try:
-    from src.backend.core.mmlw_embedding_client import mmlw_client
+    from backend.core.mmlw_embedding_client import mmlw_client
 
     MMLW_AVAILABLE = True
 except ImportError:
@@ -169,6 +175,14 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             logger.error(f"Error initializing MMLW model at startup: {e}")
 
+    # Initialize cache manager
+    logger.info("Initializing cache manager...")
+    cache_connected = await cache_manager.connect()
+    if cache_connected:
+        logger.info("Cache manager initialized successfully")
+    else:
+        logger.warning("Cache manager not available - continuing without cache")
+
     # Initialize orchestrator pool and request queue (using global instances)
     logger.info("Initializing orchestrator pool and request queue...")
 
@@ -196,6 +210,24 @@ async def lifespan(app: FastAPI):
     asyncio.create_task(_process_request_queue(orchestrator_pool, request_queue))
     logger.info("Background request processing task started.")
 
+    # Start alert checker and system metrics collection
+    if settings.ENVIRONMENT != "test":
+        start_alert_checker()
+        logger.info("Alert checker started.")
+
+        # Start periodic system metrics collection
+        async def collect_system_metrics_periodic():
+            while True:
+                try:
+                    record_system_metrics()
+                    await asyncio.sleep(60)  # Collect every minute
+                except Exception as e:
+                    logger.error(f"Error collecting system metrics: {e}")
+                    await asyncio.sleep(60)
+
+        asyncio.create_task(collect_system_metrics_periodic())
+        logger.info("System metrics collection started.")
+
     logger.info(
         "Application startup complete. Orchestrator pool and request queue initialized."
     )
@@ -204,6 +236,7 @@ async def lifespan(app: FastAPI):
     # Cleanup on shutdown
     logger.info("Application shutdown initiated.")
     await orchestrator_pool.shutdown()
+    await cache_manager.disconnect()
     if hasattr(app.state, "request_queue_consumer_task"):
         app.state.request_queue_consumer_task.cancel()
         try:
@@ -229,7 +262,7 @@ app = FastAPI(
 
 # Add middleware in order of execution
 app.add_middleware(ErrorHandlingMiddleware)
-app.add_middleware(PerformanceMonitoringMiddleware, slow_request_threshold=1.0)
+app.add_middleware(PerformanceMonitoringMiddleware)
 app.add_middleware(RequestLoggingMiddleware, log_body=False, log_headers=True)
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(
@@ -388,9 +421,11 @@ async def _process_request_queue(pool, queue):
 @app.get("/health", tags=["Health"])
 async def health_check():
     """Basic health check"""
+    import time
+
     return {
         "status": "healthy",
-        "timestamp": asyncio.get_event_loop().time(),
+        "timestamp": time.time(),
         "version": settings.APP_VERSION,
         "environment": settings.ENVIRONMENT,
     }
@@ -412,6 +447,9 @@ async def ready_check():
             status for status in pool_health.values() if status["is_healthy"]
         ]
 
+        # Check cache health
+        cache_health = await cache_manager.health_check()
+
         if not available_orchestrators:
             return JSONResponse(
                 status_code=503,
@@ -419,6 +457,7 @@ async def ready_check():
                     "status": "not_ready",
                     "reason": "No healthy orchestrators available",
                     "orchestrator_health": pool_health,
+                    "cache_health": cache_health,
                 },
             )
 
@@ -427,6 +466,7 @@ async def ready_check():
             "database": "connected",
             "orchestrator_pool": pool_health,
             "available_orchestrators": len(available_orchestrators),
+            "cache": "connected" if cache_health else "disconnected",
         }
 
     except Exception as e:
@@ -472,7 +512,7 @@ def raise_error(type: str = "value"):
     if type == "value":
         raise ValueError("Test value error")
     elif type == "custom":
-        from src.backend.core.exceptions import ValidationError
+        from .core.exceptions import ValidationError
 
         raise ValidationError("Test custom error", field="test_field")
     else:
@@ -480,7 +520,7 @@ def raise_error(type: str = "value"):
 
 
 # Include routers
-app.include_router(agents.router, prefix="/api/v1/agents", tags=["Agents"])
+app.include_router(agents.router, tags=["Agents"])
 app.include_router(chat.router, prefix="/api/v1/chat", tags=["Chat"])
 app.include_router(food.router, prefix="/api/v1/food", tags=["Food"])
 app.include_router(pantry.router, prefix="/api/v1/pantry", tags=["Pantry"])
@@ -495,9 +535,198 @@ api_v2_router.include_router(weather_v2.router)
 app.include_router(api_v2_router)
 
 # Include backup management router
-from src.backend.api.v2.endpoints import backup
+from backend.api.v2.endpoints import backup
 
 app.include_router(backup.router, prefix="/api/v2", tags=["Backup Management"])
+
+from backend.core.alerting import (
+    alert_manager,
+    record_system_metrics,
+    start_alert_checker,
+)
+from backend.core.prometheus_metrics import get_metrics, get_metrics_dict
+
+# Import telemetry modules
+from backend.core.telemetry import instrument_fastapi, setup_telemetry
+
+# Setup telemetry
+if settings.ENVIRONMENT != "test":
+    setup_telemetry(
+        service_name="foodsave-ai-backend",
+        enable_jaeger=settings.ENVIRONMENT == "development",
+        enable_prometheus=True,
+        enable_console=settings.ENVIRONMENT == "development",
+    )
+    instrument_fastapi(app)
+
+
+# Metrics endpoints
+@app.get("/metrics", tags=["Monitoring"])
+async def metrics_endpoint():
+    """Prometheus metrics endpoint"""
+    from fastapi.responses import Response
+    from prometheus_client import CONTENT_TYPE_LATEST
+
+    return Response(content=get_metrics(), media_type=CONTENT_TYPE_LATEST)
+
+
+@app.get("/api/v1/metrics", tags=["Monitoring"])
+async def metrics_api():
+    """JSON metrics endpoint for API consumption"""
+    return {
+        "metrics": get_metrics_dict(),
+        "timestamp": asyncio.get_event_loop().time(),
+        "service": "foodsave-ai-backend",
+    }
+
+
+@app.get("/api/v1/status", tags=["Monitoring"])
+async def detailed_status():
+    """Detailed system status with all components"""
+    try:
+        # System metrics
+        from backend.core.prometheus_metrics import MetricsCollector
+
+        metrics_collector = MetricsCollector()
+        metrics_collector.collect_system_metrics()
+
+        # Database health
+        db_health = await check_database_health()
+
+        # Orchestrator pool health
+        pool_health = await orchestrator_pool.get_health_status()
+
+        # Cache health
+        cache_health = await cache_manager.health_check()
+
+        # LLM status
+        from backend.core.hybrid_llm_client import hybrid_llm_client
+
+        llm_status = hybrid_llm_client.get_models_status()
+
+        # Vector store status
+        from backend.core.vector_store import vector_store
+
+        vector_status = {
+            "index_type": vector_store.index_type,
+            "vector_count": (
+                len(vector_store.documents) if hasattr(vector_store, "documents") else 0
+            ),
+        }
+
+        return {
+            "status": "operational",
+            "timestamp": asyncio.get_event_loop().time(),
+            "version": settings.APP_VERSION,
+            "environment": settings.ENVIRONMENT,
+            "components": {
+                "database": db_health,
+                "orchestrator_pool": pool_health,
+                "cache": {"connected": cache_health},
+                "llm_models": llm_status,
+                "vector_store": vector_status,
+            },
+            "metrics": get_metrics_dict(),
+        }
+
+    except Exception as e:
+        logger.error("Detailed status check failed", error=str(e))
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "degraded",
+                "error": str(e),
+                "timestamp": asyncio.get_event_loop().time(),
+            },
+        )
+
+
+# Alert endpoints
+@app.get("/api/v1/alerts", tags=["Monitoring"])
+async def get_alerts():
+    """Get all active alerts"""
+    return {
+        "active_alerts": [
+            {
+                "id": alert.id,
+                "rule_name": alert.rule.name,
+                "severity": alert.rule.severity.value,
+                "value": alert.value,
+                "threshold": alert.rule.threshold,
+                "message": alert.message,
+                "timestamp": alert.timestamp.isoformat(),
+                "status": alert.status.value,
+            }
+            for alert in alert_manager.get_active_alerts()
+        ],
+        "stats": alert_manager.get_alert_stats(),
+    }
+
+
+@app.get("/api/v1/alerts/history", tags=["Monitoring"])
+async def get_alert_history(hours: int = 24):
+    """Get alert history for last N hours"""
+    return {
+        "alerts": [
+            {
+                "id": alert.id,
+                "rule_name": alert.rule.name,
+                "severity": alert.rule.severity.value,
+                "value": alert.value,
+                "threshold": alert.rule.threshold,
+                "message": alert.message,
+                "timestamp": alert.timestamp.isoformat(),
+                "status": alert.status.value,
+                "acknowledged_by": alert.acknowledged_by,
+                "resolved_at": (
+                    alert.resolved_at.isoformat() if alert.resolved_at else None
+                ),
+            }
+            for alert in alert_manager.get_alert_history(hours)
+        ]
+    }
+
+
+@app.post("/api/v1/alerts/{rule_name}/acknowledge", tags=["Monitoring"])
+async def acknowledge_alert(rule_name: str, user: str = "admin"):
+    """Acknowledge an alert"""
+    alert_manager.acknowledge_alert(rule_name, user)
+    return {"message": f"Alert {rule_name} acknowledged by {user}"}
+
+
+@app.post("/api/v1/alerts/{rule_name}/resolve", tags=["Monitoring"])
+async def resolve_alert(rule_name: str):
+    """Resolve an alert"""
+    alert_manager.resolve_alert(rule_name)
+    return {"message": f"Alert {rule_name} resolved"}
+
+
+@app.post("/api/v1/alerts/rules", tags=["Monitoring"])
+async def add_alert_rule(rule_data: dict):
+    """Add a new alert rule"""
+    from backend.core.alerting import AlertRule, AlertSeverity
+
+    rule = AlertRule(
+        name=rule_data["name"],
+        description=rule_data["description"],
+        metric_name=rule_data["metric_name"],
+        threshold=rule_data["threshold"],
+        operator=rule_data["operator"],
+        severity=AlertSeverity(rule_data["severity"]),
+        duration=rule_data.get("duration", 60),
+        cooldown=rule_data.get("cooldown", 300),
+    )
+
+    alert_manager.add_rule(rule)
+    return {"message": f"Alert rule {rule.name} added"}
+
+
+@app.delete("/api/v1/alerts/rules/{rule_name}", tags=["Monitoring"])
+async def remove_alert_rule(rule_name: str):
+    """Remove an alert rule"""
+    alert_manager.remove_rule(rule_name)
+    return {"message": f"Alert rule {rule_name} removed"}
+
 
 if __name__ == "__main__":
     import uvicorn

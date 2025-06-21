@@ -5,8 +5,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload  # <--- Kluczowy import!
 
-from ..models.shopping import Product, ShoppingTrip
-from ..schemas import shopping_schemas
+from backend.models.shopping import Product, ShoppingTrip
+from backend.schemas import shopping_schemas
 
 
 async def create_shopping_trip(

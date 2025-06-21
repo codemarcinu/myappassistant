@@ -1,10 +1,10 @@
 import logging
 from typing import Any, Dict
 
-from src.backend.agents.agent_factory import AgentFactory
-from src.backend.agents.agent_registry import AgentRegistry
-from src.backend.agents.error_types import AgentError, AgentProcessingError
-from src.backend.agents.interfaces import AgentResponse
+from .agent_factory import AgentFactory
+from .agent_registry import AgentRegistry
+from .error_types import AgentError, AgentProcessingError
+from .interfaces import AgentResponse
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)

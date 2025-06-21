@@ -7,9 +7,8 @@ Agent obsługujący swobodne konwersacje na dowolny temat z wykorzystaniem:
 - Bielika jako głównego modelu językowego
 """
 
-import asyncio
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 
 from ..core.decorators import handle_exceptions
 from ..core.hybrid_llm_client import ModelComplexity, hybrid_llm_client
@@ -130,7 +129,7 @@ class GeneralConversationAgent(BaseAgent):
         """Pobiera kontekst z RAG (dokumenty i baza danych)"""
         try:
             # Pobierz dokumenty z RAG
-            documents = await vector_store.search(query, limit=3)
+            documents = await vector_store.search(query, k=3)
 
             # Pobierz dane z bazy danych (zakupy, przepisy, etc.)
             db_context = await self.rag_integration.get_relevant_context(query)

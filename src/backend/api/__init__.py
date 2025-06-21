@@ -4,3 +4,6 @@ import os
 os.environ.setdefault(
     "USER_AGENT", "FoodSave-AI/1.0.0 (https://github.com/foodsave-ai)"
 )
+
+# Export modules for easy importing
+from . import agents

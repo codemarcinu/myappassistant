@@ -15,7 +15,7 @@ export function BottomNavigation() {
   const pathname = usePathname();
 
   return (
-    <div className="fixed bottom-0 left-0 z-50 w-full h-16 bg-background border-t">
+    <div className="fixed bottom-0 left-0 z-50 w-full h-16 bg-background border-t" data-testid="mobile-navigation">
       <div className="grid h-full max-w-lg grid-cols-4 mx-auto font-medium">
         {navigationItems.map(({ path, icon: Icon, label }) => {
           const isActive = pathname === path;

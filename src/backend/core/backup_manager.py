@@ -9,26 +9,22 @@ Implements comprehensive backup strategy following the 3-2-1 rule:
 Based on industry best practices from SimpleBackups and ConnectWise.
 """
 
-import asyncio
 import hashlib
 import json
 import logging
 import os
 import shutil
-import sqlite3
 import tarfile
 import zipfile
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 import aiofiles
-import aiohttp
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..config import settings
-from .database import AsyncSessionLocal
+from backend.config import settings
+from backend.core.database import AsyncSessionLocal
 
 logger = logging.getLogger(__name__)
 
@@ -179,9 +175,6 @@ class BackupManager:
 
                     # Create INSERT statements
                     if rows:
-                        column_names = [col[1] for col in columns]
-                        placeholders = ", ".join(["?" for _ in column_names])
-
                         backup_sql.append(f"-- Table: {table}")
                         backup_sql.append(f"CREATE TABLE IF NOT EXISTS {table} (")
 
@@ -810,8 +803,7 @@ class BackupManager:
         try:
             # Read configuration
             async with aiofiles.open(backup_file, "r", encoding="utf-8") as f:
-                config_content = await f.read()
-                config_data = json.loads(config_content)
+                await f.read()
 
             # Apply configuration (this would need to be implemented based on your config system)
             logger.info("Configuration restored (manual verification required)")

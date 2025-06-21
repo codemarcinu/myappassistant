@@ -6,24 +6,14 @@ Provides core functionality for all agent types.
 import json
 import logging
 from abc import ABC, abstractmethod
-from typing import (
-    Any,
-    AsyncGenerator,
-    Callable,
-    Dict,
-    Generic,
-    List,
-    Optional,
-    TypeVar,
-    Union,
-)
+from typing import Any, AsyncGenerator, Callable, Dict, Generic, List, Optional, TypeVar
 
 from pydantic import BaseModel, ValidationError
 
-from ..core.hybrid_llm_client import hybrid_llm_client
-from .interfaces import AgentResponse
-from .interfaces import BaseAgent as IBaseAgent
-from .interfaces import ErrorSeverity, IntentData, MemoryContext
+from backend.agents.interfaces import AgentResponse
+from backend.agents.interfaces import BaseAgent as IBaseAgent
+from backend.agents.interfaces import ErrorSeverity
+from backend.core.hybrid_llm_client import hybrid_llm_client
 
 T = TypeVar("T", bound=BaseModel)
 logger = logging.getLogger(__name__)

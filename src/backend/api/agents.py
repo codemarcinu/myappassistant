@@ -14,29 +14,26 @@ from fastapi import (
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession  # type: ignore
 
-from src.backend.agents.agent_registry import agent_registry
-from src.backend.agents.interfaces import AgentType
-
-# Import orchestrator instance
-from src.backend.agents.orchestrator import Orchestrator
-from src.backend.agents.orchestrator_factory import create_orchestrator
-from src.backend.api.food import get_db
-from src.backend.config import settings
-from src.backend.core.database import AsyncSessionLocal
+from backend.agents.agent_registry import agent_registry
+from backend.agents.interfaces import AgentType
+from backend.agents.orchestrator_factory import create_orchestrator
+from backend.api.food import get_db
+from backend.config import settings
+from backend.core.database import AsyncSessionLocal
 
 # Import MMLW client
 try:
-    from src.backend.core.mmlw_embedding_client import mmlw_client
+    from backend.core.mmlw_embedding_client import mmlw_client
 
     MMLW_AVAILABLE = True
 except ImportError:
     MMLW_AVAILABLE = False
 
-from src.backend.core.perplexity_client import perplexity_client
+from backend.core.perplexity_client import perplexity_client
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/agents", tags=["agents"])
+router = APIRouter(prefix="/api", tags=["agents"])
 
 
 class OrchestratorRequest(BaseModel):
@@ -57,7 +54,7 @@ class AgentResponse(BaseModel):
     conversation_state: Optional[Dict[str, Any]] = None
 
 
-@router.post("/agents/execute", response_model=AgentResponse)
+@router.post("/agents/agents/execute", response_model=AgentResponse)
 async def execute_orchestrator_task(
     request: OrchestratorRequest,
     db: AsyncSession = Depends(get_db),

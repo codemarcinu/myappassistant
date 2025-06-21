@@ -1,9 +1,9 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.backend.domain.repositories import FoodItemRepository, UserRepository
-from src.backend.models.shopping import Product
-from src.backend.models.user_profile import UserProfile
+from backend.domain.repositories import FoodItemRepository, UserRepository
+from backend.models.shopping import Product
+from backend.models.user_profile import UserProfile
 
 
 class SQLAlchemyUserRepository(UserRepository):

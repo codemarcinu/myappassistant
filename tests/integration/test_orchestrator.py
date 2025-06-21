@@ -1,8 +1,8 @@
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from backend.agents.base_agent import AgentResponse
+from backend.agents.interfaces import AgentResponse
 from backend.agents.orchestration_components import IntentData, MemoryContext
 from backend.agents.orchestrator import Orchestrator
 

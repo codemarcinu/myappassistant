@@ -2,17 +2,8 @@
 MMLW Embedding Client - specjalizowany klient dla polskiego modelu embeddingów
 """
 
-import asyncio
 import logging
-import os
-from typing import Any, Dict, List, Optional
-
-import numpy as np
-
-# Set User-Agent for transformers library
-os.environ.setdefault(
-    "USER_AGENT", "FoodSave-AI/1.0.0 (https://github.com/foodsave-ai)"
-)
+from typing import Any, Dict, List
 
 try:
     import torch

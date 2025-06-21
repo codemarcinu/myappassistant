@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models.shopping import Product, ShoppingTrip
+from backend.models.shopping import Product, ShoppingTrip
 
 logger = logging.getLogger(__name__)
 

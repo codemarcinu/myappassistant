@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, validator
 from sqlalchemy import JSON, Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
-from ..core.database import Base
+from backend.core.database import Base
 
 # Removed unused import
 
@@ -98,13 +98,14 @@ class UserActivity(Base):
         JSON, nullable=True
     )  # Zmieniono z 'metadata' na 'activity_metadata'
 
-    user = relationship("UserProfile", back_populates="activities")
+    user = relationship("UserProfile", back_populates="activities", lazy="selectin")
 
 
 class UserProfile(Base):
     """Database model for user profiles"""
 
     __tablename__ = "user_profiles"
+    __table_args__ = {"extend_existing": True}
 
     user_id = Column(String, primary_key=True, index=True)
     session_id = Column(String, unique=True, index=True, nullable=False)
@@ -117,7 +118,10 @@ class UserProfile(Base):
     topics_of_interest = Column(JSON, nullable=False, default=list)
 
     activities = relationship(
-        "UserActivity", back_populates="user", cascade="all, delete-orphan"
+        "UserActivity",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        lazy="selectin",
     )
 
     def get_preferences(self) -> UserPreferences:

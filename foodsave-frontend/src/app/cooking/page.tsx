@@ -43,14 +43,7 @@ export default function CookingPage() {
           <CardTitle>Asystent Gotowania</CardTitle>
         </CardHeader>
         <CardContent className="flex-grow">
-          <CookingChat
-            pantryItems={pantryItems}
-            onSendMessage={sendCookingMessage}
-            messages={messages}
-            isLoading={isLoading}
-            usePerplexity={usePerplexity}
-            onTogglePerplexity={togglePerplexity}
-          />
+          <CookingChat />
         </CardContent>
       </Card>
     </div>
