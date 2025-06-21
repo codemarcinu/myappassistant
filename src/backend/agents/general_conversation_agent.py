@@ -52,20 +52,22 @@ class GeneralConversationAgent(BaseAgent):
                 f"[GeneralConversationAgent] Processing query: {query[:100]}... use_perplexity={use_perplexity}, use_bielik={use_bielik}"
             )
 
-            # 1. Sprawdź czy potrzebujemy informacji z internetu
-            needs_internet_search = await self._needs_internet_search(query)
+            # 1. Zawsze próbuj pobrać kontekst z RAG
+            rag_context, rag_confidence = await self._get_rag_context(query)
+            logger.info(f"RAG context confidence: {rag_confidence}")
 
-            # 2. Pobierz informacje z RAG (dokumenty i baza danych)
-            rag_context = await self._get_rag_context(query)
-
-            # 3. Pobierz informacje z internetu jeśli potrzebne
+            # 2. Decyzja o przeszukaniu internetu
             internet_context = ""
-            if needs_internet_search:
+            # Jeśli pewność RAG jest niska, szukaj w internecie
+            if rag_confidence < 0.75:  # Próg pewności
+                logger.info(
+                    f"RAG confidence is low ({rag_confidence}), searching internet."
+                )
                 internet_context = await self._get_internet_context(
                     query, use_perplexity
                 )
 
-            # 4. Wygeneruj odpowiedź z wykorzystaniem wszystkich źródeł
+            # 3. Wygeneruj odpowiedź z wykorzystaniem wszystkich źródeł
             response = await self._generate_response(
                 query, rag_context, internet_context, use_perplexity, use_bielik
             )
@@ -77,6 +79,7 @@ class GeneralConversationAgent(BaseAgent):
                     "query": query,
                     "used_rag": bool(rag_context),
                     "used_internet": bool(internet_context),
+                    "rag_confidence": rag_confidence,
                     "use_perplexity": use_perplexity,
                     "use_bielik": use_bielik,
                     "session_id": session_id,
@@ -91,45 +94,19 @@ class GeneralConversationAgent(BaseAgent):
                 text="Przepraszam, wystąpił błąd podczas przetwarzania Twojego zapytania.",
             )
 
-    async def _needs_internet_search(self, query: str) -> bool:
-        """Sprawdza czy zapytanie wymaga informacji z internetu"""
-        # Słowa kluczowe wskazujące na potrzebę aktualnych informacji
-        internet_keywords = [
-            "aktualnie",
-            "obecnie",
-            "dzisiaj",
-            "wczoraj",
-            "ostatnio",
-            "niedawno",
-            "currently",
-            "today",
-            "yesterday",
-            "recently",
-            "latest",
-            "news",
-            "aktualności",
-            "wydarzenia",
-            "events",
-            "nowości",
-            "updates",
-            "cena",
-            "price",
-            "kurs",
-            "rate",
-            "pogoda",
-            "weather",
-            "prognoza",
-            "forecast",
-        ]
-
-        query_lower = query.lower()
-        return any(keyword in query_lower for keyword in internet_keywords)
-
-    async def _get_rag_context(self, query: str) -> str:
-        """Pobiera kontekst z RAG (dokumenty i baza danych)"""
+    async def _get_rag_context(self, query: str) -> (str, float):
+        """Pobiera kontekst z RAG i ocenia jego pewność."""
         try:
             # Pobierz dokumenty z RAG
-            documents = await vector_store.search(query, k=3)
+            documents = await vector_store.search(query, k=3, min_similarity=0.7)
+
+            if not documents:
+                return "", 0.0
+
+            # Oblicz średnią pewność
+            avg_confidence = sum(doc.get("similarity", 0) for doc in documents) / len(
+                documents
+            )
 
             # Pobierz dane z bazy danych (zakupy, przepisy, etc.)
             db_context = await self.rag_integration.get_relevant_context(query)
@@ -138,7 +115,9 @@ class GeneralConversationAgent(BaseAgent):
 
             if documents:
                 doc_texts = [
-                    doc.get("content", "") for doc in documents if doc.get("content")
+                    f"- {doc.get('content', '')} (Źródło: {doc.get('metadata', {}).get('filename', 'Brak nazwy')})"
+                    for doc in documents
+                    if doc.get("content")
                 ]
                 if doc_texts:
                     context_parts.append("Dokumenty:\n" + "\n".join(doc_texts[:2]))
@@ -146,11 +125,11 @@ class GeneralConversationAgent(BaseAgent):
             if db_context:
                 context_parts.append("Dane z bazy:\n" + db_context)
 
-            return "\n\n".join(context_parts) if context_parts else ""
+            return "\n\n".join(context_parts) if context_parts else "", avg_confidence
 
         except Exception as e:
             logger.warning(f"Error getting RAG context: {str(e)}")
-            return ""
+            return "", 0.0
 
     async def _get_internet_context(self, query: str, use_perplexity: bool) -> str:
         """Pobiera informacje z internetu"""

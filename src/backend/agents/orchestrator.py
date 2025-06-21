@@ -226,6 +226,49 @@ class Orchestrator:
                 f"Detected intent: {intent.type} (confidence: {intent.confidence})"
             )
 
+            # Nowa logika: Modyfikacja intencji na podstawie agent_states
+            if agent_states:
+                logger.info(f"Applying agent states: {agent_states}")
+                original_intent = intent.type
+
+                # Priorytet dla trybu zakupów
+                if (
+                    agent_states.get("shopping")
+                    and intent.type != "shopping_conversation"
+                ):
+                    intent.type = "shopping_conversation"
+                    logger.info(
+                        f"Overriding intent to 'shopping_conversation' due to active toggle."
+                    )
+
+                # Priorytet dla trybu gotowania
+                elif agent_states.get("cooking") and intent.type != "food_conversation":
+                    intent.type = "food_conversation"
+                    logger.info(
+                        f"Overriding intent to 'food_conversation' due to active toggle."
+                    )
+
+                # Sprawdzenie, czy wykryta intencja jest dozwolona
+                is_shopping_intent = "shopping" in intent.type
+                is_cooking_intent = "food" in intent.type
+
+                if (is_shopping_intent and not agent_states.get("shopping")) or (
+                    is_cooking_intent and not agent_states.get("cooking")
+                ):
+
+                    if is_shopping_intent:
+                        required_mode = "Tryb Zakupów"
+                    else:
+                        required_mode = "Tryb Kuchenny"
+
+                    error_message = (
+                        f"Aby kontynuować, włącz {required_mode} w ustawieniach czatu."
+                    )
+                    logger.warning(
+                        f"Intent '{intent.type}' blocked by agent_states. Message: {error_message}"
+                    )
+                    return AgentResponse(success=True, text=error_message)
+
             # 4. Route to agent with circuit breaker
             try:
                 if self.agent_router is None:

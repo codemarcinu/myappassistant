@@ -238,6 +238,9 @@ class ApiServiceClass {
       const response: AxiosResponse<T> = await this.client(config);
       return response.data;
     } catch (error) {
+      if (axios.isCancel(error)) {
+        throw new ApiError('Request was cancelled', undefined, 'ABORTED', false);
+      }
       if (error instanceof ApiError) {
         throw error;
       }
@@ -403,8 +406,12 @@ class ApiServiceClass {
         } finally {
           reader.releaseLock();
         }
+        // If we streamed the response, we can't read it again.
+        // The data has been handled by the onChunk callback.
+        return;
       }
 
+      // If not streaming, parse the whole response.
       const data = await response.json();
       return data;
     } catch (error) {

@@ -1,7 +1,9 @@
+import logging
 from datetime import datetime, time
 from typing import Dict, List, Optional, Union
 
 import pytz
+from sqlalchemy.exc import SQLAlchemyError
 
 from backend.models.user_profile import (
     InteractionType,
@@ -9,6 +11,8 @@ from backend.models.user_profile import (
     UserProfileData,
     UserSchedule,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class ProfileManager:
@@ -20,72 +24,81 @@ class ProfileManager:
 
     async def get_or_create_profile(self, session_id: str) -> UserProfileData:
         """Get or create a user profile for session"""
-        # Check if we have it in memory
         if session_id in self.active_sessions:
             return self.active_sessions[session_id]
 
-        # Look up in database
-        from backend.core.crud import create_user_profile, get_user_profile_by_session
+        try:
+            from backend.core.crud import (
+                create_user_profile,
+                get_user_profile_by_session,
+            )
 
-        profile = await get_user_profile_by_session(self.db, session_id)
-        if not profile:
-            # Create a new profile
-            user_id = f"user_{datetime.now().strftime('%Y%m%d%H%M%S')}"
-            profile = await create_user_profile(self.db, user_id, session_id)
+            profile = await get_user_profile_by_session(self.db, session_id)
+            if not profile:
+                user_id = f"user_{datetime.now().strftime('%Y%m%d%H%M%S')}"
+                profile = await create_user_profile(self.db, user_id, session_id)
 
-        # Convert to UserProfileData
-        profile_data = UserProfileData(
-            user_id=profile.user_id,
-            preferences=UserPreferences.parse_obj(profile.preferences),
-            schedule=UserSchedule.parse_obj(profile.schedule),
-            topics_of_interest=profile.topics_of_interest,
-            last_active=profile.last_active,
-        )
-
-        # Cache in memory
-        self.active_sessions[session_id] = profile_data
-
-        return profile_data
+            profile_data = UserProfileData(
+                user_id=profile.user_id,
+                preferences=UserPreferences.parse_obj(profile.preferences or {}),
+                schedule=UserSchedule.parse_obj(profile.schedule or {}),
+                topics_of_interest=profile.topics_of_interest or [],
+                last_active=profile.last_active,
+            )
+            self.active_sessions[session_id] = profile_data
+            return profile_data
+        except SQLAlchemyError as e:
+            logger.error(f"Database error getting/creating profile: {e}", exc_info=True)
+            raise  # Re-raise to be caught by the calling agent
+        except Exception as e:
+            logger.error(
+                f"Unexpected error in get_or_create_profile: {e}", exc_info=True
+            )
+            raise
 
     async def update_preferences(
         self, session_id: str, preferences: Union[UserPreferences, Dict]
     ) -> UserProfileData:
         """Update user preferences"""
-        profile_data = await self.get_or_create_profile(session_id)
+        try:
+            profile_data = await self.get_or_create_profile(session_id)
+            if isinstance(preferences, dict):
+                preferences = UserPreferences(**preferences)
+            profile_data.preferences = preferences
 
-        # Convert dict to model if needed
-        if isinstance(preferences, dict):
-            preferences = UserPreferences(**preferences)
+            from backend.core.crud import update_user_preferences
 
-        # Update in memory
-        profile_data.preferences = preferences
-
-        # Update in database
-        from backend.core.crud import update_user_preferences
-
-        await update_user_preferences(self.db, profile_data.user_id, preferences.dict())
-
-        return profile_data
+            await update_user_preferences(
+                self.db, profile_data.user_id, preferences.dict()
+            )
+            return profile_data
+        except SQLAlchemyError as e:
+            logger.error(f"Database error updating preferences: {e}", exc_info=True)
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error in update_preferences: {e}", exc_info=True)
+            raise
 
     async def update_schedule(
         self, session_id: str, schedule: Union[UserSchedule, Dict]
     ) -> UserProfileData:
         """Update user schedule"""
-        profile_data = await self.get_or_create_profile(session_id)
+        try:
+            profile_data = await self.get_or_create_profile(session_id)
+            if isinstance(schedule, dict):
+                schedule = UserSchedule(**schedule)
+            profile_data.schedule = schedule
 
-        # Convert dict to model if needed
-        if isinstance(schedule, dict):
-            schedule = UserSchedule(**schedule)
+            from backend.core.crud import update_user_schedule
 
-        # Update in memory
-        profile_data.schedule = schedule
-
-        # Update in database
-        from backend.core.crud import update_user_schedule
-
-        await update_user_schedule(self.db, profile_data.user_id, schedule.dict())
-
-        return profile_data
+            await update_user_schedule(self.db, profile_data.user_id, schedule.dict())
+            return profile_data
+        except SQLAlchemyError as e:
+            logger.error(f"Database error updating schedule: {e}", exc_info=True)
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error in update_schedule: {e}", exc_info=True)
+            raise
 
     async def log_activity(
         self,
@@ -95,19 +108,23 @@ class ProfileManager:
         metadata: Optional[Dict] = None,
     ) -> None:
         """Log user activity for analysis"""
-        profile_data = await self.get_or_create_profile(session_id)
+        try:
+            profile_data = await self.get_or_create_profile(session_id)
+            from backend.core.user_activity import create_user_activity
 
-        # Create activity record
-        from backend.core.user_activity import create_user_activity
+            await create_user_activity(
+                self.db, profile_data.user_id, interaction_type, content, metadata
+            )
 
-        await create_user_activity(
-            self.db, profile_data.user_id, interaction_type, content, metadata
-        )
-
-        # Update activity stats in memory
-        if interaction_type.value not in profile_data.activity_stats:
-            profile_data.activity_stats[interaction_type.value] = 0
-        profile_data.activity_stats[interaction_type.value] += 1
+            if interaction_type.value not in profile_data.activity_stats:
+                profile_data.activity_stats[interaction_type.value] = 0
+            profile_data.activity_stats[interaction_type.value] += 1
+        except SQLAlchemyError as e:
+            logger.error(f"Database error logging activity: {e}", exc_info=True)
+            # Don't re-raise here, logging activity is not critical
+        except Exception as e:
+            logger.error(f"Unexpected error in log_activity: {e}", exc_info=True)
+            # Also not critical
 
     async def get_personalized_suggestions(
         self, session_id: str, current_time: Optional[datetime] = None
@@ -169,50 +186,50 @@ class ProfileManager:
 
     async def analyze_interests(self, session_id: str) -> List[str]:
         """Analyze user activities to determine interests"""
-        from backend.core.crud import get_user_activities
+        try:
+            from backend.core.crud import get_user_activities
 
-        profile_data = await self.get_or_create_profile(session_id)
+            profile_data = await self.get_or_create_profile(session_id)
+            activities = await get_user_activities(
+                self.db, profile_data.user_id, limit=50
+            )
 
-        # Get recent activities
-        activities = await get_user_activities(self.db, profile_data.user_id, limit=50)
+            interest_counters: Dict[str, int] = {}
+            for activity in activities:
+                if (
+                    activity.interaction_type == InteractionType.QUERY.value
+                    and activity.content
+                ):
+                    words = activity.content.lower().split()
+                    for word in words:
+                        if len(word) > 3 and word not in [
+                            "czym",
+                            "jaki",
+                            "jaka",
+                            "jakie",
+                            "gdzie",
+                            "kiedy",
+                        ]:
+                            if word in interest_counters:
+                                interest_counters[word] += 1
+                            else:
+                                interest_counters[word] = 1
 
-        # Simple keyword extraction from queries
-        interest_counters: Dict[str, int] = {}
+            sorted_interests = sorted(
+                interest_counters.items(), key=lambda x: x[1], reverse=True
+            )
+            top_interests = [word for word, count in sorted_interests[:10] if count > 1]
 
-        for activity in activities:
-            if (
-                activity.interaction_type == InteractionType.QUERY.value
-                and activity.content
-            ):
-                # Extract possible interests from queries
-                words = activity.content.lower().split()
-                for word in words:
-                    if len(word) > 3 and word not in [
-                        "czym",
-                        "jaki",
-                        "jaka",
-                        "jakie",
-                        "gdzie",
-                        "kiedy",
-                    ]:
-                        if word in interest_counters:
-                            interest_counters[word] += 1
-                        else:
-                            interest_counters[word] = 1
+            if top_interests:
+                profile_data.topics_of_interest = top_interests
+                from backend.core.crud import update_user_topics
 
-        # Find top interests
-        sorted_interests = sorted(
-            interest_counters.items(), key=lambda x: x[1], reverse=True
-        )
-        top_interests = [word for word, count in sorted_interests[:10] if count > 1]
+                await update_user_topics(self.db, profile_data.user_id, top_interests)
 
-        # Update topics of interest
-        if top_interests:
-            profile_data.topics_of_interest = top_interests
-
-            # Update in database
-            from backend.core.crud import update_user_topics
-
-            await update_user_topics(self.db, profile_data.user_id, top_interests)
-
-        return profile_data.topics_of_interest
+            return profile_data.topics_of_interest
+        except SQLAlchemyError as e:
+            logger.error(f"Database error analyzing interests: {e}", exc_info=True)
+            return []  # Return empty list on DB error
+        except Exception as e:
+            logger.error(f"Unexpected error in analyze_interests: {e}", exc_info=True)
+            return []

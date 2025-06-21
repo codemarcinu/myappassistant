@@ -25,17 +25,25 @@ class ProcessQueryUseCase:
 
     async def execute(self, query: str, user_id: str) -> Dict[str, Any]:
         """Execute query processing use case"""
+        logger.info(f"Starting query processing for user_id: {user_id}")
         try:
             # Get user context
+            logger.info(f"Fetching user: {user_id}")
             user = await self.user_repository.get_by_id(user_id)
             if not user:
+                logger.warning(f"User not found: {user_id}")
                 return {"success": False, "error": "User not found", "query": query}
+            logger.info(f"User found: {user.username}")
 
             # Get relevant documents from vector store
+            logger.info("Fetching relevant documents from vector store")
             relevant_docs = await self.vector_store.get_relevant_documents(query)
+            logger.info(f"Found {len(relevant_docs)} relevant documents")
 
             # Get user's food items
+            logger.info(f"Fetching food items for user: {user_id}")
             food_items = await self.food_item_repository.get_by_user_id(user_id)
+            logger.info(f"Found {len(food_items)} food items")
 
             # Create context for LLM
             context = {
@@ -46,6 +54,7 @@ class ProcessQueryUseCase:
             }
 
             # Generate response using LLM
+            logger.info("Generating response from LLM")
             messages = [
                 {
                     "role": "system",
@@ -55,6 +64,7 @@ class ProcessQueryUseCase:
             ]
 
             response = await self.llm_client.chat(messages)
+            logger.info("LLM response generated successfully")
 
             return {
                 "success": True,
@@ -66,7 +76,9 @@ class ProcessQueryUseCase:
             }
 
         except Exception as e:
-            logger.error(f"Error processing query: {e}")
+            logger.error(
+                f"Error processing query for user {user_id}: {e}", exc_info=True
+            )
             return {
                 "success": False,
                 "error": str(e),

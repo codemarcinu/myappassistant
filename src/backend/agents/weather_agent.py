@@ -29,9 +29,19 @@ class WeatherProvider(BaseModel):
 
     name: str
     api_key: Optional[str] = None
+    api_key_env_var: Optional[str] = None
     base_url: str
     enabled: bool = True
+    priority: int = 1
+    last_success: Optional[datetime] = None
+    last_error: Optional[str] = None
+    error_count: int = 0
     model_config: dict = {"extra": "allow"}
+
+    @property
+    def is_enabled(self) -> bool:
+        """Check if provider is enabled and has API key"""
+        return self.enabled and bool(self.api_key)
 
 
 class WeatherRequest(BaseModel):
@@ -95,31 +105,54 @@ class WeatherAgent(BaseAgent):
         """Initialize weather data providers"""
         providers = [
             WeatherProvider(
-                name="weatherapi",
-                api_key_env_var="WEATHER_API_KEY",
-                base_url="https://api.weatherapi.com/v1",
-                priority=1,
-            ),
-            WeatherProvider(
                 name="openweathermap",
                 api_key_env_var="OPENWEATHER_API_KEY",
                 base_url="https://api.openweathermap.org/data/2.5",
-                priority=2,
+                priority=1,  # Najwyższy priorytet
+            ),
+            WeatherProvider(
+                name="weatherapi",
+                api_key_env_var="WEATHER_API_KEY",
+                base_url="https://api.weatherapi.com/v1",
+                priority=2,  # Fallback
+            ),
+            WeatherProvider(
+                name="mock",
+                base_url="",
+                priority=3,  # Najniższy priorytet - fallback
             ),
         ]
 
         # Populate API keys from environment variables
         for provider in providers:
+            if provider.name == "mock":
+                # Mock provider doesn't need API key
+                provider.api_key = "mock_key"
+                continue
+
             if provider.api_key_env_var == "WEATHER_API_KEY":
                 provider.api_key = settings.WEATHER_API_KEY
             elif provider.api_key_env_var == "OPENWEATHER_API_KEY":
                 provider.api_key = settings.OPENWEATHER_API_KEY
+                if (
+                    provider.api_key
+                    and provider.api_key != "your_openweather_api_key_here"
+                ):
+                    logger.info(f"OpenWeatherMap API key configured successfully")
+                else:
+                    logger.warning(
+                        f"OpenWeatherMap API key not configured or using placeholder"
+                    )
             else:
                 provider.api_key = os.environ.get(provider.api_key_env_var)
 
             if not provider.api_key:
-                provider.is_enabled = False
+                provider.enabled = False
                 logger.warning(f"No API key found for {provider.name}, disabling")
+            else:
+                logger.info(
+                    f"Provider {provider.name} is enabled with priority {provider.priority}"
+                )
 
         return sorted(providers, key=lambda p: p.priority)
 
@@ -173,6 +206,10 @@ class WeatherAgent(BaseAgent):
                         )
                     elif provider.name == "openweathermap":
                         weather_data = await self._fetch_openweathermap(
+                            location, 3, include_alerts
+                        )
+                    elif provider.name == "mock":
+                        weather_data = await self._fetch_mock_weather(
                             location, 3, include_alerts
                         )
 
@@ -695,4 +732,49 @@ class WeatherAgent(BaseAgent):
 
     async def _get_coordinates(self, city: str) -> Optional[Dict[str, float]]:
         """Pobiera współrzędne dla danego miasta."""
-        # ... existing code ...
+        # For now, return None as this is not implemented
+        # In a full implementation, this would use a geocoding service
+        # like OpenStreetMap Nominatim or Google Geocoding API
+        return None
+
+    async def _fetch_mock_weather(
+        self, location: str, days: int = 3, include_alerts: bool = True
+    ) -> Optional[WeatherData]:
+        """Fetch mock weather data for demonstration purposes"""
+        from datetime import datetime, timedelta
+
+        # Generate current weather data
+        current_weather = {
+            "temp_c": 22.5,
+            "feelslike_c": 24.0,
+            "humidity": 65,
+            "pressure_mb": 1013,
+            "wind_kph": 12,
+            "wind_dir": "SW",
+            "condition": "Partly cloudy",
+            "uv": 5,
+        }
+
+        # Generate forecast data
+        forecast = []
+        for i in range(days):
+            date = (datetime.now() + timedelta(days=i)).strftime("%Y-%m-%d")
+            day_forecast = {
+                "date": date,
+                "max_temp_c": 25 + i,
+                "min_temp_c": 18 + i,
+                "condition": "Partly cloudy" if i % 2 == 0 else "Sunny",
+                "chance_of_rain": 20 if i % 2 == 0 else 10,
+            }
+            forecast.append(day_forecast)
+
+        # Generate mock alerts (empty for now)
+        alerts = []
+
+        return WeatherData(
+            location=location,
+            current=current_weather,
+            forecast=forecast,
+            alerts=alerts,
+            provider="mock",
+        )

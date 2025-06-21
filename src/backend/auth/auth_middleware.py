@@ -30,6 +30,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
             "/auth/refresh",
             "/health",
             "/ready",
+            "/api/v2/weather",  # Weather endpoint doesn't require authentication
         ]
 
     async def dispatch(self, request: Request, call_next):

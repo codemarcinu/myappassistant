@@ -1,7 +1,7 @@
 'use client';
 import React, { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/Card';
-import { ApiService } from '@/services/ApiService';
+import { ApiService, ApiError } from '@/services/ApiService';
 
 interface WeatherData {
   location: string;
@@ -22,15 +22,28 @@ export function WeatherSection() {
     try {
       // Lokacje, dla których chcemy pobrać pogodę
       const locations = ['Ząbki', 'Warszawa'];
+      console.log('Fetching weather for locations:', locations);
+
       const data = await ApiService.getWeather(locations, signal);
+      console.log('Weather data received:', data);
+
       setWeatherData(data as WeatherData[]);
     } catch (err) {
-      // Don't set error if request was aborted
-      if (err instanceof Error && err.name === 'AbortError') {
+      console.error('Weather fetch error:', err);
+
+      // Check if it's an abort error
+      if (err instanceof ApiError && err.code === 'ABORTED') {
+        console.log('Weather request was aborted - this is normal during component unmount');
         return;
       }
+
+      if (err instanceof Error && err.name === 'AbortError') {
+        console.log('Weather request was aborted - this is normal during component unmount');
+        return;
+      }
+
+      // Set error for other types of errors
       setError('Nie udało się pobrać danych pogodowych.');
-      console.error('Weather fetch error:', err);
     } finally {
       setIsLoading(false);
     }
@@ -38,14 +51,29 @@ export function WeatherSection() {
 
   useEffect(() => {
     const controller = new AbortController();
+    let isMounted = true;
 
-    fetchWeather(controller.signal);
+    const loadWeather = async () => {
+      try {
+        await fetchWeather(controller.signal);
+      } catch (error) {
+        if (isMounted) {
+          console.error('Weather loading error:', error);
+        }
+      }
+    };
+
+    loadWeather();
 
     // Cleanup function to abort request when component unmounts
     return () => {
+      isMounted = false;
       controller.abort();
     };
   }, [fetchWeather]);
+
+  // DEBUG: Print render state
+  console.log('Render: isLoading', isLoading, 'error', error, 'weatherData', weatherData);
 
   return (
     <Card>
@@ -55,8 +83,11 @@ export function WeatherSection() {
       <CardContent>
         <div className="space-y-2">
           {isLoading && <p>Ładowanie prognozy...</p>}
-          {error && <p className="text-red-500">{error}</p>}
-          {!isLoading && !error && weatherData.map((weather: WeatherData) => (
+          {error && weatherData.length === 0 && <p className="text-red-500">{error}</p>}
+          {!isLoading && weatherData.length === 0 && !error && (
+            <p className="text-gray-500">Brak danych pogodowych</p>
+          )}
+          {!isLoading && weatherData.length > 0 && weatherData.map((weather: WeatherData) => (
             <div key={weather.location} className="flex items-center justify-between">
               <div className="flex items-center">
                 <span className="text-2xl mr-2">{weather.icon}</span>

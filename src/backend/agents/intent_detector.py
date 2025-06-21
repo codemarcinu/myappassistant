@@ -99,6 +99,37 @@ class SimpleIntentDetector:
         text_lower = text.lower()
         logger.info(f"Using fallback intent detection for text: '{text}'")
 
+        # General conversation detection
+        general_keywords = [
+            "cześć",
+            "witaj",
+            "dzień dobry",
+            "dobry wieczór",
+            "hej",
+            "siema",
+            "dzięki",
+            "dziękuję",
+            "dziękuję bardzo",
+            "jak się masz",
+            "co słychać",
+            "co u ciebie",
+            "ok",
+            "rozumiem",
+            "jasne",
+            "dobra",
+            "pomoc",
+            "pomóż",
+            "help",
+            "kto ty jesteś",
+            "kim jesteś",
+            "żart",
+            "opowiedz żart",
+            "powiedź coś śmiesznego",
+        ]
+        if any(keyword in text_lower for keyword in general_keywords):
+            logger.info(f"General conversation intent detected for text: '{text}'")
+            return IntentData(type="general_conversation", entities={}, confidence=0.95)
+
         # Shopping conversation detection - expanded keywords
         shopping_keywords = [
             "zakupy",
@@ -270,7 +301,7 @@ class SimpleIntentDetector:
         ]
         if any(keyword in text_lower for keyword in weather_keywords):
             logger.info(f"Weather intent detected for text: '{text}'")
-            return IntentData(type="weather", entities={}, confidence=0.9)
+            return IntentData(type="weather", entities={}, confidence=0.8)
 
         # Cooking detection
         cooking_keywords = [
@@ -367,6 +398,8 @@ class SimpleIntentDetector:
             logger.info(f"General conversation intent detected for text: '{text}'")
             return IntentData(type="general_conversation", entities={}, confidence=0.7)
 
-        # Default to general conversation for unknown intents
-        logger.info(f"Default general conversation intent detected for text: '{text}'")
+        # Default to general conversation if no other intent is detected
+        logger.info(
+            f"No specific intent detected, defaulting to general conversation for text: '{text}'"
+        )
         return IntentData(type="general_conversation", entities={}, confidence=0.5)

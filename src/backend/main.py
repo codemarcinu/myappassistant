@@ -273,10 +273,19 @@ app.add_middleware(ErrorHandlingMiddleware)
 app.add_middleware(PerformanceMonitoringMiddleware)
 app.add_middleware(RequestLoggingMiddleware, log_body=False, log_headers=True)
 app.add_middleware(SecurityHeadersMiddleware)
+
+# CORS Middleware Setup
+# Pobierz listę dozwolonych źródeł z ustawień
+allowed_origins = [origin.strip() for origin in settings.CORS_ORIGINS.split(",")]
+
+logger.info(f"Configuring CORS with allowed origins: {allowed_origins}")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 app.add_middleware(StructuredLoggingMiddleware)
 app.add_middleware(SlowAPIMiddleware)

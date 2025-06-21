@@ -12,6 +12,8 @@ export function useChat(context: 'general' | 'shopping' | 'cooking' = 'general')
   const [sessionId, setSessionId] = useState<string>('');
   const [usePerplexity, setUsePerplexity] = useState(false);
   const [useBielik, setUseBielik] = useState(true); // Domyślnie używamy Bielika
+  const [isShoppingMode, setIsShoppingMode] = useState(false);
+  const [isCookingMode, setIsCookingMode] = useState(false);
 
   useEffect(() => {
     // Initialize session on component mount
@@ -48,8 +50,8 @@ export function useChat(context: 'general' | 'shopping' | 'cooking' = 'general')
         agent_states: {
           weather: true,
           search: true,
-          shopping: context === 'shopping',
-          cooking: context === 'cooking',
+          shopping: isShoppingMode,
+          cooking: isCookingMode,
         },
         usePerplexity: usePerplexity || false,
         useBielik: useBielik !== undefined ? useBielik : true,
@@ -57,6 +59,10 @@ export function useChat(context: 'general' | 'shopping' | 'cooking' = 'general')
         // Handle streaming response
         console.log('Received chunk:', chunk);
       });
+
+      if (response && response.error) {
+        throw new Error(response.error);
+      }
 
       // Add assistant response to the chat
       const assistantMessage: Message = {
@@ -70,11 +76,20 @@ export function useChat(context: 'general' | 'shopping' | 'cooking' = 'general')
 
       setMessages(prev => [...prev, assistantMessage]);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unknown error occurred');
+      const errorMessage = err instanceof Error ? err.message : 'Wystąpił nieznany błąd';
+      setError(errorMessage);
+
+      const errorResponse: Message = {
+        id: uuidv4(),
+        role: 'assistant',
+        content: `Wystąpił błąd: ${errorMessage}`,
+        isError: true,
+      };
+      setMessages(prev => [...prev, errorResponse]);
     } finally {
       setIsLoading(false);
     }
-  }, [sessionId, context]);
+  }, [sessionId, isShoppingMode, isCookingMode]);
 
   // Function to clear chat history
   const clearChat = () => {
@@ -99,6 +114,14 @@ export function useChat(context: 'general' | 'shopping' | 'cooking' = 'general')
     setUseBielik((prev: boolean) => !prev);
   };
 
+  const toggleShoppingMode = () => {
+    setIsShoppingMode((prev: boolean) => !prev);
+  };
+
+  const toggleCookingMode = () => {
+    setIsCookingMode((prev: boolean) => !prev);
+  };
+
   return {
     messages,
     isLoading,
@@ -109,5 +132,9 @@ export function useChat(context: 'general' | 'shopping' | 'cooking' = 'general')
     togglePerplexity,
     useBielik,
     toggleModel,
+    isShoppingMode,
+    toggleShoppingMode,
+    isCookingMode,
+    toggleCookingMode,
   };
 }

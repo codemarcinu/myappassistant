@@ -63,6 +63,11 @@ class Settings(BaseSettings):
     # Konfiguracja bazy danych
     DATABASE_URL: str = "sqlite+aiosqlite:///./data/foodsave.db"
 
+    # CORS Configuration
+    CORS_ORIGINS: str = (
+        "http://localhost:3000,http://127.0.0.1:3000,http://localhost:8000"
+    )
+
     # API keys for external services
     LLM_API_KEY: str = ""
     OPENWEATHER_API_KEY: str = ""

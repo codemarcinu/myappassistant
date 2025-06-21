@@ -16,7 +16,11 @@ export function ChatInterface() {
     usePerplexity,
     togglePerplexity,
     useBielik,
-    toggleModel
+    toggleModel,
+    isShoppingMode,
+    toggleShoppingMode,
+    isCookingMode,
+    toggleCookingMode,
   } = useChat();
 
   return (
@@ -42,6 +46,10 @@ export function ChatInterface() {
         onTogglePerplexity={togglePerplexity}
         useBielik={useBielik}
         onToggleModel={toggleModel}
+        isShoppingMode={isShoppingMode}
+        onToggleShoppingMode={toggleShoppingMode}
+        isCookingMode={isCookingMode}
+        onToggleCookingMode={toggleCookingMode}
       />
 
       {error && (

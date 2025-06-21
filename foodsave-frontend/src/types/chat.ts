@@ -4,8 +4,9 @@
 
 export interface Message {
   id: string;
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'system';
   content: string;
+  isError?: boolean;
   data?: any;
   timestamp?: number;
   usePerplexity?: boolean;
@@ -40,6 +41,10 @@ export interface MessageInputProps {
   onTogglePerplexity?: () => void;
   useBielik?: boolean;
   onToggleModel?: () => void;
+  isShoppingMode?: boolean;
+  onToggleShoppingMode?: () => void;
+  isCookingMode?: boolean;
+  onToggleCookingMode?: () => void;
 }
 
 export interface MessageListProps {

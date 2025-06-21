@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { MessageInputProps } from '@/types/chat';
-import { Search, Sparkles, Cpu } from 'lucide-react';
+import { Search, Sparkles, Cpu, ShoppingCart, Soup } from 'lucide-react';
 
 export function MessageInput({
   onSendMessage,
@@ -13,7 +13,11 @@ export function MessageInput({
   usePerplexity = false,
   onTogglePerplexity,
   useBielik = true,
-  onToggleModel
+  onToggleModel,
+  isShoppingMode = false,
+  onToggleShoppingMode,
+  isCookingMode = false,
+  onToggleCookingMode,
 }: MessageInputProps) {
   const [inputValue, setInputValue] = useState('');
 
@@ -54,6 +58,32 @@ export function MessageInput({
           disabled={isLoading}
         />
         <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex space-x-1">
+          {/* Cooking Mode toggle button */}
+          <button
+            type="button"
+            onClick={onToggleCookingMode}
+            className={`p-1 rounded-full transition-all duration-200 ${
+              isCookingMode
+                ? 'bg-orange-100 text-orange-600 hover:bg-orange-200'
+                : 'bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-600'
+            }`}
+            title={isCookingMode ? 'Wyłącz tryb gotowania' : 'Włącz tryb gotowania'}
+          >
+            <Soup size={16} />
+          </button>
+          {/* Shopping Mode toggle button */}
+          <button
+            type="button"
+            onClick={onToggleShoppingMode}
+            className={`p-1 rounded-full transition-all duration-200 ${
+              isShoppingMode
+                ? 'bg-indigo-100 text-indigo-600 hover:bg-indigo-200'
+                : 'bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-600'
+            }`}
+            title={isShoppingMode ? 'Wyłącz tryb zakupów' : 'Włącz tryb zakupów'}
+          >
+            <ShoppingCart size={16} />
+          </button>
           {/* Model toggle button */}
           <button
             type="button"

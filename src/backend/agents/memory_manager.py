@@ -10,7 +10,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from backend.agents.interfaces import BaseAgent, IMemoryManager, MemoryContext
+from backend.agents.interfaces import BaseAgent, IMemoryManager
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +25,7 @@ class MemoryContext:
         "last_response",
         "created_at",
         "last_updated",
+        "__weakref__",  # Allow weak references
     ]
 
     def __init__(self, session_id: str, history: Optional[List[Dict]] = None):
