@@ -1,6 +1,5 @@
 import json
 import os
-from typing import Any, Dict
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -51,10 +50,7 @@ async def test_intent_recognition_with_mock(user_prompt, expected_intent):
         "src.backend.agents.tools.tools.llm_client.chat",
         new_callable=AsyncMock,
         return_value=mock_llm_response,
-    ) as mock_chat:
+    ):
         raw_json_response = await recognize_intent(user_prompt)
         parsed_response = json.loads(raw_json_response)
-        recognized_intent = parsed_response.get("intent")
-        assert (
-            recognized_intent == expected_intent
-        ), f"Oczekiwano intencji '{expected_intent}', a otrzymano '{recognized_intent}'"
+        assert parsed_response["intent"] == expected_intent

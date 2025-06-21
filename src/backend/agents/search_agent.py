@@ -1,7 +1,5 @@
-import asyncio
 import logging
-import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 
 import httpx
 
@@ -47,7 +45,6 @@ class SearchAgent(BaseAgent):
                 text="Przepraszam, ale potrzebuję zapytania do wyszukania.",
             )
 
-        model = input_data.get("model", "gemma3:12b")
         max_results = input_data.get("max_results", 5)
         use_perplexity = input_data.get("use_perplexity", True)  # Domyślnie Perplexity
 
@@ -246,7 +243,7 @@ class SearchAgent(BaseAgent):
                 return english_content
 
             polish_content = content.strip()
-            logger.info(f"[SearchAgent] Translated response to Polish")
+            logger.info("[SearchAgent] Translated response to Polish")
             return polish_content
         except Exception as e:
             logger.error(f"Error translating response: {e}")

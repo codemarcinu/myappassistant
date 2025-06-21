@@ -24,8 +24,9 @@ from backend.api.v2.endpoints import receipts as receipts_v2
 from backend.api.v2.endpoints import weather as weather_v2
 from backend.api.v2.exceptions import APIErrorDetail, APIException
 from backend.config import settings
+from backend.core.cache_manager import CacheManager
 from backend.core.container import Container
-from backend.core.database import AsyncSessionLocal
+from backend.core.database import AsyncSessionLocal, Base, engine
 from backend.core.exceptions import (
     BaseCustomException,
     convert_system_exception,
@@ -40,12 +41,7 @@ from backend.core.middleware import (
 from backend.core.migrations import run_migrations
 from backend.core.seed_data import seed_database
 from backend.core.telemetry import setup_telemetry
-from backend.infrastructure.database.database import (
-    AsyncSessionLocal as DBAsyncSessionLocal,
-    Base,
-    check_database_health,
-    engine,
-)
+from backend.infrastructure.database.database import check_database_health
 from backend.orchestrator_management.orchestrator_pool import orchestrator_pool
 from backend.orchestrator_management.request_queue import request_queue
 
@@ -53,6 +49,7 @@ from backend.orchestrator_management.request_queue import request_queue
 os.environ.setdefault(
     "USER_AGENT", "FoodSave-AI/1.0.0 (https://github.com/foodsave-ai)"
 )
+os.environ.setdefault("PYDEVD_USE_FRAME_EVAL", "NO")
 
 # Dodaj import klienta MMLW
 try:
@@ -62,14 +59,25 @@ try:
 except ImportError:
     MMLW_AVAILABLE = False
 
-# Dodaj katalog projektu do PYTHONPATH
-current_dir = os.path.dirname(os.path.abspath(__file__))
-project_root = os.path.dirname(os.path.dirname(current_dir))
+# Add project root to Python path
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-# --- Rate limiting ---
+# Initialize global managers
+cache_manager = CacheManager()
 limiter = Limiter(key_func=get_remote_address)
+
+# Global variables for background tasks
+request_queue_consumer_task = None
+alert_checker_task = None
+
+# --- DEBUG: Print Python path ---
+print("=" * 50, file=sys.stderr, flush=True)
+print(f"Executing from: {os.getcwd()}", file=sys.stderr, flush=True)
+print(f"Python sys.path: {sys.path}", file=sys.stderr, flush=True)
+print("=" * 50, file=sys.stderr, flush=True)
+# --- END DEBUG ---
 
 
 # Configure structured logging
@@ -266,9 +274,9 @@ app.add_middleware(PerformanceMonitoringMiddleware)
 app.add_middleware(RequestLoggingMiddleware, log_body=False, log_headers=True)
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(
-    CustomCORSMiddleware,
-    allowed_origins=["*"],
-    allowed_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
 )
 app.add_middleware(StructuredLoggingMiddleware)
 app.add_middleware(SlowAPIMiddleware)
@@ -512,7 +520,7 @@ def raise_error(type: str = "value"):
     if type == "value":
         raise ValueError("Test value error")
     elif type == "custom":
-        from .core.exceptions import ValidationError
+        from backend.core.exceptions import ValidationError
 
         raise ValidationError("Test custom error", field="test_field")
     else:
@@ -547,7 +555,7 @@ from backend.core.alerting import (
 from backend.core.prometheus_metrics import get_metrics, get_metrics_dict
 
 # Import telemetry modules
-from backend.core.telemetry import instrument_fastapi, setup_telemetry
+from backend.core.telemetry import setup_telemetry
 
 # Setup telemetry
 if settings.ENVIRONMENT != "test":
@@ -557,7 +565,6 @@ if settings.ENVIRONMENT != "test":
         enable_prometheus=True,
         enable_console=settings.ENVIRONMENT == "development",
     )
-    instrument_fastapi(app)
 
 
 # Metrics endpoints

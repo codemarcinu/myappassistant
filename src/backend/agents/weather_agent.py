@@ -1,11 +1,10 @@
-import asyncio
 import logging
 import os
 from datetime import datetime, timedelta
 from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
 
 import httpx
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field
 
 from ..config import settings
 from ..core.cache_manager import cache_manager
@@ -29,14 +28,10 @@ class WeatherProvider(BaseModel):
     """Model for a weather data provider configuration"""
 
     name: str
-    api_key_env_var: str
-    base_url: str
     api_key: Optional[str] = None
-    is_enabled: bool = True
-    priority: int = 1  # Lower number = higher priority
-    last_error: Optional[str] = None
-    error_count: int = 0
-    last_success: Optional[datetime] = None
+    base_url: str
+    enabled: bool = True
+    model_config: dict = {"extra": "allow"}
 
 
 class WeatherRequest(BaseModel):
@@ -90,9 +85,7 @@ class WeatherAgent(BaseAgent):
         )
         self.input_model = WeatherRequest
         self.providers: List[WeatherProvider] = self._init_providers()
-        self.http_client = httpx.AsyncClient(
-            timeout=10.0, headers={"User-Agent": settings.USER_AGENT}
-        )
+        self.http_client = httpx.AsyncClient(timeout=20.0)
         self.cache: Dict[str, Tuple[WeatherData, datetime]] = {}
         self.cache_ttl = timedelta(minutes=15)  # Cache weather data for 15 minutes
         self.llm_client = hybrid_llm_client  # Dodaję atrybut llm_client dla testów
@@ -608,16 +601,6 @@ class WeatherAgent(BaseAgent):
                 for alert in weather_data.alerts:
                     weather_summary += f"- {alert.headline}\n"
 
-            # Use LLM to format the response naturally
-            prompt = f"""
-            Przedstaw informacje o pogodzie w sposób naturalny i przyjazny dla użytkownika.
-
-            {weather_summary}
-
-            Przedstaw te informacje w sposób naturalny, jakbyś rozmawiał z przyjacielem.
-            Jeśli są ostrzeżenia pogodowe, zwróć na nie szczególną uwagę.
-            """
-
             # For now, return formatted text directly
             # In a full implementation, you would use the LLM here
             formatted_text = self._format_weather_text(
@@ -647,75 +630,44 @@ class WeatherAgent(BaseAgent):
     def _format_weather_text(
         self, weather_summary: str, has_severe_alerts: bool
     ) -> str:
-        """Format weather summary into natural language"""
-        lines = weather_summary.strip().split("\n")
-        formatted_lines = []
-
-        for line in lines:
-            line = line.strip()
-            if line.startswith("Lokalizacja:"):
-                formatted_lines.append(f"📍 {line}")
-            elif line.startswith("Aktualna pogoda:"):
-                formatted_lines.append(f"\n🌤️ {line}")
-            elif line.startswith("- Temperatura:"):
-                formatted_lines.append(f"🌡️ {line}")
-            elif line.startswith("- Odczuwalna:"):
-                formatted_lines.append(f"🌡️ {line}")
-            elif line.startswith("- Wilgotność:"):
-                formatted_lines.append(f"💧 {line}")
-            elif line.startswith("- Wiatr:"):
-                formatted_lines.append(f"🌪️ {line}")
-            elif line.startswith("- Opis:"):
-                formatted_lines.append(f"☁️ {line}")
-            elif line.startswith("Prognoza na najbliższe dni:"):
-                formatted_lines.append(f"\n📅 {line}")
-            elif line.startswith("Ostrzeżenia pogodowe:"):
-                formatted_lines.append(f"\n⚠️ {line}")
-            elif line and not line.startswith("-"):
-                formatted_lines.append(line)
-            elif line.startswith("-"):
-                formatted_lines.append(f"  {line}")
-
-        text = "\n".join(formatted_lines)
-
+        """Adds a friendly, context-aware intro to the weather summary."""
         if has_severe_alerts:
-            text += "\n\n⚠️ UWAGA: Aktywne są ostrzeżenia pogodowe! Sprawdź lokalne źródła informacji."
-
-        return text
+            return (
+                "UWAGA, są ważne alerty pogodowe! " "Oto prognoza: " + weather_summary
+            )
+        else:
+            return "Oto prognoza pogody: " + weather_summary
 
     async def _stream_weather_response(
         self, model: str, prompt: str
     ) -> AsyncGenerator[str, None]:
-        """Stream weather response using LLM"""
+        """Streams weather response from LLM."""
         try:
-            response_stream = await hybrid_llm_client.chat(
+            stream = await self.llm_client.chat(
                 model=model,
                 messages=[
                     {
                         "role": "system",
-                        "content": "Jesteś pomocnym asystentem pogodowym. Przedstaw informacje o pogodzie w sposób naturalny i przyjazny.",
+                        "content": "Jesteś asystentem pogodowym, który w przyjazny sposób podsumowuje prognozę pogody po polsku.",
                     },
                     {"role": "user", "content": prompt},
                 ],
                 stream=True,
             )
-
-            async for chunk in response_stream:
-                if "message" in chunk and "content" in chunk["message"]:
-                    yield chunk["message"]["content"]
-
+            async for chunk in stream:
+                if content := chunk.get("message", {}).get("content"):
+                    yield content
         except Exception as e:
             logger.error(f"Error streaming weather response: {e}")
-            yield "Przepraszam, wystąpił błąd podczas generowania odpowiedzi o pogodzie."
+            yield "Przepraszam, wystąpił błąd podczas generowania odpowiedzi."
 
     async def close(self) -> None:
-        """Close HTTP client"""
+        """Close HTTP client."""
         await self.http_client.aclose()
 
     @handle_exceptions(max_retries=1)
-    def get_dependencies(self) -> list[str]:
-        """Return list of dependencies this agent requires"""
-        return ["httpx", "hybrid_llm_client"]
+    def get_dependencies(self, *args, **kwargs) -> list[str]:
+        return ["hybrid_llm_client"]
 
     def get_metadata(self) -> dict:
         """Return metadata about this agent"""
@@ -734,3 +686,13 @@ class WeatherAgent(BaseAgent):
     def is_healthy(self) -> bool:
         """Check if the agent is healthy and ready to process requests"""
         return any(provider.is_enabled for provider in self.providers)
+
+    async def _translate_to_polish(self, text: str) -> str:
+        """Tłumaczy tekst na język polski za pomocą LLM."""
+        # W tej wersji zwracamy tekst bez tłumaczenia,
+        # aby uniknąć zależności od LLM w tej metodzie.
+        return text
+
+    async def _get_coordinates(self, city: str) -> Optional[Dict[str, float]]:
+        """Pobiera współrzędne dla danego miasta."""
+        # ... existing code ...
