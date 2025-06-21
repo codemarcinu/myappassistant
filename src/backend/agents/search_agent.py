@@ -27,8 +27,8 @@ class SearchAgentInput:
 class SearchAgent(BaseAgent):
     """Agent that performs web searches using DuckDuckGo and Perplexity"""
 
-    def __init__(self, name: str = "SearchAgent"):
-        super().__init__(name)
+    def __init__(self, name: str = "SearchAgent", **kwargs):
+        super().__init__(name, **kwargs)
         self.search_url = "https://api.duckduckgo.com/"
         self.http_client = httpx.AsyncClient(
             timeout=30.0, headers={"User-Agent": settings.USER_AGENT}
@@ -38,74 +38,54 @@ class SearchAgent(BaseAgent):
 
     @handle_exceptions(max_retries=2)
     async def process(self, input_data: Dict[str, Any]) -> AgentResponse:
-        """Main processing method - performs search and returns results"""
-        try:
-            # Validate input
-            query = input_data.get("query", "")
-            if not query:
-                return AgentResponse(
-                    success=False,
-                    error="Query is required",
-                    text="Przepraszam, ale potrzebuję zapytania do wyszukania.",
-                )
-
-            # Extract parameters
-            use_bielik = input_data.get("use_bielik", True)
-            model = (
-                "SpeakLeash/bielik-11b-v2.3-instruct:Q5_K_M"
-                if use_bielik
-                else "gemma3:12b"
-            )
-            max_results = input_data.get("max_results", 5)
-            use_perplexity = input_data.get("use_perplexity", False)
-
-            logger.info(
-                f"[SearchAgent] Processing search query: {query[:100]}... use_perplexity={use_perplexity}, use_bielik={use_bielik}"
-            )
-
-            if use_perplexity:
-                # Wymuś Perplexity
-                search_result = await perplexity_client.search(
-                    query, model=None, max_results=max_results
-                )
-            else:
-                # Lokalny model
-                search_result = await self._perform_search(query, model, max_results)
-
-            if search_result["success"]:
-                return AgentResponse(
-                    success=True,
-                    text=search_result["content"],
-                    data=search_result,
-                    model_used=model,
-                )
-            else:
-                # Fallback to DuckDuckGo
-                logger.warning(f"Perplexity search failed: {search_result['error']}")
-                duckduckgo_result = await self._duckduckgo_search(query)
-
-                if duckduckgo_result["success"]:
-                    return AgentResponse(
-                        success=True,
-                        text=duckduckgo_result["content"],
-                        data=duckduckgo_result,
-                        model_used="duckduckgo",
-                        fallback_used=True,
-                    )
-                else:
-                    return AgentResponse(
-                        success=False,
-                        error=f"Search failed: {search_result['error']}",
-                        text="Przepraszam, nie udało się wykonać wyszukiwania. Spróbuj ponownie później.",
-                    )
-
-        except Exception as e:
-            logger.error(f"[SearchAgent] Error processing search: {str(e)}")
+        """Main processing method - performs search and returns results in a stream"""
+        query = input_data.get("query", "")
+        if not query:
             return AgentResponse(
                 success=False,
-                error=str(e),
-                text=f"Przepraszam, wystąpił błąd podczas wyszukiwania: {str(e)}",
+                error="Query is required",
+                text="Przepraszam, ale potrzebuję zapytania do wyszukania.",
             )
+
+        model = input_data.get("model", "gemma3:12b")
+        max_results = input_data.get("max_results", 5)
+        use_perplexity = input_data.get("use_perplexity", True)  # Domyślnie Perplexity
+
+        async def stream_generator():
+            try:
+                yield "Rozpoczynam wyszukiwanie...\n"
+
+                if use_perplexity:
+                    logger.info(f"Using Perplexity for search query: {query}")
+                    yield "Korzystam z Perplexity...\n"
+                    # Perplexity API nie wspiera streamingu w obecnym kliencie,
+                    # więc wykonujemy pełne zapytanie i zwracamy wynik jako pojedynczy chunk.
+                    search_result = await perplexity_client.search(
+                        query, model=None, max_results=max_results
+                    )
+                    if search_result["success"]:
+                        yield search_result["content"]
+                    else:
+                        yield f"Błąd podczas wyszukiwania w Perplexity: {search_result['error']}"
+                else:
+                    # Alternatywna logika (np. DuckDuckGo), która może wspierać streaming
+                    logger.info(f"Using DuckDuckGo for search query: {query}")
+                    yield "Korzystam z DuckDuckGo...\n"
+                    duckduckgo_result = await self._duckduckgo_search(query)
+                    if duckduckgo_result["success"]:
+                        yield duckduckgo_result["content"]
+                    else:
+                        yield f"Błąd podczas wyszukiwania w DuckDuckGo: {duckduckgo_result['error']}"
+
+            except Exception as e:
+                logger.error(f"[SearchAgent] Error during stream generation: {e}")
+                yield f"Wystąpił wewnętrzny błąd: {e}"
+
+        return AgentResponse(
+            success=True,
+            text_stream=stream_generator(),
+            message="Search stream started.",
+        )
 
     async def _perform_search(
         self, query: str, model: str, max_results: int

@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Weather API Fix</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #f5f5f5;
+            border-radius: 3px;
+            white-space: pre-wrap;
+        }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        button {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .weather-card {
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 10px 0;
+            background-color: #f9f9f9;
+        }
+        .weather-icon {
+            font-size: 2em;
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Test Naprawy Weather API</h1>
+
+    <div class="test-section">
+        <h3>Test 1: Podstawowe wywołanie Weather API</h3>
+        <button onclick="testWeatherAPI()">Testuj Weather API</button>
+        <div id="weather-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>Test 2: Weather API z wieloma lokalizacjami</h3>
+        <button onclick="testMultipleLocations()">Testuj wieloma lokalizacjami</button>
+        <div id="multiple-weather-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>Test 3: Sprawdzenie czy błąd "Nie udało się pobrać danych pogodowych" nie występuje</h3>
+        <button onclick="testWeatherError()">Testuj obsługę błędów</button>
+        <div id="weather-error-result" class="result"></div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:8000';
+
+        async function testWeatherAPI() {
+            const resultDiv = document.getElementById('weather-result');
+            resultDiv.textContent = 'Testowanie Weather API...';
+            resultDiv.className = 'result';
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/v2/weather/?locations=Warszawa`);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                let resultHTML = `✅ Weather API działa poprawnie!\n\n`;
+                data.forEach(weather => {
+                    resultHTML += `
+<div class="weather-card">
+    <div class="weather-icon">${weather.icon}</div>
+    <div>
+        <strong>${weather.location}</strong><br>
+        Temperatura: ${weather.temperature}°C<br>
+        Warunki: ${weather.condition}
+    </div>
+</div>`;
+                });
+
+                resultDiv.innerHTML = resultHTML;
+                resultDiv.className = 'result success';
+            } catch (error) {
+                resultDiv.textContent = `❌ Błąd Weather API: ${error.message}`;
+                resultDiv.className = 'result error';
+            }
+        }
+
+        async function testMultipleLocations() {
+            const resultDiv = document.getElementById('multiple-weather-result');
+            resultDiv.textContent = 'Testowanie Weather API z wieloma lokalizacjami...';
+            resultDiv.className = 'result';
+
+            try {
+                const locations = ['Warszawa', 'Kraków', 'Gdańsk'];
+                const response = await fetch(`${API_BASE_URL}/api/v2/weather/?locations=${locations.join(',')}`);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                let resultHTML = `✅ Weather API z wieloma lokalizacjami działa!\n\n`;
+                data.forEach(weather => {
+                    resultHTML += `
+<div class="weather-card">
+    <div class="weather-icon">${weather.icon}</div>
+    <div>
+        <strong>${weather.location}</strong><br>
+        Temperatura: ${weather.temperature}°C<br>
+        Warunki: ${weather.condition}
+    </div>
+</div>`;
+                });
+
+                resultDiv.innerHTML = resultHTML;
+                resultDiv.className = 'result success';
+            } catch (error) {
+                resultDiv.textContent = `❌ Błąd Weather API z wieloma lokalizacjami: ${error.message}`;
+                resultDiv.className = 'result error';
+            }
+        }
+
+        async function testWeatherError() {
+            const resultDiv = document.getElementById('weather-error-result');
+            resultDiv.textContent = 'Testowanie obsługi błędów...';
+            resultDiv.className = 'result';
+
+            try {
+                // Test z nieistniejącą lokalizacją
+                const response = await fetch(`${API_BASE_URL}/api/v2/weather/?locations=NonExistentCity12345`);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                if (data.length === 0) {
+                    resultDiv.textContent = `✅ Obsługa błędów działa poprawnie - zwrócono pustą listę dla nieistniejącej lokalizacji`;
+                    resultDiv.className = 'result success';
+                } else {
+                    resultDiv.textContent = `⚠️ Nieoczekiwany wynik dla nieistniejącej lokalizacji: ${JSON.stringify(data)}`;
+                    resultDiv.className = 'result error';
+                }
+            } catch (error) {
+                resultDiv.textContent = `❌ Błąd podczas testowania obsługi błędów: ${error.message}`;
+                resultDiv.className = 'result error';
+            }
+        }
+    </script>
+</body>
+</html>

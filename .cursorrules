@@ -1,126 +1,151 @@
+# .cursorrules for FoodSave AI Project
 
-# FoodSave AI - Zasady dla Agenta Naprawczego
+## VERSION
+- Version: 2.0
+- Last Updated: 2024-12-21
 
-## Kontekst Projektu
+## GENERAL PRINCIPLES
+- Prioritize clarity, understanding, and learning.
+- Maintain regular communication in human-readable format.
+- Focus on AI capabilities and business logic, not deep technical internals.
 
-Jesteś ekspertem w Pythonie, FastAPI i architekturze wieloagentowej, pomagającym w naprawie i ulepszeniu projektu FoodSave AI. Projekt ten wykorzystuje architekturę wieloagentową z wyspecjalizowanymi agentami (Chef Agent, Weather Agent, Search Agent, OCR Agent) oraz system RAG do wzbogacania odpowiedzi o wiedzę z dokumentów.
+## USER PROFILE
+- Non-technical AI project owner
+- Interested in AI-assisted features, not implementation details
+- Needs educational explanations and clear reasoning
 
-## Kluczowe Zasady
+## AI COMMUNICATION PROTOCOL
+- Always explain the **why** behind changes
+- Avoid unnecessary technical jargon
+- Always provide:
+  - Context for each change
+  - Warning of possible side effects
+  - Simple verification checklist
+  - Reversion instructions
 
-- Pisz zwięzłe, techniczne odpowiedzi z dokładnymi przykładami w Pythonie[26][29].
-- Stosuj programowanie funkcyjne i deklaratywne; unikaj klas, gdy to możliwe[26][29].
-- Preferuj iterację i modularyzację zamiast duplikacji kodu[26].
-- Używaj opisowych nazw zmiennych z czasownikami pomocniczymi (np. is_active, has_permission)[26].
-- Stosuj małe litery z podkreśleniami dla katalogów i plików (np. routers/user_routes.py)[26].
-- Preferuj nazwane eksporty dla tras i funkcji narzędziowych[26].
+## SAFE DEVELOPMENT HIERARCHY
 
-## Plan Naprawy
+### SAFE (Immediate Approval)
+- Add new features (without modifying existing ones)
+- Bug fixes in isolated components
+- Documentation updates
+- Adding unit tests
 
-Realizuj naprawy w następującej kolejności, wykonując testy walidacyjne po każdym kroku:
+### CAUTION (Needs Discussion)
+- Modifying existing functions
+- Changing DB structure
+- Dependency updates
+- System config updates
 
-### Krok 1: Naprawa cyklicznych zależności
+### RISKY (Needs Backup + Plan)
+- Architecture refactoring
+- Data migration
+- Core logic changes
+- Auth system modifications
 
-1. Przeskanuj katalog src/backend/agents/ i wygeneruj mapę wszystkich importów między modułami[7].
-2. Zidentyfikuj cykliczne zależności używając analizy grafowej[7].
-3. Stwórz nowy moduł src/backend/agents/interfaces.py zawierający:
-   - Abstrakcyjną klasę BaseAgent
-   - Interfejsy dla wszystkich typów agentów
-   - Wspólne typy danych i enumeracje
-4. Refaktoryzuj każdy moduł agenta, zastępując bezpośrednie importy importami interfejsów[7].
-5. Zaimplementuj wzorzec Dependency Injection w AgentOrchestrator[7].
+## AI RESPONSE FORMAT
+1. **Summary**: What is to be done and why
+2. **Justification**: Business or functional rationale
+3. **Implementation**: Clear step-by-step (with explanations)
+4. **Verification**: How to know it worked
+5. **Troubleshooting**: What to do if something goes wrong
 
-### Krok 2: Implementacja centralnego systemu obsługi błędów
+## TECHNICAL STYLE GUIDE
 
-1. Stwórz hierarchię wyjątków w src/backend/core/exceptions.py:
-   - BaseCustomException (klasa bazowa)
-   - ValidationError (błędy walidacji)
-   - AIModelError (błędy modeli AI)
-   - DatabaseError (błędy bazy danych)
-   - NetworkError (błędy sieciowe)
-   - FileProcessingError (błędy plików)[7]
-2. Zaimplementuj decorator @handle_exceptions z funkcjonalnością:
-   - Automatyczne logowanie błędów
-   - Konwersja wyjątków systemowych na niestandardowe
-   - Retry mechanism dla błędów przejściowych[7]
-3. Dodaj middleware ErrorHandlingMiddleware do FastAPI[7][14].
+### Python Backend
+- Focus on readability > performance (unless critical)
+- Add comments explaining business logic
+- Use descriptive variable/function names
+- Implement useful logging
 
-### Krok 3: Standaryzacja konwencji nazewnictwa
+```python
+# ✅ GOOD - With business context
+def calculate_food_waste_score(user_habits: Dict) -> float:
+    """
+    Calculates user's food waste score.
+    Higher score = more waste.
 
-1. Przeskanuj projekt i znajdź wszystkie niespójne nazwy[7].
-2. Stwórz mapę refaktoryzacji nazw:
-   - enhanced_agent → AgentEnhanced
-   - improved_search → SearchOptimized
-   - new_feature → FeatureImplementation[7]
-3. Wykonaj refaktoryzację w kolejności:
-   - Klasy: PascalCase
-   - Metody: snake_case
-   - Stałe: UPPER_CASE
-   - Zmienne prywatne: _snake_case[7][18]
+    Args:
+        user_habits: Dict with keys like frequency of shopping, food disposal amount
 
-### Krok 4: Implementacja systemu uwierzytelniania i autoryzacji
-
-1. Stwórz strukturę modułu uwierzytelniania:
-   src/backend/auth/
-   ├── __init__.py
-   ├── jwt_handler.py
-   ├── auth_middleware.py
-   ├── models.py
-   ├── schemas.py
-   └── routes.py[7]
-2. Zaimplementuj JWT handler z funkcjami:
-   - create_access_token()
-   - create_refresh_token()
-   - verify_token()
-   - decode_token()[7]
-3. Stwórz modele bazy danych dla użytkowników i ról[7].
-
-### Krok 5: Optymalizacja wydajności bazy danych
-
-1. Przeanalizuj wszystkie zapytania SQL i zidentyfikuj problemy[7].
-2. Dodaj indeksy do często używanych kolumn[7].
-3. Zaimplementuj connection pooling[7].
-4. Dodaj mechanizm buforowania Redis[7][29].
-
-### Krok 6: Uzupełnienie testów i dokumentacji
-
-1. Znajdź wszystkie metody z NotImplementedError[7].
-2. Zaimplementuj brakujące metody i dodaj dla nich testy[7].
-3. Wygeneruj dokumentację API[7][14].
-
-### Krok 7: Konfiguracja środowisk i konteneryzacja
-
-1. Zoptymalizuj Dockerfile[7].
-2. Stwórz docker-compose dla różnych środowisk[7].
-3. Zaimplementuj zarządzanie sekretami[7].
-
-## Wytyczne dla FastAPI
-
-- Używaj typowania dla wszystkich parametrów funkcji i wartości zwracanych[14][15].
-- Używaj modeli Pydantic do walidacji żądań i odpowiedzi[14][15].
-- Używaj odpowiednich metod HTTP z dekoratorami operacji ścieżki (@app.get, @app.post, itp.)[14][15].
-- Używaj wstrzykiwania zależności dla współdzielonej logiki[14][15].
-- Używaj zadań w tle dla operacji nieblokujących[14][15].
-- Używaj właściwych kodów statusu dla odpowiedzi[14][15].
-- Używaj APIRouter do organizowania tras według funkcji lub zasobu[14][15].
-
-## Wytyczne dla Testów
-
-- Implementuj testy jednostkowe dla wszystkich kluczowych komponentów[7][15].
-- Używaj pytest do testów jednostkowych i integracyjnych[7].
-- Implementuj testy wydajnościowe dla krytycznych komponentów[7].
-- Utrzymuj pokrycie kodu testami powyżej 90%[7].
-
-## Wytyczne dla Bezpieczeństwa
-
-- Implementuj uwierzytelnianie i autoryzację dla wszystkich endpointów API[7].
-- Używaj bezpiecznych praktyk zarządzania sekretami[7].
-- Implementuj walidację danych wejściowych dla wszystkich endpointów API[7][14].
-- Używaj HTTPS dla wszystkich komunikacji[7].
-
-## Wytyczne dla Wydajności
-
-- Minimalizuj blokujące operacje I/O; używaj operacji asynchronicznych dla wszystkich wywołań bazy danych i zewnętrznych żądań API[29].
-- Implementuj buforowanie dla statycznych i często dostępnych danych[29].
-- Optymalizuj serializację i deserializację danych z Pydantic[29].
-- Używaj technik lazy loading dla dużych zbiorów danych[29].
+    Returns:
+        A float from 0.0 (no waste) to 10.0 (extreme waste)
+    """
+    # Calculation logic here...
 ```
+
+### Next.js Frontend
+- Use functional components
+- Add comment headers with purpose and user impact
+- Implement friendly error handling
+- Use TypeScript
+
+### State Management
+- Document app state with user-facing context
+- Explain data flow clearly
+- Implement intuitive loading states
+
+## AI AGENT DEVELOPMENT
+1. Define clear **purpose** of each AI agent
+2. Set **boundaries** (what it should and shouldn’t do)
+3. Implement fallback for failure scenarios
+4. Add user feedback mechanism
+
+## AI QUALITY CONTROL
+- Use confidence scoring
+- Add "Report incorrect answer" option
+- Regularly review/improve prompts
+- Monitor live AI accuracy and helpfulness
+
+## SECURITY & PRIVACY
+- Explain every security mechanism in plain terms
+- Implement privacy features transparently
+- Document user data handling clearly
+- Review permissions regularly
+
+## MONITORING
+- Instrument backend with Prometheus + Grafana
+- Track both technical and UX metrics
+  - e.g. response times, error rates, AI usefulness
+- Use `/health` endpoints
+
+## EDUCATIONAL PRINCIPLES
+- Define new tech terms the first time
+- Use real-world analogies when possible
+- Provide docs/links for further reading
+- Include practical examples
+
+## CONTINUOUS INTEGRATION RULES
+- Every code change must:
+  - Be committed with descriptive message
+  - Be pushed to remote regularly
+  - Pass basic lint/test (if relevant)
+- Optional: Create a daily `cron` job or pre-push Git hook to automate:
+  ```bash
+  git add . && git commit -m "auto: sync changes" && git push
+  ```
+
+## ISSUE HANDLING TEMPLATE
+```
+PROBLEM: [Short summary of what’s broken]
+CONTEXT: [Why this matters to users or app goals]
+POSSIBLE CAUSES:
+1. [Cause 1 explanation]
+2. [Cause 2 explanation]
+
+DIAGNOSTICS TO TRY:
+1. [Step 1]
+2. [Step 2]
+
+WHAT I NEED FROM YOU:
+- [What user needs to provide]
+
+WHERE TO LOOK FOR HELP:
+- [Links/docs/search terms]
+```
+
+## FINAL NOTE
+These `.cursorrules` guide AI to assist in a user-friendly, educational, and safe way, enabling meaningful app development even without deep coding experience.
+
+> AI is your co-pilot, not just your coder.
+> Build smart. Build with care. Build together.

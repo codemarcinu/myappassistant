@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FoodSave AI - Monitor Logów</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 20px 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 300;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1em;
+        }
+
+        .controls {
+            background: #f8f9fa;
+            padding: 20px 30px;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .control-group label {
+            font-weight: 600;
+            color: #495057;
+            min-width: 80px;
+        }
+
+        select, input, button {
+            padding: 8px 12px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        select:focus, input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            min-width: 100px;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-weight: 600;
+        }
+
+        .status.connected {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status.disconnected {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        .status.connected .status-indicator {
+            background: #28a745;
+        }
+
+        .status.disconnected .status-indicator {
+            background: #dc3545;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .logs-container {
+            display: flex;
+            height: 600px;
+        }
+
+        .logs-panel {
+            flex: 1;
+            padding: 20px;
+            border-right: 1px solid #e9ecef;
+        }
+
+        .logs-panel:last-child {
+            border-right: none;
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        .panel-title {
+            font-size: 1.3em;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .panel-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-small {
+            padding: 5px 10px;
+            font-size: 12px;
+            min-width: auto;
+        }
+
+        .logs-content {
+            background: #1e1e1e;
+            color: #f8f8f2;
+            border-radius: 8px;
+            padding: 15px;
+            height: calc(100% - 60px);
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.4;
+            position: relative;
+        }
+
+        .log-line {
+            margin-bottom: 2px;
+            padding: 2px 0;
+            border-radius: 3px;
+            transition: background-color 0.2s ease;
+        }
+
+        .log-line:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .log-line.error {
+            color: #ff6b6b;
+            background: rgba(255, 107, 107, 0.1);
+        }
+
+        .log-line.warning {
+            color: #ffd93d;
+            background: rgba(255, 217, 61, 0.1);
+        }
+
+        .log-line.info {
+            color: #6bcf7f;
+        }
+
+        .log-line.debug {
+            color: #74b9ff;
+            opacity: 0.8;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            padding: 20px 30px;
+            background: #f8f9fa;
+            border-top: 1px solid #e9ecef;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            color: #6c757d;
+            font-size: 0.9em;
+        }
+
+        .auto-scroll {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        @media (max-width: 768px) {
+            .logs-container {
+                flex-direction: column;
+                height: auto;
+            }
+
+            .logs-panel {
+                border-right: none;
+                border-bottom: 1px solid #e9ecef;
+            }
+
+            .controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .control-group {
+                justify-content: space-between;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 Monitor Logów FoodSave AI</h1>
+            <p>Monitorowanie logów aplikacji w czasie rzeczywistym</p>
+        </div>
+
+        <div class="controls">
+            <div class="control-group">
+                <label>Plik logów:</label>
+                <select id="logFile">
+                    <option value="app.log">Backend - app.log (Wszystkie logi)</option>
+                    <option value="error.log">Backend - error.log (Błędy)</option>
+                    <option value="frontend">Frontend - frontend.log</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label>Poziom:</label>
+                <select id="logLevel">
+                    <option value="DEBUG">DEBUG</option>
+                    <option value="INFO" selected>INFO</option>
+                    <option value="WARNING">WARNING</option>
+                    <option value="ERROR">ERROR</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label>Linii:</label>
+                <input type="number" id="logLines" value="100" min="10" max="1000">
+            </div>
+
+            <button id="refreshBtn">🔄 Odśwież</button>
+            <button id="clearBtn">🗑️ Wyczyść</button>
+            <button id="downloadBtn">📥 Pobierz</button>
+
+            <div id="connectionStatus" class="status disconnected">
+                <div class="status-indicator"></div>
+                <span>Rozłączony</span>
+            </div>
+        </div>
+
+        <div class="logs-container">
+            <div class="logs-panel">
+                <div class="panel-header">
+                    <div class="panel-title">📋 Logi Aplikacji</div>
+                    <div class="panel-actions">
+                        <button id="autoScrollBtn" class="btn-small">Auto-scroll: ON</button>
+                        <button id="pauseBtn" class="btn-small">⏸️ Pauza</button>
+                    </div>
+                </div>
+                <div class="logs-content" id="logsContent">
+                    <div style="text-align: center; padding: 20px; color: #6c757d;">
+                        Ładowanie logów...
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-value" id="totalLines">0</div>
+                <div class="stat-label">Wszystkie linie</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="errorLines">0</div>
+                <div class="stat-label">Błędy</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="warningLines">0</div>
+                <div class="stat-label">Ostrzeżenia</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="lastUpdate">-</div>
+                <div class="stat-label">Ostatnia aktualizacja</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class LogMonitor {
+            constructor() {
+                this.apiBase = 'http://localhost:8000';
+                this.isConnected = false;
+                this.isPaused = false;
+                this.autoScroll = true;
+                this.eventSource = null;
+                this.stats = {
+                    totalLines: 0,
+                    errorLines: 0,
+                    warningLines: 0
+                };
+
+                this.initializeElements();
+                this.bindEvents();
+                this.loadInitialLogs();
+            }
+
+            initializeElements() {
+                this.logsContent = document.getElementById('logsContent');
+                this.connectionStatus = document.getElementById('connectionStatus');
+                this.refreshBtn = document.getElementById('refreshBtn');
+                this.clearBtn = document.getElementById('clearBtn');
+                this.downloadBtn = document.getElementById('downloadBtn');
+                this.autoScrollBtn = document.getElementById('autoScrollBtn');
+                this.pauseBtn = document.getElementById('pauseBtn');
+                this.logFile = document.getElementById('logFile');
+                this.logLevel = document.getElementById('logLevel');
+                this.logLines = document.getElementById('logLines');
+            }
+
+            bindEvents() {
+                this.refreshBtn.addEventListener('click', () => this.loadInitialLogs());
+                this.clearBtn.addEventListener('click', () => this.clearLogs());
+                this.downloadBtn.addEventListener('click', () => this.downloadLogs());
+                this.autoScrollBtn.addEventListener('click', () => this.toggleAutoScroll());
+                this.pauseBtn.addEventListener('click', () => this.togglePause());
+
+                this.logFile.addEventListener('change', () => this.loadInitialLogs());
+                this.logLevel.addEventListener('change', () => this.loadInitialLogs());
+                this.logLines.addEventListener('change', () => this.loadInitialLogs());
+            }
+
+            async loadInitialLogs() {
+                try {
+                    // Wybierz odpowiedni endpoint na podstawie wybranego pliku
+                    const isFrontend = this.logFile.value === 'frontend';
+                    const endpoint = isFrontend ? '/api/v1/logs/frontend' : '/api/v1/logs';
+
+                    const response = await fetch(
+                        `${this.apiBase}${endpoint}?` +
+                        `level=${this.logLevel.value}&` +
+                        `lines=${this.logLines.value}` +
+                        (isFrontend ? '' : `&file=${this.logFile.value}`)
+                    );
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+
+                    const data = await response.json();
+                    this.displayLogs(data.logs);
+                    this.updateStats(data);
+                    this.startStreaming();
+                    this.updateConnectionStatus(true);
+
+                } catch (error) {
+                    console.error('Błąd ładowania logów:', error);
+                    this.displayError('Nie można załadować logów. Sprawdź czy backend działa.');
+                    this.updateConnectionStatus(false);
+                }
+            }
+
+            startStreaming() {
+                if (this.eventSource) {
+                    this.eventSource.close();
+                }
+
+                // Wybierz odpowiedni endpoint na podstawie wybranego pliku
+                const isFrontend = this.logFile.value === 'frontend';
+                const endpoint = isFrontend ? '/api/v1/logs/frontend/stream' : '/api/v1/logs/stream';
+
+                this.eventSource = new EventSource(
+                    `${this.apiBase}${endpoint}?` +
+                    `level=${this.logLevel.value}` +
+                    (isFrontend ? '' : `&file=${this.logFile.value}`)
+                );
+
+                this.eventSource.onmessage = (event) => {
+                    if (!this.isPaused) {
+                        this.addLogLine(event.data);
+                    }
+                };
+
+                this.eventSource.onerror = (error) => {
+                    console.error('Błąd streamowania:', error);
+                    this.updateConnectionStatus(false);
+                };
+
+                this.eventSource.onopen = () => {
+                    this.updateConnectionStatus(true);
+                };
+            }
+
+            displayLogs(logs) {
+                this.logsContent.innerHTML = '';
+                logs.forEach(log => this.addLogLine(log));
+            }
+
+            addLogLine(logText) {
+                const logLine = document.createElement('div');
+                logLine.className = 'log-line';
+
+                // Określ klasę na podstawie poziomu logowania
+                if (logText.includes('ERROR') || logText.includes('CRITICAL')) {
+                    logLine.classList.add('error');
+                } else if (logText.includes('WARNING')) {
+                    logLine.classList.add('warning');
+                } else if (logText.includes('DEBUG')) {
+                    logLine.classList.add('debug');
+                } else {
+                    logLine.classList.add('info');
+                }
+
+                logLine.textContent = logText;
+                this.logsContent.appendChild(logLine);
+
+                // Auto-scroll
+                if (this.autoScroll) {
+                    this.logsContent.scrollTop = this.logsContent.scrollHeight;
+                }
+
+                // Aktualizuj statystyki
+                this.updateLineStats(logText);
+            }
+
+            updateLineStats(logText) {
+                this.stats.totalLines++;
+
+                if (logText.includes('ERROR') || logText.includes('CRITICAL')) {
+                    this.stats.errorLines++;
+                } else if (logText.includes('WARNING')) {
+                    this.stats.warningLines++;
+                }
+
+                this.updateStatsDisplay();
+            }
+
+            updateStats(data) {
+                this.stats.totalLines = data.total_lines || 0;
+                this.stats.errorLines = 0;
+                this.stats.warningLines = 0;
+
+                // Przelicz statystyki z wyświetlonych logów
+                data.logs.forEach(log => {
+                    if (log.includes('ERROR') || log.includes('CRITICAL')) {
+                        this.stats.errorLines++;
+                    } else if (log.includes('WARNING')) {
+                        this.stats.warningLines++;
+                    }
+                });
+
+                this.updateStatsDisplay();
+            }
+
+            updateStatsDisplay() {
+                document.getElementById('totalLines').textContent = this.stats.totalLines;
+                document.getElementById('errorLines').textContent = this.stats.errorLines;
+                document.getElementById('warningLines').textContent = this.stats.warningLines;
+                document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
+            }
+
+            updateConnectionStatus(connected) {
+                this.isConnected = connected;
+                this.connectionStatus.className = `status ${connected ? 'connected' : 'disconnected'}`;
+                this.connectionStatus.querySelector('span').textContent =
+                    connected ? 'Połączony' : 'Rozłączony';
+            }
+
+            displayError(message) {
+                this.logsContent.innerHTML = `
+                    <div style="text-align: center; padding: 20px; color: #dc3545;">
+                        ❌ ${message}
+                    </div>
+                `;
+            }
+
+            clearLogs() {
+                this.logsContent.innerHTML = '';
+                this.stats = { totalLines: 0, errorLines: 0, warningLines: 0 };
+                this.updateStatsDisplay();
+            }
+
+            async downloadLogs() {
+                try {
+                    const response = await fetch(
+                        `${this.apiBase}/api/v1/logs?` +
+                        `file=${this.logFile.value}&` +
+                        `level=${this.logLevel.value}&` +
+                        `lines=1000`
+                    );
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+
+                    const data = await response.json();
+                    const content = data.logs.join('\n');
+                    const blob = new Blob([content], { type: 'text/plain' });
+                    const url = URL.createObjectURL(blob);
+
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `foodsave-logs-${new Date().toISOString().slice(0, 19)}.txt`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+
+                } catch (error) {
+                    console.error('Błąd pobierania logów:', error);
+                    alert('Nie można pobrać logów');
+                }
+            }
+
+            toggleAutoScroll() {
+                this.autoScroll = !this.autoScroll;
+                this.autoScrollBtn.textContent = `Auto-scroll: ${this.autoScroll ? 'ON' : 'OFF'}`;
+
+                if (this.autoScroll) {
+                    this.logsContent.scrollTop = this.logsContent.scrollHeight;
+                }
+            }
+
+            togglePause() {
+                this.isPaused = !this.isPaused;
+                this.pauseBtn.textContent = this.isPaused ? '▶️ Wznów' : '⏸️ Pauza';
+            }
+        }
+
+        // Inicjalizacja monitora logów
+        document.addEventListener('DOMContentLoaded', () => {
+            new LogMonitor();
+        });
+    </script>
+</body>
+</html>

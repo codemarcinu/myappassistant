@@ -1,0 +1,235 @@
+version: '3.8'
+
+services:
+  # Serwis Ollama dla lokalnych modeli LLM
+  ollama:
+    image: ollama/ollama:latest
+    container_name: foodsave-ollama-dev
+    ports:
+      - "11434:11434"
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+      - OLLAMA_KEEP_ALIVE=24h
+    volumes:
+      - ollama_data:/root/.ollama
+      - ./logs/ollama:/var/log/ollama
+    networks:
+      - foodsave-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:11434/api/version || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  # Backend FastAPI - Development z hot-reload
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev.backend
+    container_name: foodsave-backend-dev
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env.dev
+    environment:
+      - ENVIRONMENT=development
+      - OLLAMA_URL=http://ollama:11434
+      - OLLAMA_MODEL=gemma:2b
+      - DATABASE_URL=sqlite+aiosqlite:///./data/foodsave_dev.db
+      - SQLALCHEMY_DATABASE_URI=sqlite+aiosqlite:///./data/foodsave_dev.db
+      - LOG_LEVEL=DEBUG
+      - CORS_ORIGINS=http://localhost:3000,http://frontend:3000,http://localhost:3001
+      - RAG_VECTOR_STORE_PATH=/app/data/vector_store_dev
+      - REDIS_URL=redis://redis:6379
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./backups:/app/backups
+      # Hot reload dla development - montowanie kodu źródłowego
+      - ./src/backend:/app/src/backend:cached
+      - ./scripts:/app/scripts:ro
+      - ./pyproject.toml:/app/pyproject.toml:ro
+      - ./poetry.lock:/app/poetry.lock:ro
+    depends_on:
+      ollama:
+        condition: service_started
+      redis:
+        condition: service_started
+    networks:
+      - foodsave-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  # Frontend Next.js - Development z hot-reload
+  frontend:
+    build:
+      context: ./foodsave-frontend
+      dockerfile: Dockerfile.dev.frontend
+    container_name: foodsave-frontend-dev
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env.dev
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_API_URL=http://backend:8000
+      - NEXT_PUBLIC_APP_NAME=FoodSave AI (Dev)
+    volumes:
+      # Hot reload dla development - montowanie kodu źródłowego
+      - ./foodsave-frontend:/app:cached
+      - /app/node_modules
+      - /app/.next
+      - ./logs/frontend:/app/logs
+    depends_on:
+      backend:
+        condition: service_started
+    networks:
+      - foodsave-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3000/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  # Redis dla cache (wersja developerska)
+  redis:
+    image: redis:7-alpine
+    container_name: foodsave-redis-dev
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+      - ./logs/redis:/var/log/redis
+    networks:
+      - foodsave-network
+    restart: unless-stopped
+    command: redis-server --appendonly yes --loglevel notice
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  # PostgreSQL dla development (opcjonalny)
+  postgres:
+    image: postgres:15-alpine
+    container_name: foodsave-postgres-dev
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=foodsave_dev
+      - POSTGRES_USER=foodsave
+      - POSTGRES_PASSWORD=foodsave_dev_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./logs/postgres:/var/log/postgresql
+    networks:
+      - foodsave-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U foodsave -d foodsave_dev"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  # Prometheus dla monitoring (development)
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: foodsave-prometheus-dev
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.dev.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - foodsave-network
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  # Grafana dla wizualizacji (development)
+  grafana:
+    image: grafana/grafana:latest
+    container_name: foodsave-grafana-dev
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    depends_on:
+      - prometheus
+    networks:
+      - foodsave-network
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+volumes:
+  ollama_data:
+    driver: local
+  redis_data:
+    driver: local
+  postgres_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+
+networks:
+  foodsave-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

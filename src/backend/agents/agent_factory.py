@@ -203,46 +203,6 @@ class AgentFactory:
                     f"Current sys.path: {sys.path}"
                 ) from e
 
-    def create_agent(self, agent_type: str) -> BaseAgent:
-        """Create an agent instance based on the agent type"""
-        agent_type_lower = agent_type.lower()
-
-        # Sprawdź cache dla singleton behavior
-        if agent_type_lower in self._agent_cache:
-            return self._agent_cache[agent_type_lower]
-
-        agent = None
-        if agent_type_lower in ["general_conversation", "general", "conversation"]:
-            agent = GeneralConversationAgent()
-        elif agent_type_lower in ["chef", "cooking", "recipe"]:
-            agent = ChefAgent()
-        elif agent_type_lower in ["weather", "pogoda"]:
-            agent = WeatherAgent()
-        elif agent_type_lower in ["search", "wyszukiwanie"]:
-            agent = SearchAgent()
-        elif agent_type_lower in ["rag", "document", "dokument"]:
-            agent = RAGAgent()
-        elif agent_type_lower in ["ocr", "image", "zdjęcie"]:
-            agent = OCRAgent()
-        elif agent_type_lower in ["categorization", "kategoryzacja"]:
-            agent = CategorizationAgent()
-        elif agent_type_lower in ["meal_planner", "planowanie_posiłków"]:
-            agent = MealPlannerAgent()
-        elif agent_type_lower in ["analytics", "analityka"]:
-            agent = AnalyticsAgent()
-        else:
-            # Default to general conversation agent
-            logger.warning(
-                f"Unknown agent type: {agent_type}, using GeneralConversationAgent"
-            )
-            agent = GeneralConversationAgent()
-
-        # Rejestruj agenta w cache i registry
-        self._agent_cache[agent_type_lower] = agent
-        self._registry[agent.name] = agent
-
-        return agent
-
     def get_available_agents(self) -> Dict[str, str]:
         """Return a dictionary of available agent types and their descriptions"""
         return {

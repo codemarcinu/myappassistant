@@ -31,10 +31,17 @@ class ChefAgent(BaseAgent):
     """Agent that suggests recipes based on available pantry items"""
 
     def __init__(
-        self, name: str = "ChefAgent", error_handler=None, fallback_manager=None
+        self,
+        name: str = "ChefAgent",
+        error_handler=None,
+        fallback_manager=None,
+        **kwargs,
     ):
         super().__init__(
-            name, error_handler=error_handler, fallback_manager=fallback_manager
+            name,
+            error_handler=error_handler,
+            fallback_manager=fallback_manager,
+            **kwargs,
         )
         self.input_model = ChefAgentInput
         self.llm_client = llm_client  # Dodaję atrybut llm_client dla testów

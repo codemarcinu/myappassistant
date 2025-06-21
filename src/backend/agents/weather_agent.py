@@ -84,6 +84,7 @@ class WeatherAgent(BaseAgent):
             name=name,
             error_handler=error_handler,
             fallback_manager=fallback_manager,
+            **kwargs,
         )
         self.input_model = WeatherRequest
         self.providers: List[WeatherProvider] = self._init_providers()

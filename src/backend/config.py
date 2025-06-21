@@ -75,7 +75,9 @@ class Settings(BaseSettings):
     TESSDATA_PREFIX: str = "/usr/share/tesseract-ocr/5/"
 
     # Ta linia mówi Pydantic, aby wczytał zmienne z pliku .env w głównym katalogu
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(
+        env_file=".env", env_file_encoding="utf-8", extra="ignore"
+    )
 
 
 # Tworzymy jedną, globalną instancję ustawień,
