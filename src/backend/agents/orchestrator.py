@@ -181,35 +181,18 @@ class Orchestrator:
         use_bielik: bool = True,
     ) -> AgentResponse:
         """Process user command through the agent system"""
-        if user_command == "health_check_internal":
-            return AgentResponse(
-                success=True,
-                text="Orchestrator is responsive",
-                data={"status": "ok", "message": "Orchestrator is responsive"},
-                request_id=str(uuid.uuid4()),
-                error=None,
-                severity=None,
-            )
-
         try:
-            # 1. Get profile and context
-            if self.profile_manager is None:
-                logger.error("Profile manager is None")
-                return self._format_error_response(
-                    OrchestratorError("Profile manager not initialized")
+            if not user_command:
+                return AgentResponse(
+                    success=False,
+                    error="Empty command",
+                    text="Proszę podać pytanie lub polecenie.",
                 )
 
-            await self.profile_manager.get_or_create_profile(session_id)
-
-            if self.memory_manager is None:
-                logger.error("Memory manager is None")
-                return self._format_error_response(
-                    OrchestratorError("Memory manager not initialized")
-                )
-
+            # 1. Create or retrieve memory context
             context = await self.memory_manager.get_context(session_id)
 
-            # 2. Log activity
+            # 2. Log user activity
             await self.profile_manager.log_activity(
                 session_id, InteractionType.QUERY, user_command
             )
@@ -229,7 +212,6 @@ class Orchestrator:
             # Nowa logika: Modyfikacja intencji na podstawie agent_states
             if agent_states:
                 logger.info(f"Applying agent states: {agent_states}")
-                original_intent = intent.type
 
                 # Priorytet dla trybu zakupów
                 if (
@@ -238,14 +220,14 @@ class Orchestrator:
                 ):
                     intent.type = "shopping_conversation"
                     logger.info(
-                        f"Overriding intent to 'shopping_conversation' due to active toggle."
+                        "Overriding intent to 'shopping_conversation' due to active toggle."
                     )
 
                 # Priorytet dla trybu gotowania
                 elif agent_states.get("cooking") and intent.type != "food_conversation":
                     intent.type = "food_conversation"
                     logger.info(
-                        f"Overriding intent to 'food_conversation' due to active toggle."
+                        "Overriding intent to 'food_conversation' due to active toggle."
                     )
 
                 # Sprawdzenie, czy wykryta intencja jest dozwolona
@@ -277,14 +259,30 @@ class Orchestrator:
                         OrchestratorError("Agent router not initialized")
                     )
 
-                agent_response = await self.circuit_breaker.call_async(
-                    self.agent_router.route_to_agent,
-                    intent,
-                    context,
-                    user_command,
-                    use_perplexity,
-                    use_bielik,
-                )
+                try:
+                    # Add a specific try-except block to catch the NameError
+                    agent_response = await self.agent_router.route_to_agent(
+                        intent,
+                        context,
+                        user_command,
+                        use_perplexity,
+                        use_bielik,
+                    )
+                except NameError as e:
+                    if "gen" in str(e):
+                        import traceback
+
+                        logger.error(
+                            f"NameError 'gen' caught with traceback: {traceback.format_exc()}"
+                        )
+                        return AgentResponse(
+                            success=False,
+                            error="Internal system error: Variable reference issue",
+                            text="Przepraszam, wystąpił błąd wewnętrzny systemu. Zespół techniczny został powiadomiony.",
+                            severity="ERROR",
+                        )
+                    else:
+                        raise
 
                 # 5. Update context
                 await self.memory_manager.update_context(
@@ -303,6 +301,20 @@ class Orchestrator:
                     OrchestratorError("Service temporarily unavailable")
                 )
 
+        except NameError as e:
+            if "gen" in str(e):
+                logger.error(
+                    f"NameError in orchestrator: {str(e)}. This is likely due to a reference to an undefined variable 'gen'."
+                )
+                return AgentResponse(
+                    success=False,
+                    error="Internal system error: Variable reference issue",
+                    text="Przepraszam, wystąpił błąd wewnętrzny systemu. Zespół techniczny został powiadomiony.",
+                    severity="ERROR",
+                )
+            else:
+                logger.error(f"NameError in orchestrator: {str(e)}")
+                return self._format_error_response(e)
         except Exception as e:
             logger.error(f"Error processing command: {e}")
             return self._format_error_response(e)

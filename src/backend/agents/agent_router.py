@@ -83,6 +83,24 @@ class AgentRouter(IAgentRouter):
 
             return response
 
+        except NameError as e:
+            if "gen" in str(e):
+                logger.error(
+                    f"NameError in agent routing: {str(e)}. This is likely due to a reference to an undefined variable 'gen'."
+                )
+                return AgentResponse(
+                    success=False,
+                    error="Internal system error: Variable reference issue",
+                    text="Przepraszam, wystąpił błąd wewnętrzny systemu. Zespół techniczny został powiadomiony.",
+                    severity="ERROR",
+                )
+            else:
+                logger.error(f"NameError in agent routing: {str(e)}")
+                return AgentResponse(
+                    success=False,
+                    error=f"Błąd zmiennej: {str(e)}",
+                    severity="ERROR",
+                )
         except Exception as e:
             logger.error(f"Error routing to agent: {str(e)}")
             return AgentResponse(

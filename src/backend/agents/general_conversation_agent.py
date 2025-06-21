@@ -8,10 +8,13 @@ Agent obsługujący swobodne konwersacje na dowolny temat z wykorzystaniem:
 """
 
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, Tuple
+
+import numpy as np
 
 from ..core.decorators import handle_exceptions
 from ..core.hybrid_llm_client import ModelComplexity, hybrid_llm_client
+from ..core.mmlw_embedding_client import mmlw_client
 from ..core.perplexity_client import perplexity_client
 from ..core.rag_document_processor import RAGDocumentProcessor
 from ..core.rag_integration import RAGDatabaseIntegration
@@ -33,26 +36,23 @@ class GeneralConversationAgent(BaseAgent):
 
     @handle_exceptions(max_retries=2)
     async def process(self, input_data: Dict[str, Any]) -> AgentResponse:
-        """Przetwarza zapytanie użytkownika w kontekście swobodnej konwersacji"""
+        """Process user query with RAG and internet search"""
         try:
-            # Wyciągnij dane wejściowe
             query = input_data.get("query", "")
-            use_perplexity = input_data.get("use_perplexity", False)
-            use_bielik = input_data.get("use_bielik", True)  # Domyślnie Bielik
             session_id = input_data.get("session_id", "")
-
-            if not query:
-                return AgentResponse(
-                    success=False,
-                    error="Query is required",
-                    text="Przepraszam, ale potrzebuję zapytania do przetworzenia.",
-                )
+            use_perplexity = input_data.get("use_perplexity", False)
+            use_bielik = input_data.get("use_bielik", True)
 
             logger.info(
                 f"[GeneralConversationAgent] Processing query: {query[:100]}... use_perplexity={use_perplexity}, use_bielik={use_bielik}"
             )
 
+            # Debug prints
+            logger.debug("Input data: {}".format(input_data))
+            logger.debug("Starting GeneralConversationAgent.process")
+
             # 1. Zawsze próbuj pobrać kontekst z RAG
+            logger.debug("Getting RAG context")
             rag_context, rag_confidence = await self._get_rag_context(query)
             logger.info(f"RAG context confidence: {rag_confidence}")
 
@@ -63,15 +63,18 @@ class GeneralConversationAgent(BaseAgent):
                 logger.info(
                     f"RAG confidence is low ({rag_confidence}), searching internet."
                 )
+                logger.debug("Getting internet context")
                 internet_context = await self._get_internet_context(
                     query, use_perplexity
                 )
 
             # 3. Wygeneruj odpowiedź z wykorzystaniem wszystkich źródeł
+            logger.debug("Generating response")
             response = await self._generate_response(
                 query, rag_context, internet_context, use_perplexity, use_bielik
             )
 
+            logger.debug("GeneralConversationAgent.process completed successfully")
             return AgentResponse(
                 success=True,
                 text=response,
@@ -94,30 +97,48 @@ class GeneralConversationAgent(BaseAgent):
                 text="Przepraszam, wystąpił błąd podczas przetwarzania Twojego zapytania.",
             )
 
-    async def _get_rag_context(self, query: str) -> (str, float):
+    async def _get_rag_context(self, query: str) -> Tuple[str, float]:
         """Pobiera kontekst z RAG i ocenia jego pewność."""
         try:
-            # Pobierz dokumenty z RAG
-            documents = await vector_store.search(query, k=3, min_similarity=0.7)
+            # 1. Stwórz wektor dla zapytania
+            query_embedding_list = await mmlw_client.embed_text(query)
+            if not query_embedding_list:
+                logger.warning("Failed to generate query embedding for RAG context.")
+                return "", 0.0
+            query_embedding = np.array([query_embedding_list], dtype=np.float32)
 
-            if not documents:
+            # 2. Przeszukaj bazę wektorową (bez min_similarity)
+            # Zwiększamy k, aby mieć więcej kandydatów do filtrowania
+            search_results = await vector_store.search(query_embedding, k=5)
+
+            if not search_results:
                 return "", 0.0
 
-            # Oblicz średnią pewność
-            avg_confidence = sum(doc.get("similarity", 0) for doc in documents) / len(
-                documents
+            # 3. Ręcznie odfiltruj wyniki poniżej progu podobieństwa
+            min_similarity_threshold = 0.7
+            filtered_results = [
+                (doc, sim)
+                for doc, sim in search_results
+                if sim >= min_similarity_threshold
+            ]
+
+            if not filtered_results:
+                return "", 0.0
+
+            # 4. Przetwórz i sformatuj odfiltrowane wyniki
+            avg_confidence = sum(sim for _, sim in filtered_results) / len(
+                filtered_results
             )
 
-            # Pobierz dane z bazy danych (zakupy, przepisy, etc.)
+            # Pobierz dodatkowe dane z relacyjnej bazy danych
             db_context = await self.rag_integration.get_relevant_context(query)
 
             context_parts = []
-
-            if documents:
+            if filtered_results:
                 doc_texts = [
-                    f"- {doc.get('content', '')} (Źródło: {doc.get('metadata', {}).get('filename', 'Brak nazwy')})"
-                    for doc in documents
-                    if doc.get("content")
+                    f"- {doc.content} (Źródło: {doc.metadata.get('filename', 'Brak nazwy')})"
+                    for doc, sim in filtered_results
+                    if doc.content
                 ]
                 if doc_texts:
                     context_parts.append("Dokumenty:\n" + "\n".join(doc_texts[:2]))
