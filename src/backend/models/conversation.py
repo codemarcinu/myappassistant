@@ -15,7 +15,10 @@ class Conversation(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     messages = relationship(
-        "Message", back_populates="conversation", cascade="all, delete-orphan"
+        "Message",
+        back_populates="conversation",
+        cascade="all, delete-orphan",
+        lazy="selectin",
     )
 
 

@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 
 from backend.agents.base_agent import BaseAgent
 from backend.agents.interfaces import AgentResponse

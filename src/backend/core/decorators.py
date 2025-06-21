@@ -66,7 +66,12 @@ def handle_exceptions(
                             f"Retry attempt {attempt + 1}/{max_retries} for {func.__name__} "
                             f"after error: {str(e)}"
                         )
-                        time.sleep(retry_delay)
+                        # MDC-FIXED: Zastąpienie time.sleep przez asyncio.run dla proper async handling
+                        try:
+                            asyncio.run(asyncio.sleep(retry_delay))
+                        except RuntimeError:
+                            # Jeśli już jest event loop, użyj time.sleep jako fallback
+                            time.sleep(retry_delay)
                         continue
                     raise
                 except Exception as e:

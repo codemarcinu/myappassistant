@@ -5,11 +5,75 @@ const nextConfig = {
   output: 'standalone',
   experimental: {
     outputFileTracingRoot: undefined,
+    optimizeCss: true,
+    scrollRestoration: true,
   },
   images: {
     domains: ['localhost'], // Add domains for image hosting if needed
     unoptimized: true, // Dla środowiska Docker
   },
+
+  // Security Headers Configuration
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          // Content Security Policy
+          {
+            key: 'Content-Security-Policy',
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+              "font-src 'self' https://fonts.gstatic.com",
+              "img-src 'self' data: blob: https:",
+              "connect-src 'self' http://localhost:8000 http://backend:8000",
+              "frame-ancestors 'none'",
+              "base-uri 'self'",
+              "form-action 'self'",
+            ].join('; '),
+          },
+          // Strict Transport Security
+          {
+            key: 'Strict-Transport-Security',
+            value: 'max-age=31536000; includeSubDomains; preload',
+          },
+          // X-Frame-Options
+          {
+            key: 'X-Frame-Options',
+            value: 'DENY',
+          },
+          // X-Content-Type-Options
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
+          // X-XSS-Protection
+          {
+            key: 'X-XSS-Protection',
+            value: '1; mode=block',
+          },
+          // Referrer Policy
+          {
+            key: 'Referrer-Policy',
+            value: 'strict-origin-when-cross-origin',
+          },
+          // Permissions Policy
+          {
+            key: 'Permissions-Policy',
+            value: 'camera=(), microphone=(), geolocation=(), interest-cohort=()',
+          },
+          // Remove X-Powered-By header
+          {
+            key: 'X-Powered-By',
+            value: '',
+          },
+        ],
+      },
+    ];
+  },
+
   async rewrites() {
     return [
       {
@@ -21,6 +85,7 @@ const nextConfig = {
       },
     ];
   },
+
   typescript: {
     // !! WARN !!
     // Dangerously allow production builds to successfully complete even if
@@ -28,10 +93,26 @@ const nextConfig = {
     // !! WARN !!
     ignoreBuildErrors: true,
   },
-  // Dodatkowe ustawienia dla Docker
+
+  // Performance optimizations
   poweredByHeader: false,
   compress: true,
   generateEtags: false,
+
+  // Environment variables validation
+  env: {
+    CUSTOM_KEY: process.env.CUSTOM_KEY,
+  },
 };
 
-module.exports = nextConfig;
+// Bundle analyzer configuration
+const withBundleAnalyzer = require('@next/bundle-analyzer')({
+  enabled: process.env.ANALYZE === 'true',
+  openAnalyzer: false,
+  analyzerMode: 'static',
+  reportFilename: './bundle-analysis.html',
+});
+
+module.exports = process.env.ANALYZE === 'true'
+  ? withBundleAnalyzer(nextConfig)
+  : nextConfig;

@@ -6,6 +6,44 @@ from backend.core.database import engine
 async def run_migrations():
     """Run database migrations."""
     async with engine.begin() as conn:
+        # Create products table if it doesn't exist
+        await conn.execute(
+            text(
+                """
+            CREATE TABLE IF NOT EXISTS products (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name VARCHAR NOT NULL,
+                price FLOAT DEFAULT 0.0,
+                unit VARCHAR,
+                category VARCHAR,
+                discount FLOAT DEFAULT 0.0,
+                notes TEXT,
+                created_at DATETIME,
+                updated_at DATETIME
+            )
+        """
+            )
+        )
+        print("Products table created/verified")
+
+        # Create shopping_trips table if it doesn't exist
+        await conn.execute(
+            text(
+                """
+            CREATE TABLE IF NOT EXISTS shopping_trips (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                trip_date DATETIME,
+                store_name VARCHAR,
+                total_amount FLOAT DEFAULT 0.0,
+                created_at DATETIME,
+                updated_at DATETIME
+            )
+        """
+            )
+        )
+        print("Shopping_trips table created/verified")
+
+        # Now add columns if they don't exist (safe operations)
         # Check if the discount column exists
         result = await conn.execute(
             text(
@@ -212,3 +250,5 @@ async def run_migrations():
             print("Added notes column to products table")
         else:
             print("Notes column already exists in products")
+
+        print("Database migrations completed successfully")

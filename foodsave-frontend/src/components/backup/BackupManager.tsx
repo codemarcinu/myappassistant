@@ -53,32 +53,47 @@ export function BackupManager() {
   const [selectedBackup, setSelectedBackup] = useState<string>('');
   const [restoreComponents, setRestoreComponents] = useState<string>('');
 
-  // Load backups and stats on component mount
-  useEffect(() => {
-    loadBackups();
-    loadStats();
-  }, []);
-
-  const loadBackups = useCallback(async () => {
+  const loadBackups = useCallback(async (signal?: AbortSignal) => {
     try {
       setIsLoading(true);
-      const response = await ApiService.get('/api/v2/backup/list') as any;
+      const response = await ApiService.get('/api/v2/backup/list', undefined, signal) as any;
       setBackups(response.data.backups);
     } catch (error) {
+      // Don't log error if request was aborted
+      if (error instanceof Error && error.name === 'AbortError') {
+        return;
+      }
       console.error('Error loading backups:', error);
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  const loadStats = useCallback(async () => {
+  const loadStats = useCallback(async (signal?: AbortSignal) => {
     try {
-      const response = await ApiService.get('/api/v2/backup/stats') as any;
+      const response = await ApiService.get('/api/v2/backup/stats', undefined, signal) as any;
       setStats(response.data);
     } catch (error) {
+      // Don't log error if request was aborted
+      if (error instanceof Error && error.name === 'AbortError') {
+        return;
+      }
       console.error('Error loading backup stats:', error);
     }
   }, []);
+
+  // Load backups and stats on component mount with proper cleanup
+  useEffect(() => {
+    const controller = new AbortController();
+
+    loadBackups(controller.signal);
+    loadStats(controller.signal);
+
+    // Cleanup function to abort requests when component unmounts
+    return () => {
+      controller.abort();
+    };
+  }, [loadBackups, loadStats]);
 
   const createBackup = useCallback(async () => {
     try {
@@ -190,7 +205,7 @@ export function BackupManager() {
         <CardHeader>
           <CardTitle className="flex justify-between items-center">
             Backup System Statistics
-            <Button onClick={loadStats} disabled={isLoading}>
+            <Button onClick={() => loadStats()} disabled={isLoading}>
               {isLoading ? 'Loading...' : 'Refresh'}
             </Button>
           </CardTitle>
@@ -199,20 +214,24 @@ export function BackupManager() {
           {stats ? (
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <h4 className="font-semibold mb-2">Overview</h4>
-                <p>Total Backups: {stats.total_backups}</p>
-                <p>Total Size: {stats.total_size_mb.toFixed(2)} MB</p>
-                <p>Backup Dir Size: {stats.backup_dir_size_mb.toFixed(2)} MB</p>
+                <p className="text-sm text-gray-500">Total Backups</p>
+                <p className="text-2xl font-bold">{stats.total_backups}</p>
               </div>
               <div>
-                <h4 className="font-semibold mb-2">Retention Policy</h4>
-                <p>Daily: {stats.retention_policy.daily_retention_days} days</p>
-                <p>Weekly: {stats.retention_policy.weekly_retention_weeks} weeks</p>
-                <p>Monthly: {stats.retention_policy.monthly_retention_months} months</p>
+                <p className="text-sm text-gray-500">Total Size</p>
+                <p className="text-2xl font-bold">{stats.total_size_mb.toFixed(2)} MB</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Backup Directory Size</p>
+                <p className="text-2xl font-bold">{stats.backup_dir_size_mb.toFixed(2)} MB</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Verification</p>
+                <p className="text-2xl font-bold">{stats.verification_enabled ? 'Enabled' : 'Disabled'}</p>
               </div>
             </div>
           ) : (
-            <p>Click "Refresh" to load statistics</p>
+            <p>Loading statistics...</p>
           )}
         </CardContent>
       </Card>
@@ -222,144 +241,114 @@ export function BackupManager() {
         <CardHeader>
           <CardTitle>Create New Backup</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-2">Backup Name (optional)</label>
+        <CardContent>
+          <div className="flex gap-4">
             <Input
+              type="text"
+              placeholder="Backup name (optional)"
               value={backupName}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setBackupName(e.target.value)}
-              placeholder="e.g., pre_deployment_backup"
+              onChange={(e) => setBackupName(e.target.value)}
+              className="flex-grow"
             />
+            <Button onClick={createBackup} disabled={isLoading}>
+              {isLoading ? 'Creating...' : 'Create Backup'}
+            </Button>
           </div>
-
-          <Button
-            onClick={createBackup}
-            disabled={isLoading}
-            className="w-full"
-          >
-            {isLoading ? 'Creating Backup...' : 'Create Full Backup'}
-          </Button>
-
-          {lastBackupResult && (
-            <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded">
-              <h4 className="font-semibold text-green-800 mb-2">Last Backup Result:</h4>
-              <p className="text-sm text-green-700">Name: {lastBackupResult.backup_name}</p>
-              <p className="text-sm text-green-700">Size: {formatFileSize(lastBackupResult.total_size)}</p>
-              <p className="text-sm text-green-700">Status: {lastBackupResult.verification.overall_status}</p>
-            </div>
-          )}
         </CardContent>
       </Card>
 
       {/* Backup List Card */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex justify-between items-center">
-            Available Backups
-            <Button onClick={loadBackups} disabled={isLoading}>
-              {isLoading ? 'Loading...' : 'Refresh'}
-            </Button>
-          </CardTitle>
+          <CardTitle>Backup History</CardTitle>
         </CardHeader>
         <CardContent>
-          {backups.length > 0 ? (
-            <div className="space-y-4">
-              {backups.map((backup) => (
-                <div key={backup.name} className="p-4 border rounded">
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <h4 className="font-semibold">{backup.name}</h4>
-                      <p className="text-sm text-gray-600">
-                        Created: {formatDate(backup.created_at)}
-                      </p>
-                      <p className="text-sm text-gray-600">
-                        Size: {formatFileSize(backup.total_size)}
-                      </p>
-                      <p className="text-sm text-gray-600">
-                        Components: {backup.components.join(', ')}
-                      </p>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        onClick={() => verifyBackup(backup.name)}
-                        disabled={isLoading}
-                      >
-                        Verify
-                      </Button>
-                    </div>
+          <div className="space-y-4">
+            {backups.map((backup) => (
+              <div key={backup.name} className="border rounded-lg p-4">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h3 className="font-semibold">{backup.name}</h3>
+                    <p className="text-sm text-gray-500">
+                      Created: {formatDate(backup.created_at)}
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      Size: {formatFileSize(backup.total_size)}
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      Status: {backup.status}
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => verifyBackup(backup.name)}
+                      disabled={isLoading}
+                    >
+                      Verify
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setSelectedBackup(backup.name)}
+                    >
+                      Restore
+                    </Button>
                   </div>
                 </div>
-              ))}
-            </div>
-          ) : (
-            <p>No backups found. Create your first backup above.</p>
-          )}
+              </div>
+            ))}
+            {backups.length === 0 && (
+              <p className="text-center text-gray-500">No backups found</p>
+            )}
+          </div>
         </CardContent>
       </Card>
 
       {/* Restore Backup Card */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Restore Backup</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-2">Select Backup</label>
-            <select
-              value={selectedBackup}
-              onChange={(e) => setSelectedBackup(e.target.value)}
-              className="w-full p-2 border rounded"
-            >
-              <option value="">Choose a backup...</option>
-              {backups.map((backup) => (
-                <option key={backup.name} value={backup.name}>
-                  {backup.name} ({formatDate(backup.created_at)})
-                </option>
-              ))}
-            </select>
-          </div>
+      {selectedBackup && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Restore Backup: {selectedBackup}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <Input
+                type="text"
+                placeholder="Components to restore (comma-separated, leave empty for all)"
+                value={restoreComponents}
+                onChange={(e) => setRestoreComponents(e.target.value)}
+              />
+              <div className="flex gap-2">
+                <Button onClick={restoreBackup} disabled={isLoading}>
+                  {isLoading ? 'Restoring...' : 'Restore'}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setSelectedBackup('')}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
-          <div>
-            <label className="block text-sm font-medium mb-2">
-              Components to Restore (optional, comma-separated)
-            </label>
-            <Input
-              value={restoreComponents}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRestoreComponents(e.target.value)}
-              placeholder="e.g., database,files,configuration"
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              Leave empty to restore all components
-            </p>
-          </div>
-
-          <Button
-            onClick={restoreBackup}
-            disabled={!selectedBackup || isLoading}
-            className="w-full bg-red-600 hover:bg-red-700"
-          >
-            {isLoading ? 'Restoring...' : 'Restore Backup'}
-          </Button>
-        </CardContent>
-      </Card>
-
-      {/* Maintenance Card */}
+      {/* Cleanup Card */}
       <Card>
         <CardHeader>
           <CardTitle>Maintenance</CardTitle>
         </CardHeader>
         <CardContent>
           <Button
+            variant="destructive"
             onClick={cleanupOldBackups}
             disabled={isLoading}
-            className="w-full bg-orange-600 hover:bg-orange-700"
           >
             {isLoading ? 'Cleaning...' : 'Cleanup Old Backups'}
           </Button>
-          <p className="text-xs text-gray-500 mt-2">
-            This will delete backups older than the retention policy
-          </p>
         </CardContent>
       </Card>
     </div>

@@ -1,126 +1,227 @@
+# FoodSave AI - Uniwersalne Reguły Projektu
+# Version: 2.0
+# Date: 2024-12-21
+# Audience: Non-technical project owner with AI assistance focus
 
-# FoodSave AI - Zasady dla Agenta Naprawczego
+## PODSTAWOWA FILOZOFIA PROJEKTU
 
-## Kontekst Projektu
+### Kim Jest Użytkownik
+- Użytkownik NIE jest doświadczonym programistą
+- Koncentruje się na możliwościach i funkcjonalności aplikacji
+- Realizuje projekt z naciskiem na wykorzystanie AI
+- Oczekuje zrozumienia procesów, nie tylko wyników
+- Potrafi wyszukać informacje i wrócić z nimi gdy napotka problemy
 
-Jesteś ekspertem w Pythonie, FastAPI i architekturze wieloagentowej, pomagającym w naprawie i ulepszeniu projektu FoodSave AI. Projekt ten wykorzystuje architekturę wieloagentową z wyspecjalizowanymi agentami (Chef Agent, Weather Agent, Search Agent, OCR Agent) oraz system RAG do wzbogacania odpowiedzi o wiedzę z dokumentów.
+### Zasady Komunikacji z AI
+- ZAWSZE wyjaśniaj dlaczego podejmujesz określone decyzje techniczne
+- Używaj prostego, zrozumiałego języka unikając nadmiernego żargonu
+- Podawaj kontekst dla każdej sugerowanej zmiany
+- Ostrzegaj przed potencjalnymi problemami PRZED implementacją
+- Sugeruj checklistę weryfikacji po każdej większej zmianie
 
-## Kluczowe Zasady
+## STRATEGIA MAKSYMALNEJ ROZWAGI
 
-- Pisz zwięzłe, techniczne odpowiedzi z dokładnymi przykładami w Pythonie[26][29].
-- Stosuj programowanie funkcyjne i deklaratywne; unikaj klas, gdy to możliwe[26][29].
-- Preferuj iterację i modularyzację zamiast duplikacji kodu[26].
-- Używaj opisowych nazw zmiennych z czasownikami pomocniczymi (np. is_active, has_permission)[26].
-- Stosuj małe litery z podkreśleniami dla katalogów i plików (np. routers/user_routes.py)[26].
-- Preferuj nazwane eksporty dla tras i funkcji narzędziowych[26].
+### Przed Każdą Zmianą MUSISZ:
+1. Wyjaśnić cel zmiany w kontekście funkcjonalności aplikacji
+2. Ostrzec przed potencjalnymi konsekwencjami
+3. Zaproponować sposób weryfikacji czy zmiana zadziałała
+4. Podać instrukcje cofnięcia zmiany w przypadku problemów
+5. Sprawdzić czy zmiana nie wpłynie negatywnie na istniejące funkcje
 
-## Plan Naprawy
+### Hierarchia Bezpieczeństwa Zmian
+**BEZPIECZNE (można implementować od razu):**
+- Dodawanie nowych funkcji bez modyfikacji istniejących
+- Poprawki błędów w izolowanych komponentach
+- Aktualizacje dokumentacji i komentarzy
+- Dodawanie testów bez zmiany logiki
 
-Realizuj naprawy w następującej kolejności, wykonując testy walidacyjne po każdym kroku:
+**OSTROŻNE (wymagają dodatkowego wyjaśnienia):**
+- Modyfikacja istniejących funkcji
+- Zmiany w strukturze bazy danych
+- Aktualizacje zależności
+- Zmiany konfiguracji systemu
 
-### Krok 1: Naprawa cyklicznych zależności
+**RYZYKOWNE (wymagają szczególnej uwagi i backup):**
+- Refaktoryzacja architektury systemu
+- Migracje danych
+- Zmiany w systemie uwierzytelniania
+- Modyfikacje core funkcjonalności
 
-1. Przeskanuj katalog src/backend/agents/ i wygeneruj mapę wszystkich importów między modułami[7].
-2. Zidentyfikuj cykliczne zależności używając analizy grafowej[7].
-3. Stwórz nowy moduł src/backend/agents/interfaces.py zawierający:
-   - Abstrakcyjną klasę BaseAgent
-   - Interfejsy dla wszystkich typów agentów
-   - Wspólne typy danych i enumeracje
-4. Refaktoryzuj każdy moduł agenta, zastępując bezpośrednie importy importami interfejsów[7].
-5. Zaimplementuj wzorzec Dependency Injection w AgentOrchestrator[7].
+## ZASADY EDUKACYJNE
 
-### Krok 2: Implementacja centralnego systemu obsługi błędów
+### Wyjaśnianie Konceptów
+- Zawsze definiuj techniczne terminy przy pierwszym użyciu
+- Używaj analogii do rzeczywistego świata gdy to możliwe
+- Podawaj przykłady praktycznego zastosowania
+- Linkuj do dokumentacji dla głębszego zrozumienia
 
-1. Stwórz hierarchię wyjątków w src/backend/core/exceptions.py:
-   - BaseCustomException (klasa bazowa)
-   - ValidationError (błędy walidacji)
-   - AIModelError (błędy modeli AI)
-   - DatabaseError (błędy bazy danych)
-   - NetworkError (błędy sieciowe)
-   - FileProcessingError (błędy plików)[7]
-2. Zaimplementuj decorator @handle_exceptions z funkcjonalnością:
-   - Automatyczne logowanie błędów
-   - Konwersja wyjątków systemowych na niestandardowe
-   - Retry mechanism dla błędów przejściowych[7]
-3. Dodaj middleware ErrorHandlingMiddleware do FastAPI[7][14].
+### Struktura Odpowiedzi
+1. **Podsumowanie** - co zostanie zrobione w prostych słowach
+2. **Uzasadnienie** - dlaczego ta zmiana jest potrzebna
+3. **Implementacja** - konkretne kroki (z wyjaśnieniami)
+4. **Weryfikacja** - jak sprawdzić czy działa
+5. **Troubleshooting** - co robić gdy coś pójdzie nie tak
 
-### Krok 3: Standaryzacja konwencji nazewnictwa
+## ZASADY TECHNICZNE DOSTOSOWANE DO UŻYTKOWNIKA
 
-1. Przeskanuj projekt i znajdź wszystkie niespójne nazwy[7].
-2. Stwórz mapę refaktoryzacji nazw:
-   - enhanced_agent → AgentEnhanced
-   - improved_search → SearchOptimized
-   - new_feature → FeatureImplementation[7]
-3. Wykonaj refaktoryzację w kolejności:
-   - Klasy: PascalCase
-   - Metody: snake_case
-   - Stałe: UPPER_CASE
-   - Zmienne prywatne: _snake_case[7][18]
+### Python Backend
+- Priorytetyzuj czytelność kodu nad wydajność (chyba że wydajność jest krytyczna)
+- Dodawaj komentarze wyjaśniające logikę biznesową, nie tylko techniczną
+- Używaj opisowych nazw zmiennych i funkcji
+- Implementuj logging który pomoże w debugowaniu
 
-### Krok 4: Implementacja systemu uwierzytelniania i autoryzacji
+```
 
-1. Stwórz strukturę modułu uwierzytelniania:
-   src/backend/auth/
-   ├── __init__.py
-   ├── jwt_handler.py
-   ├── auth_middleware.py
-   ├── models.py
-   ├── schemas.py
-   └── routes.py[7]
-2. Zaimplementuj JWT handler z funkcjami:
-   - create_access_token()
-   - create_refresh_token()
-   - verify_token()
-   - decode_token()[7]
-3. Stwórz modele bazy danych dla użytkowników i ról[7].
 
-### Krok 5: Optymalizacja wydajności bazy danych
+# DOBRZE - kod z kontekstem biznesowym
 
-1. Przeanalizuj wszystkie zapytania SQL i zidentyfikuj problemy[7].
-2. Dodaj indeksy do często używanych kolumn[7].
-3. Zaimplementuj connection pooling[7].
-4. Dodaj mechanizm buforowania Redis[7][29].
+def calculate_food_waste_score(user_habits: Dict) -> float:
+"""
+Oblicza wskaźnik marnowania żywności użytkownika.
+Im wyższy wynik, tym więcej żywności użytkownik marnuje.
 
-### Krok 6: Uzupełnienie testów i dokumentacji
+    Args:
+        user_habits: Słownik z nawykami użytkownika (częstość zakupów, ilość wyrzucanej żywności)
 
-1. Znajdź wszystkie metody z NotImplementedError[7].
-2. Zaimplementuj brakujące metody i dodaj dla nich testy[7].
-3. Wygeneruj dokumentację API[7][14].
+    Returns:
+        Wskaźnik od 0.0 (brak marnowania) do 10.0 (bardzo wysokie marnowanie)
+    """
+    # Logika obliczania...
+    ```
 
-### Krok 7: Konfiguracja środowisk i konteneryzacja
+### Next.js Frontend
+- Preferuj komponenty funkcjonalne z jasno zdefiniowanymi props
+- Dodawaj komentarze opisujące purpose komponentu dla użytkownika końcowego
+- Implementuj error boundaries z użytkowni-friendly komunikatami
+- Używaj TypeScript dla lepszej dokumentacji kodu
 
-1. Zoptymalizuj Dockerfile[7].
-2. Stwórz docker-compose dla różnych środowisk[7].
-3. Zaimplementuj zarządzanie sekretami[7].
+### Zarządzanie Stanem
+- Dokumentuj stan aplikacji w kontekście user experience
+- Wyjaśniaj przepływ danych między komponentami
+- Implementuj loading states z jasną komunikacją dla użytkownika
 
-## Wytyczne dla FastAPI
+## OBSŁUGA BŁĘDÓW I PROBLEMÓW
 
-- Używaj typowania dla wszystkich parametrów funkcji i wartości zwracanych[14][15].
-- Używaj modeli Pydantic do walidacji żądań i odpowiedzi[14][15].
-- Używaj odpowiednich metod HTTP z dekoratorami operacji ścieżki (@app.get, @app.post, itp.)[14][15].
-- Używaj wstrzykiwania zależności dla współdzielonej logiki[14][15].
-- Używaj zadań w tle dla operacji nieblokujących[14][15].
-- Używaj właściwych kodów statusu dla odpowiedzi[14][15].
-- Używaj APIRouter do organizowania tras według funkcji lub zasobu[14][15].
+### Gdy AI Napotka Problem
+1. **Opisz problem** jasnym językiem z kontekstem
+2. **Wyjaśnij możliwe przyczyny** w sposób zrozumiały
+3. **Zaproponuj kroki diagnostyczne** które użytkownik może wykonać
+4. **Podaj konkretne pytania** które pomogą zawęzić problem
+5. **Zasugeruj źródła informacji** gdzie użytkownik może szukać rozwiązania
 
-## Wytyczne dla Testów
+### Template Komunikacji o Problemie
+```
 
-- Implementuj testy jednostkowe dla wszystkich kluczowych komponentów[7][15].
-- Używaj pytest do testów jednostkowych i integracyjnych[7].
-- Implementuj testy wydajnościowe dla krytycznych komponentów[7].
-- Utrzymuj pokrycie kodu testami powyżej 90%[7].
+PROBLEM: [Krótki opis co nie działa]
 
-## Wytyczne dla Bezpieczeństwa
+KONTEKST: [Dlaczego to jest ważne dla aplikacji]
 
-- Implementuj uwierzytelnianie i autoryzację dla wszystkich endpointów API[7].
-- Używaj bezpiecznych praktyk zarządzania sekretami[7].
-- Implementuj walidację danych wejściowych dla wszystkich endpointów API[7][14].
-- Używaj HTTPS dla wszystkich komunikacji[7].
+MOŻLIWE PRZYCZYNY:
 
-## Wytyczne dla Wydajności
+1. [Przyczyna 1 z wyjaśnieniem]
+2. [Przyczyna 2 z wyjaśnieniem]
 
-- Minimalizuj blokujące operacje I/O; używaj operacji asynchronicznych dla wszystkich wywołań bazy danych i zewnętrznych żądań API[29].
-- Implementuj buforowanie dla statycznych i często dostępnych danych[29].
-- Optymalizuj serializację i deserializację danych z Pydantic[29].
-- Używaj technik lazy loading dla dużych zbiorów danych[29].
+KROKI DIAGNOSTYCZNE:
+
+1. [Konkretny krok do sprawdzenia]
+2. [Kolejny krok]
+
+POTRZEBNE INFORMACJE:
+
+- [Jakie konkretne informacje potrzebuję od użytkownika]
+
+GDZIE SZUKAĆ POMOCY:
+
+- [Linki do dokumentacji]
+- [Sugerowane wyszukiwania]
+
+```
+
+## ZARZĄDZANIE PROJEKTEM AI
+
+### Priorytety Rozwoju
+1. **Funkcjonalność użytkownika** - czy feature rozwiązuje prawdziwy problem
+2. **Stabilność systemu** - czy nie psuje istniejących funkcji
+3. **Jakość AI** - czy AI responses są pomocne i dokładne
+4. **Wydajność** - czy system jest responsywny dla użytkownika
+5. **Skalowalność** - czy rozwiązanie będzie działać z większą liczbą użytkowników
+
+### Testowanie Funkcji AI
+- Zawsze testuj edge cases w odpowiedziach AI
+- Weryfikuj czy AI rozumie kontekst użytkownika
+- Sprawdzaj jakość sugestii dla różnych typów danych
+- Monitoruj czy AI nie generuje szkodliwych lub nieprecyzyjnych porad
+
+## DOKUMENTACJA I KOMUNIKACJA
+
+### Dokumentowanie Zmian
+- Prowadź changelog w języku użytkownika (nie technicznym)
+- Opisuj wpływ zmian na experience użytkownika końcowego
+- Dokumentuj nowe funkcje AI z przykładami użycia
+- Zapisuj lessons learned z problemów i ich rozwiązań
+
+### Komunikacja z Zespołem (jeśli istnieje)
+- Tłumacz decyzje techniczne na język biznesowy
+- Wyjaśniaj wartość biznesową każdej implementowanej funkcji
+- Komunikuj risk i timeline w zrozumiały sposób
+
+## SECURITY I PRYWATNOŚĆ
+
+### Podstawowe Zasady
+- Zawsze wyjaśniaj dlaczego określone środki bezpieczeństwa są potrzebne
+- Implementuj security w sposób transparentny dla użytkownika
+- Dokumentuj jak dane użytkowników są przetwarzane i chronione
+- Regularnie review permissions i access patterns
+
+## MONITORING I OPTYMALIZACJA
+
+### Metryki Biznesowe (nie tylko techniczne)
+- Jak często użytkownicy korzystają z funkcji AI
+- Czy sugestie AI są akceptowane przez użytkowników
+- Czas spędzony w aplikacji vs wartość dostarczana
+- User satisfaction z quality odpowiedzi AI
+
+### Performance w Kontekście UX
+- Czas odpowiedzi AI powinien być < 3 sekund dla podstawowych zapytań
+- Aplikacja powinna działać na urządzeniach mobilnych
+- Offline capabilities dla core funkcji
+
+## ZASADY ROZWOJU FUNKCJI AI
+
+### Dodawanie Nowych Agentów
+1. Zdefiniuj jasno purpose agenta w kontekście user needs
+2. Określ boundaries - co agent powinien i NIE powinien robić
+3. Zaimplementuj fallback scenarios gdy AI nie może pomóc
+4. Dodaj mechanizmy feedback od użytkowników
+
+### Quality Control dla AI
+- Implementuj confidence scoring dla AI responses
+- Dodaj możliwość reportowania nieprawidłowych odpowiedzi
+- Regularnie review i improve prompts na podstawie user feedback
+- Monitoruj accuracy AI w czasie rzeczywistym
+
+## TROUBLESHOOTING GUIDELINES
+
+### Gdy Coś Nie Działa
+1. **Nie panikuj** - większość problemów da się rozwiązać
+2. **Zbierz informacje** - dokładnie opisz co się dzieje
+3. **Sprawdź basics** - czy serwery działają, czy baza danych jest dostępna
+4. **Poszukaj w logach** - aplikacja zapisuje informacje o błędach
+5. **Skontaktuj się z AI** - opisz problem z kontekstem
+
+### Backup i Recovery
+- Codziennie backup bazy danych przed większymi zmianami
+- Zapisuj working version kodu przed experimentami
+- Dokumentuj configuration settings
+- Miej plan powrotu do poprzedniej wersji
+
+## CONTINUOUS LEARNING
+
+### Jak Rozwijać Wiedzę
+- Regularnie review user feedback i feature requests
+- Experimentuj z nowymi AI capabilities w safe environment
+- Ucz się z błędów - dokumentuj i share lessons learned
+- Śledź trends w AI development które mogą pomóc w projekcie
+
+Pamiętaj: Celem nie jest zostanie ekspertem programistą, ale skuteczne wykorzystanie AI do tworzenia wartościowej aplikacji dla użytkowników.
 ```

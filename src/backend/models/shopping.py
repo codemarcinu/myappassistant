@@ -34,7 +34,7 @@ class ShoppingTrip(Base):
     # Ta relacja tworzy połączenie z produktami.
     # Jeden paragon (ShoppingTrip) może mieć wiele produktów (Product).
     products = relationship(
-        "Product", back_populates="trip", cascade="all, delete-orphan"
+        "Product", back_populates="trip", cascade="all, delete-orphan", lazy="selectin"
     )
 
 
@@ -64,7 +64,7 @@ class Product(Base):
     )
 
     # Relacja zwrotna do paragonu.
-    trip = relationship("ShoppingTrip", back_populates="products", lazy="selectin")
+    trip = relationship("ShoppingTrip", back_populates="products", lazy="joined")
 
 
 # Composite indexes for common product queries

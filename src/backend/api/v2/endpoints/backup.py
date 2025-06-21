@@ -22,6 +22,7 @@ from backend.api.v2.exceptions import (
     BadRequestError,
     InternalServerError,
     NotFoundError,
+    UnprocessableEntityError,
 )
 from backend.core.backup_manager import backup_manager
 from backend.infrastructure.database.database import get_db

@@ -1,4 +1,12 @@
+"""
+Memory Management for Conversation Context
+Zgodnie z regułami MDC dla zarządzania pamięcią
+"""
+
+import asyncio
 import logging
+import weakref
+from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -7,30 +15,82 @@ from backend.agents.interfaces import BaseAgent, IMemoryManager, MemoryContext
 logger = logging.getLogger(__name__)
 
 
+class MemoryContext:
+    """Context for maintaining conversation state and memory with __slots__ optimization"""
+
+    __slots__ = [
+        "session_id",
+        "history",
+        "active_agents",
+        "last_response",
+        "created_at",
+        "last_updated",
+    ]
+
+    def __init__(self, session_id: str, history: Optional[List[Dict]] = None):
+        self.session_id = session_id
+        self.history = history if history is not None else []
+        self.active_agents: Dict[str, BaseAgent] = {}
+        self.last_response: Optional[Any] = None
+        self.created_at: datetime = datetime.now()
+        self.last_updated: datetime = datetime.now()
+
+
 class MemoryManager(IMemoryManager):
-    """Implementation of memory management for conversation context"""
+    """Implementation of memory management for conversation context with proper cleanup"""
 
     def __init__(self):
-        self._contexts: Dict[str, MemoryContext] = {}
+        # Use weak references to avoid memory leaks
+        self._contexts: Dict[str, weakref.ref[MemoryContext]] = {}
         self._max_contexts: int = 1000
         self._cleanup_threshold: int = 800
+        self._cleanup_lock = asyncio.Lock()
+
+        # Track memory usage
+        self._memory_stats = {
+            "total_contexts": 0,
+            "last_cleanup": None,
+            "cleanup_count": 0,
+        }
 
     async def store_context(self, context: MemoryContext) -> None:
-        """Store context for later retrieval"""
+        """Store context for later retrieval with weak reference"""
         if len(self._contexts) >= self._max_contexts:
             await self._cleanup_old_contexts()
 
-        self._contexts[context.session_id] = context
+        # Use weak reference to avoid memory leaks
+        self._contexts[context.session_id] = weakref.ref(
+            context, self._cleanup_callback
+        )
         context.last_updated = datetime.now()
+        self._memory_stats["total_contexts"] = len(self._contexts)
         logger.debug(f"Stored context for session: {context.session_id}")
+
+    def _cleanup_callback(self, weak_ref):
+        """Callback when context is garbage collected"""
+        # Remove from tracking when context is GC'd
+        for session_id, ref in list(self._contexts.items()):
+            if ref is weak_ref:
+                del self._contexts[session_id]
+                logger.debug(f"Cleaned up garbage collected context: {session_id}")
+                break
 
     async def retrieve_context(self, session_id: str) -> Optional[MemoryContext]:
         """Retrieve context for session if it exists"""
-        context = self._contexts.get(session_id)
-        if context:
-            context.last_updated = datetime.now()
-            logger.debug(f"Retrieved context for session: {session_id}")
-        return context
+        weak_ref = self._contexts.get(session_id)
+        if weak_ref:
+            context = weak_ref()
+            if context:  # Check if weak reference is still valid
+                context.last_updated = datetime.now()
+                logger.debug(f"Retrieved context for session: {session_id}")
+                return context
+            else:
+                # Clean up invalid weak reference
+                del self._contexts[session_id]
+                logger.debug(
+                    f"Cleaned up invalid weak reference for session: {session_id}"
+                )
+        return None
 
     async def get_context(self, session_id: str) -> MemoryContext:
         """Get or create context for session"""
@@ -55,7 +115,10 @@ class MemoryManager(IMemoryManager):
                     {"timestamp": datetime.now().isoformat(), "data": new_data}
                 )
 
-            self._contexts[context.session_id] = context
+            # Update weak reference
+            self._contexts[context.session_id] = weakref.ref(
+                context, self._cleanup_callback
+            )
             context.last_updated = datetime.now()
             logger.debug(f"Updated context for session: {context.session_id}")
 
@@ -63,25 +126,46 @@ class MemoryManager(IMemoryManager):
         """Clear context for session"""
         if session_id in self._contexts:
             del self._contexts[session_id]
+            self._memory_stats["total_contexts"] = len(self._contexts)
             logger.debug(f"Cleared context for session: {session_id}")
 
     async def _cleanup_old_contexts(self) -> None:
-        """Remove old contexts when limit is reached"""
-        if len(self._contexts) <= self._cleanup_threshold:
-            return
+        """Remove old contexts when limit is reached with proper locking"""
+        async with self._cleanup_lock:
+            if len(self._contexts) <= self._cleanup_threshold:
+                return
 
-        # Sort by last_updated and remove oldest
-        sorted_contexts = sorted(
-            self._contexts.items(), key=lambda x: x[1].last_updated, reverse=True
-        )
+            # Get valid contexts and their timestamps
+            valid_contexts = []
+            for session_id, weak_ref in self._contexts.items():
+                context = weak_ref()
+                if context:
+                    valid_contexts.append((session_id, context, context.last_updated))
+                else:
+                    # Clean up invalid references
+                    del self._contexts[session_id]
 
-        # Keep only the newest contexts
-        contexts_to_keep = sorted_contexts[: self._cleanup_threshold]
-        self._contexts = dict(contexts_to_keep)
+            # Sort by last_updated and remove oldest
+            valid_contexts.sort(key=lambda x: x[2], reverse=True)
 
-        logger.info(
-            f"Cleaned up {len(sorted_contexts) - self._cleanup_threshold} old contexts"
-        )
+            # Keep only the newest contexts
+            contexts_to_keep = valid_contexts[: self._cleanup_threshold]
+
+            # Rebuild contexts dict with weak references
+            new_contexts = {}
+            for session_id, context, _ in contexts_to_keep:
+                new_contexts[session_id] = weakref.ref(context, self._cleanup_callback)
+
+            removed_count = len(self._contexts) - len(new_contexts)
+            self._contexts = new_contexts
+            self._memory_stats["total_contexts"] = len(self._contexts)
+            self._memory_stats["last_cleanup"] = datetime.now()
+            self._memory_stats["cleanup_count"] += 1
+
+            logger.info(
+                f"Cleaned up {removed_count} old contexts. "
+                f"Total contexts: {len(self._contexts)}"
+            )
 
     async def register_agent_state(
         self,
@@ -101,19 +185,68 @@ class MemoryManager(IMemoryManager):
         }
 
     async def get_all_contexts(self) -> Dict[str, MemoryContext]:
-        """Get all stored contexts (for debugging/monitoring)"""
-        return self._contexts.copy()
+        """Get all stored contexts (for debugging/monitoring) with cleanup"""
+        # Clean up invalid references first
+        valid_contexts = {}
+        for session_id, weak_ref in self._contexts.items():
+            context = weak_ref()
+            if context:
+                valid_contexts[session_id] = context
+            else:
+                del self._contexts[session_id]
+
+        self._memory_stats["total_contexts"] = len(self._contexts)
+        return valid_contexts
 
     async def get_context_stats(self) -> Dict[str, Any]:
         """Get memory manager statistics"""
+        # Clean up invalid references before stats
+        await self._cleanup_old_contexts()
+
+        valid_contexts = []
+        for weak_ref in self._contexts.values():
+            context = weak_ref()
+            if context:
+                valid_contexts.append(context)
+
         return {
-            "total_contexts": len(self._contexts),
+            "total_contexts": len(valid_contexts),
             "max_contexts": self._max_contexts,
             "cleanup_threshold": self._cleanup_threshold,
             "oldest_context": min(
-                (ctx.last_updated for ctx in self._contexts.values()), default=None
+                (ctx.last_updated for ctx in valid_contexts), default=None
             ),
             "newest_context": max(
-                (ctx.last_updated for ctx in self._contexts.values()), default=None
+                (ctx.last_updated for ctx in valid_contexts), default=None
             ),
+            "memory_stats": self._memory_stats,
         }
+
+    async def cleanup_all(self) -> None:
+        """Cleanup all contexts and reset memory manager"""
+        async with self._cleanup_lock:
+            self._contexts.clear()
+            self._memory_stats["total_contexts"] = 0
+            self._memory_stats["last_cleanup"] = datetime.now()
+            self._memory_stats["cleanup_count"] += 1
+            logger.info("Cleaned up all contexts")
+
+    @asynccontextmanager
+    async def context_manager(self, session_id: str):
+        """Async context manager for memory context lifecycle"""
+        context = await self.get_context(session_id)
+        try:
+            yield context
+        finally:
+            # Update context timestamp on exit
+            context.last_updated = datetime.now()
+            await self.update_context(context, None)
+            logger.debug(f"Context manager exited for session: {session_id}")
+
+    async def __aenter__(self):
+        """Async context manager entry"""
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Async context manager exit with cleanup"""
+        await self.cleanup_all()

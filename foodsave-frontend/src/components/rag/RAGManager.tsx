@@ -84,10 +84,8 @@ export function RAGManager() {
   const syncDatabase = useCallback(async (syncType: string) => {
     try {
       setIsLoading(true);
-      const response = await ApiService.post('/api/v2/rag/sync-database', null, {
-        params: { sync_type: syncType }
-      }) as any;
-      setSyncResult(response.data);
+      const response = await ApiService.post('/api/v2/rag/sync-database', { sync_type: syncType }) as any;
+      setSyncResult(response);
     } catch (error) {
       console.error('Error syncing database:', error);
     } finally {
@@ -111,11 +109,7 @@ export function RAGManager() {
         formData.append('tags', uploadTags);
       }
 
-      const response = await ApiService.post('/api/v2/rag/upload', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      }) as any;
+      const response = await ApiService.uploadFile('/api/v2/rag/upload', selectedFile) as any;
 
       // Reset form
       setSelectedFile(null);

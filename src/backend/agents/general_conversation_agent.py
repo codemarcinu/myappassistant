@@ -7,9 +7,8 @@ Agent obsługujący swobodne konwersacje na dowolny temat z wykorzystaniem:
 - Bielika jako głównego modelu językowego
 """
 
-import asyncio
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 
 from ..core.decorators import handle_exceptions
 from ..core.hybrid_llm_client import ModelComplexity, hybrid_llm_client

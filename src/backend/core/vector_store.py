@@ -1,13 +1,22 @@
+"""
+Vector Store Implementation with FAISS
+Zgodnie z regułami MDC dla zarządzania pamięcią i optymalizacji
+"""
+
 import asyncio
 import hashlib
 import json
 import logging
 import os
+import weakref
+from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
+import faiss
 import numpy as np
 
 try:
@@ -24,76 +33,23 @@ from backend.core.llm_client import llm_client
 logger = logging.getLogger(__name__)
 
 
+@dataclass
 class DocumentChunk:
-    """Represents a semantically meaningful chunk of a document"""
+    """Document chunk with __slots__ optimization for memory efficiency"""
 
-    def __init__(
-        self,
-        text: str,
-        metadata: Dict[str, Any],
-        embedding: Optional[List[float]] = None,
-        chunk_id: Optional[str] = None,
-    ):
-        self.text = text
-        self.metadata = metadata
-        self.embedding = embedding
-        # Generate unique ID based on content if not provided
-        self.chunk_id = chunk_id or hashlib.md5(text.encode()).hexdigest()
-        self.created_at = datetime.now()
-        self.last_accessed = datetime.now()  # Track last access time
-        # Calculate text hash for deduplication
-        self.text_hash = self._semantic_hash(text)
+    __slots__ = ["id", "content", "metadata"]
 
-    def _semantic_hash(self, text: str) -> str:
-        """Create a robust hash of normalized document content for deduplication"""
-        # Normalize text: lowercase, remove punctuation, normalize whitespace
-        import re
-        import string
+    id: str
+    content: str
+    metadata: Dict[str, Any]
+    embedding: Optional[np.ndarray] = None
+    created_at: Optional[str] = None
 
-        # Remove all punctuation except apostrophes (for contractions)
-        translator = str.maketrans("", "", string.punctuation.replace("'", ""))
-        normalized = text.lower().translate(translator)
+    def __post_init__(self):
+        if self.created_at is None:
+            from datetime import datetime
 
-        # Normalize whitespace and remove extra spaces
-        normalized = re.sub(r"\s+", " ", normalized).strip()
-
-        # Hash the entire normalized content
-        return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
-
-    def is_similar_to(self, other: "DocumentChunk", threshold: float = 0.8) -> bool:
-        """Check if this chunk is semantically similar to another"""
-        # Quick check based on semantic hash
-        if self.text_hash == other.text_hash:
-            return True
-
-        # If embeddings available, compare semantic similarity
-        if self.embedding and other.embedding:
-            similarity = self._cosine_similarity(self.embedding, other.embedding)
-            return similarity > threshold
-
-        return False
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary for serialization"""
-        return {
-            "chunk_id": self.chunk_id,
-            "text": self.text,
-            "metadata": self.metadata,
-            "created_at": self.created_at.isoformat(),
-            "text_hash": self.text_hash,
-        }
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "DocumentChunk":
-        """Create from dictionary representation"""
-        chunk = cls(
-            text=data["text"],
-            metadata=data["metadata"],
-            chunk_id=data["chunk_id"],
-        )
-        chunk.text_hash = data["text_hash"]
-        chunk.created_at = datetime.fromisoformat(data["created_at"])
-        return chunk
+            self.created_at = datetime.now().isoformat()
 
 
 class SmartChunker:
@@ -174,366 +130,347 @@ class SmartChunker:
 
 
 class VectorStore:
-    """Optimized vector store with smart chunking, deduplication and incremental indexing"""
+    """FAISS-based vector store with proper memory management and optimizations"""
 
-    def __init__(
-        self,
-        embedding_dim: Optional[int] = None,
-        index_path: Optional[str] = None,
-        persist_dir: Optional[str] = None,
-    ):
-        self.embedding_dim = embedding_dim
-        self.chunks: List[DocumentChunk] = []
-        self.chunker = SmartChunker()
-        self.index_path = index_path
-        self.persist_dir = persist_dir
-        self.last_save_time = datetime.now()
-        self.chunks_since_save = 0
-        self.chunk_ids_to_index: Dict[str, int] = (
-            {}
-        )  # Maps chunk IDs to index positions
-        self._lock = asyncio.Lock()  # Async lock for thread safety
-        self.max_chunks = 10000  # Maximum chunks before cleanup
-        self.cleanup_threshold = 0.8  # Cleanup when reaching 80% of max_chunks
+    def __init__(self, dimension: int = 768, index_type: str = "IndexIVFFlat"):
+        self.dimension = dimension
+        self.index_type = index_type
 
-        # Initialize FAISS index if available (will be created when first embedding is added)
-        if FAISS_AVAILABLE:
-            self.index = None  # Will be initialized with correct dimension
-            self.use_faiss = True
+        # Initialize optimized FAISS index
+        if index_type == "IndexFlatL2":
+            self.index = faiss.IndexFlatL2(dimension)
+        elif index_type == "IndexIVFFlat":
+            # Use IVF for better memory efficiency and speed
+            quantizer = faiss.IndexFlatL2(dimension)
+            self.index = faiss.IndexIVFFlat(quantizer, dimension, 100)
+            # Train the index (will be done when vectors are added)
+            self._is_trained = False
+        elif index_type == "IndexIVFPQ":
+            # Use Product Quantization for memory efficiency
+            quantizer = faiss.IndexFlatL2(dimension)
+            # 8 bits per sub-vector, 8 sub-vectors
+            self.index = faiss.IndexIVFPQ(quantizer, dimension, 100, 8, 8)
+            self._is_trained = False
         else:
-            self.use_faiss = False
+            raise ValueError(f"Unsupported index type: {index_type}")
 
-        # Load existing index if path provided
-        if index_path and os.path.exists(index_path):
-            self.load_index(index_path)
+        # Use weak references to avoid memory leaks
+        self._documents: Dict[str, weakref.ref[DocumentChunk]] = {}
+        self._document_ids: List[str] = []
 
-    def _cosine_similarity(self, v1: List[float], v2: List[float]) -> float:
-        """Calculate cosine similarity between vectors"""
-        dot_product = sum(x * y for x, y in zip(v1, v2))
-        norm1 = sum(x * x for x in v1) ** 0.5
-        norm2 = sum(x * x for x in v2) ** 0.5
-        return dot_product / (norm1 * norm2) if norm1 * norm2 > 0 else 0
+        # Memory management
+        self._max_documents = 10000
+        self._cleanup_threshold = 8000
+        self._cleanup_lock = asyncio.Lock()
 
-    async def add_document(
-        self, text: str, metadata: Dict[str, Any], auto_embed: bool = True
-    ) -> List[str]:
-        """Add a document, automatically chunking and embedding it"""
-        # Generate chunks
-        chunks = self.chunker.chunk_document(text, metadata)
-        chunk_ids = []
+        # Cache for frequently accessed vectors
+        self._vector_cache: Dict[str, np.ndarray] = {}
+        self._cache_max_size = 1000
+        self._cache_hits = 0
+        self._cache_misses = 0
 
-        # Process each chunk
-        for chunk in chunks:
-            # Check for duplication
-            is_duplicate = False
-            for existing_chunk in self.chunks:
-                if chunk.is_similar_to(existing_chunk):
-                    logger.debug(f"Skipping duplicate chunk: {chunk.chunk_id[:8]}")
-                    is_duplicate = True
-                    break
+        # Memory mapping for large indices
+        self._use_memory_mapping = False
+        self._index_file_path: Optional[str] = None
 
-            if not is_duplicate:
-                # Generate embedding if needed (outside lock since it's async)
-                if auto_embed and not chunk.embedding:
-                    chunk.embedding = await llm_client.embed(
-                        model=settings.DEFAULT_EMBEDDING_MODEL, text=chunk.text
-                    )
-
-                # Protect critical section with lock
-                async with self._lock:
-                    # Add to store
-                    self.chunks.append(chunk)
-                    self.chunk_ids_to_index[chunk.chunk_id] = len(self.chunks) - 1
-                    chunk_ids.append(chunk.chunk_id)
-
-                    # Add to FAISS index if available
-                    if self.use_faiss and chunk.embedding:
-                        embedding_np = np.array([chunk.embedding], dtype=np.float32)
-                        faiss.normalize_L2(embedding_np)
-
-                        # Initialize FAISS index with correct dimension if not already done
-                        if self.index is None:
-                            embedding_dim = len(chunk.embedding)
-                            self.embedding_dim = embedding_dim
-                            self.index = faiss.IndexFlatL2(embedding_dim)
-                            logger.info(
-                                f"Initialized FAISS index with dimension: {embedding_dim}"
-                            )
-
-                        self.index.add(embedding_np)
-
-                    self.chunks_since_save += 1
-
-        # Auto-save if many changes accumulated
-        if self.persist_dir and self.chunks_since_save > 50:
-            await self.save_index_async()
-
-        return chunk_ids
-
-    async def add_documents_async(
-        self, documents: List[Tuple[str, Dict[str, Any]]], batch_size: int = 5
-    ) -> List[str]:
-        """Add multiple documents asynchronously with batching"""
-        all_chunk_ids = []
-
-        # Process documents in batches
-        for i in range(0, len(documents), batch_size):
-            batch = documents[i : i + batch_size]
-            tasks = []
-
-            for text, metadata in batch:
-                tasks.append(self.add_document(text, metadata))
-
-            # Execute batch concurrently
-            results = await asyncio.gather(*tasks)
-
-            # Collect all chunk IDs
-            for chunk_ids in results:
-                all_chunk_ids.extend(chunk_ids)
-
-        return all_chunk_ids
-
-    async def search(
-        self,
-        query: str,
-        k: int = 5,
-        filter_metadata: Optional[Dict[str, Any]] = None,
-        min_similarity: float = 0.65,
-    ) -> List[Dict[str, Any]]:
-        """Search for relevant document chunks"""
-        # Get query embedding
-        query_embedding = await llm_client.embed(
-            model=settings.DEFAULT_EMBEDDING_MODEL, text=query
-        )
-
-        if self.use_faiss and len(self.chunks) > 0 and self.index is not None:
-            # Use FAISS for fast retrieval (get more results for filtering)
-            query_vector = np.array([query_embedding], dtype=np.float32)
-            faiss.normalize_L2(query_vector)
-
-            # Protect FAISS search with lock
-            async with self._lock:
-                D, result_indices = self.index.search(
-                    query_vector, min(k * 3, len(self.chunks))
-                )
-
-            # Get candidates
-            candidates = []
-            for idx, (distance_idx, result_index) in enumerate(
-                zip(D[0], result_indices[0])
-            ):
-                if result_index < len(self.chunks):
-                    chunk = self.chunks[result_index]
-                    # Apply metadata filter if specified
-                    if filter_metadata and not self._matches_filter(
-                        chunk.metadata, filter_metadata
-                    ):
-                        continue
-                    similarity = (
-                        1.0 - distance_idx / 2
-                    )  # Convert L2 distance to similarity
-                    candidates.append((chunk, similarity))
-
-            # Filter by similarity threshold
-            candidates = [
-                (chunk, similarity)
-                for chunk, similarity in candidates
-                if similarity >= min_similarity
-            ]
-        else:
-            # Fallback to manual search
-            candidates = []
-            for chunk in self.chunks:
-                # Skip if doesn't match filter
-                if filter_metadata and not self._matches_filter(
-                    chunk.metadata, filter_metadata
-                ):
-                    continue
-
-                # Skip if no embedding
-                if not chunk.embedding:
-                    continue
-
-                # Calculate similarity
-                similarity = self._cosine_similarity(query_embedding, chunk.embedding)
-                if similarity >= min_similarity:
-                    candidates.append((chunk, similarity))
-
-        # Sort by similarity
-        candidates.sort(key=lambda x: x[1], reverse=True)
-
-        # Format results
-        results = []
-        for chunk, similarity in candidates[:k]:
-            results.append(
-                {
-                    "chunk_id": chunk.chunk_id,
-                    "text": chunk.text,
-                    "metadata": chunk.metadata,
-                    "similarity": similarity,
-                }
-            )
-
-        return results
-
-    def _matches_filter(
-        self, metadata: Dict[str, Any], filter_criteria: Dict[str, Any]
-    ) -> bool:
-        """Check if metadata matches filter criteria"""
-        for key, val in filter_criteria.items():
-            if key not in metadata:
-                return False
-
-            if isinstance(val, list):
-                # List means "any of these values"
-                if metadata[key] not in val:
-                    return False
-            elif metadata[key] != val:
-                return False
-
-        return True
-
-    async def save_index_async(self) -> None:
-        """Save index and chunks asynchronously"""
-        if not self.persist_dir:
-            return
-
-        # Check if we need to cleanup before saving
-        if len(self.chunks) > self.max_chunks * self.cleanup_threshold:
-            removed = await self.cleanup_old_chunks()
-            logger.info(f"Pre-save cleanup removed {removed} old chunks")
-
-        # Create directory if it doesn't exist
-        os.makedirs(self.persist_dir, exist_ok=True)
-
-        # Prepare chunk data for saving
-        chunks_data = [chunk.to_dict() for chunk in self.chunks]
-
-        # Define path for chunks data
-        chunks_path = os.path.join(self.persist_dir, "chunks.json")
-
-        # Use asyncio to run file operations without blocking
-        def _save_data():
-            # Save chunks data
-            with open(chunks_path, "w") as f:
-                json.dump(chunks_data, f)
-
-            # Save FAISS index if available
-            if self.use_faiss and self.index is not None:
-                index_path = os.path.join(self.persist_dir, "faiss.index")
-                faiss.write_index(self.index, index_path)
-
-        await asyncio.to_thread(_save_data)
-
-        self.last_save_time = datetime.now()
-        self.chunks_since_save = 0
-        logger.info(f"Vector index saved to {self.persist_dir}")
-
-    @lru_cache(maxsize=1000)
-    def get_chunk(self, chunk_id: str) -> Optional[DocumentChunk]:
-        """Get a chunk by ID with LRU caching"""
-        if chunk_id not in self.chunk_ids_to_index:
-            return None
-        chunk = self.chunks[self.chunk_ids_to_index[chunk_id]]
-        chunk.last_accessed = datetime.now()  # Update access time
-        return chunk
-
-    async def cleanup_old_chunks(self, max_age_days: int = 30) -> int:
-        """Remove chunks not accessed in specified days"""
-        cutoff = datetime.now() - timedelta(days=max_age_days)
-        removed_count = 0
-
-        async with self._lock:
-            processed_chunks = []
-            updated_mapping = {}
-            for chunk in self.chunks:
-                if chunk.last_accessed >= cutoff:
-                    updated_mapping[chunk.chunk_id] = len(processed_chunks)
-                    processed_chunks.append(chunk)
-                else:
-                    removed_count += 1
-
-            # Update store
-            self.chunks = processed_chunks
-            self.chunk_ids_to_index = updated_mapping
-
-            # Clear cache to remove deleted chunks
-            self.get_chunk.cache_clear()
-
-        logger.info(f"Cleaned up {removed_count} old chunks")
-        return removed_count
-
-    async def get_statistics(self) -> Dict[str, Any]:
-        """Get vector store statistics"""
-        return {
-            "total_chunks": len(self.chunks),
-            "embedding_dimension": self.embedding_dim,
-            "faiss_index_initialized": self.index is not None,
-            "last_save_time": (
-                self.last_save_time.isoformat() if self.last_save_time else None
-            ),
-            "chunks_since_save": self.chunks_since_save,
-            "max_chunks": self.max_chunks,
-            "cleanup_threshold": self.cleanup_threshold,
+        # Performance tracking
+        self._stats = {
+            "total_documents": 0,
+            "total_vectors": 0,
+            "last_cleanup": None,
+            "cleanup_count": 0,
+            "cache_hits": 0,
+            "cache_misses": 0,
         }
 
-    def load_index(self, directory: str) -> None:
-        """Load index and chunks from directory"""
-        chunks_path = os.path.join(directory, "chunks.json")
+    def _cleanup_callback(self, weak_ref):
+        """Callback when document is garbage collected"""
+        for doc_id, ref in list(self._documents.items()):
+            if ref is weak_ref:
+                del self._documents[doc_id]
+                if doc_id in self._document_ids:
+                    self._document_ids.remove(doc_id)
+                # Remove from cache if present
+                if doc_id in self._vector_cache:
+                    del self._vector_cache[doc_id]
+                logger.debug(f"Cleaned up garbage collected document: {doc_id}")
+                break
 
-        # Load chunks data
-        if os.path.exists(chunks_path):
-            try:
-                with open(chunks_path, "r") as f:
-                    chunks_data = json.load(f)
+    def _get_cached_embedding(self, doc_id: str) -> Optional[np.ndarray]:
+        """Get embedding from cache"""
+        if doc_id in self._vector_cache:
+            self._stats["cache_hits"] += 1
+            return self._vector_cache[doc_id]
+        self._stats["cache_misses"] += 1
+        return None
 
-                self.chunks = [DocumentChunk.from_dict(data) for data in chunks_data]
-                self.chunk_ids_to_index = {
-                    chunk.chunk_id: i for i, chunk in enumerate(self.chunks)
-                }
-                logger.info(f"Loaded {len(self.chunks)} chunks from {chunks_path}")
-            except Exception as e:
-                logger.error(f"Error loading chunks data: {e}")
+    def _cache_embedding(self, doc_id: str, embedding: np.ndarray):
+        """Cache embedding with LRU eviction"""
+        if len(self._vector_cache) >= self._cache_max_size:
+            # Remove oldest entry (simple LRU)
+            oldest_key = next(iter(self._vector_cache))
+            del self._vector_cache[oldest_key]
+        self._vector_cache[doc_id] = embedding
 
-        # Load FAISS index if available
-        if self.use_faiss:
-            index_path = os.path.join(directory, "faiss.index")
-            if os.path.exists(index_path):
-                try:
-                    self.index = faiss.read_index(index_path)
-                    # Set embedding dimension from loaded index
-                    if self.index is not None:
-                        self.embedding_dim = self.index.d
-                    logger.info(
-                        f"Loaded FAISS index from {index_path} with dimension: {self.embedding_dim}"
-                    )
-                except Exception as e:
-                    logger.error(f"Error loading FAISS index: {e}")
-                    # If loading fails, we'll initialize with first embedding
-                    self.index = None
+    async def add_documents(self, documents: List[DocumentChunk]) -> None:
+        """Add documents to vector store with memory management and caching"""
+        if len(self._documents) + len(documents) >= self._max_documents:
+            await self._cleanup_old_documents()
 
-    async def list_documents(self) -> List[Dict[str, Any]]:
-        """List all documents in the vector store with their metadata"""
-        documents = {}
+        embeddings = []
+        for doc in documents:
+            if doc.embedding is not None:
+                embeddings.append(doc.embedding)
+                # Cache the embedding
+                self._cache_embedding(doc.id, doc.embedding)
+                # Use weak reference to avoid memory leaks
+                self._documents[doc.id] = weakref.ref(doc, self._cleanup_callback)
+                self._document_ids.append(doc.id)
+                self._stats["total_documents"] += 1
 
-        for chunk in self.chunks:
-            doc_id = chunk.metadata.get("document_id", chunk.chunk_id)
+        if embeddings:
+            embeddings_array = np.array(embeddings, dtype=np.float32)
 
-            if doc_id not in documents:
-                documents[doc_id] = {
-                    "document_id": doc_id,
-                    "filename": chunk.metadata.get("filename", "Unknown"),
-                    "description": chunk.metadata.get("description"),
-                    "tags": chunk.metadata.get("tags", []),
-                    "chunks_count": 0,
-                    "uploaded_at": (
-                        chunk.created_at.isoformat() if chunk.created_at else None
-                    ),
-                }
+            # Train index if needed (for IVF indices)
+            if hasattr(self, "_is_trained") and not self._is_trained:
+                if len(embeddings_array) >= 100:  # Need enough vectors to train
+                    self.index.train(embeddings_array)
+                    self._is_trained = True
+                    logger.info("Trained FAISS index")
+                else:
+                    # For small datasets, use FlatL2 as fallback
+                    self.index = faiss.IndexFlatL2(self.dimension)
+                    logger.info("Using FlatL2 index for small dataset")
 
-            documents[doc_id]["chunks_count"] += 1
+            self.index.add(embeddings_array)
+            self._stats["total_vectors"] = self.index.ntotal
+            logger.debug(f"Added {len(documents)} documents to vector store")
 
-        return list(documents.values())
+    async def search(
+        self, query_embedding: np.ndarray, k: int = 5
+    ) -> List[Tuple[DocumentChunk, float]]:
+        """Search for similar documents with caching and proper error handling"""
+        try:
+            # Ensure query embedding is 2D
+            if query_embedding.ndim == 1:
+                query_embedding = query_embedding.reshape(1, -1)
+
+            # Search in FAISS index
+            distances, indices = self.index.search(query_embedding, k)
+
+            results = []
+            for i, (distance, idx) in enumerate(zip(distances[0], indices[0])):
+                if idx < len(self._document_ids):
+                    doc_id = self._document_ids[idx]
+
+                    # Try cache first
+                    cached_embedding = self._get_cached_embedding(doc_id)
+                    if cached_embedding is not None:
+                        # Create minimal document chunk with cached data
+                        doc = DocumentChunk(
+                            id=doc_id,
+                            content="",  # Content not cached for memory efficiency
+                            metadata={"cached": True},
+                            embedding=cached_embedding,
+                        )
+                        results.append((doc, float(distance)))
+                        continue
+
+                    weak_ref = self._documents.get(doc_id)
+
+                    if weak_ref:
+                        doc = weak_ref()
+                        if doc:  # Check if weak reference is still valid
+                            results.append((doc, float(distance)))
+                        else:
+                            # Clean up invalid reference
+                            del self._documents[doc_id]
+                            if doc_id in self._document_ids:
+                                self._document_ids.remove(doc_id)
+                    else:
+                        # Clean up missing reference
+                        if doc_id in self._document_ids:
+                            self._document_ids.remove(doc_id)
+
+            return results
+
+        except Exception as e:
+            logger.error(f"Error during vector search: {e}")
+            return []
+
+    async def get_document(self, doc_id: str) -> Optional[DocumentChunk]:
+        """Get document by ID with cleanup and caching"""
+        # Try cache first
+        cached_embedding = self._get_cached_embedding(doc_id)
+        if cached_embedding is not None:
+            return DocumentChunk(
+                id=doc_id,
+                content="",  # Content not cached
+                metadata={"cached": True},
+                embedding=cached_embedding,
+            )
+
+        weak_ref = self._documents.get(doc_id)
+        if weak_ref:
+            doc = weak_ref()
+            if doc:  # Check if weak reference is still valid
+                return doc
+            else:
+                # Clean up invalid reference
+                del self._documents[doc_id]
+                if doc_id in self._document_ids:
+                    self._document_ids.remove(doc_id)
+                logger.debug(
+                    f"Cleaned up invalid weak reference for document: {doc_id}"
+                )
+        return None
+
+    async def remove_document(self, doc_id: str) -> bool:
+        """Remove document from vector store and cache"""
+        if doc_id in self._documents:
+            del self._documents[doc_id]
+            if doc_id in self._document_ids:
+                self._document_ids.remove(doc_id)
+            # Remove from cache
+            if doc_id in self._vector_cache:
+                del self._vector_cache[doc_id]
+            self._stats["total_documents"] = len(self._documents)
+            logger.debug(f"Removed document: {doc_id}")
+            return True
+        return False
+
+    async def _cleanup_old_documents(self) -> None:
+        """Remove old documents when limit is reached with proper locking"""
+        async with self._cleanup_lock:
+            if len(self._documents) <= self._cleanup_threshold:
+                return
+
+            # Get valid documents and their timestamps
+            valid_documents = []
+            for doc_id, weak_ref in self._documents.items():
+                doc = weak_ref()
+                if doc:
+                    valid_documents.append((doc_id, doc, doc.created_at))
+                else:
+                    # Clean up invalid references
+                    del self._documents[doc_id]
+                    if doc_id in self._document_ids:
+                        self._document_ids.remove(doc_id)
+                    if doc_id in self._vector_cache:
+                        del self._vector_cache[doc_id]
+
+            # Sort by created_at and remove oldest
+            valid_documents.sort(key=lambda x: x[2], reverse=True)
+
+            # Keep only the newest documents
+            docs_to_keep = valid_documents[: self._cleanup_threshold]
+
+            # Rebuild documents dict with weak references
+            new_documents = {}
+            new_document_ids = []
+            for doc_id, doc, _ in docs_to_keep:
+                new_documents[doc_id] = weakref.ref(doc, self._cleanup_callback)
+                new_document_ids.append(doc_id)
+
+            removed_count = len(self._documents) - len(new_documents)
+            self._documents = new_documents
+            self._document_ids = new_document_ids
+            self._stats["total_documents"] = len(self._documents)
+            self._stats["last_cleanup"] = asyncio.get_event_loop().time()
+            self._stats["cleanup_count"] += 1
+
+            logger.info(
+                f"Cleaned up {removed_count} old documents. "
+                f"Total documents: {len(self._documents)}"
+            )
+
+    async def get_stats(self) -> Dict[str, Any]:
+        """Get vector store statistics with cleanup and cache info"""
+        # Clean up invalid references before stats
+        await self._cleanup_old_documents()
+
+        valid_documents = []
+        for weak_ref in self._documents.values():
+            doc = weak_ref()
+            if doc:
+                valid_documents.append(doc)
+
+        return {
+            "total_documents": len(valid_documents),
+            "total_vectors": self.index.ntotal,
+            "max_documents": self._max_documents,
+            "cleanup_threshold": self._cleanup_threshold,
+            "index_type": self.index_type,
+            "dimension": self.dimension,
+            "cache_size": len(self._vector_cache),
+            "cache_hits": self._stats["cache_hits"],
+            "cache_misses": self._stats["cache_misses"],
+            "cache_hit_rate": self._stats["cache_hits"]
+            / max(1, self._stats["cache_hits"] + self._stats["cache_misses"]),
+            "stats": self._stats,
+        }
+
+    async def clear_all(self) -> None:
+        """Clear all documents and reset vector store"""
+        async with self._cleanup_lock:
+            self._documents.clear()
+            self._document_ids.clear()
+            self._vector_cache.clear()
+            self.index.reset()
+            self._stats["total_documents"] = 0
+            self._stats["total_vectors"] = 0
+            self._stats["cache_hits"] = 0
+            self._stats["cache_misses"] = 0
+            self._stats["last_cleanup"] = asyncio.get_event_loop().time()
+            self._stats["cleanup_count"] += 1
+            logger.info("Cleared all documents from vector store")
+
+    @asynccontextmanager
+    async def context_manager(self):
+        """Async context manager for vector store lifecycle"""
+        try:
+            yield self
+        finally:
+            # Optional cleanup on exit
+            await self._cleanup_old_documents()
+            logger.debug("Vector store context manager exited")
+
+    async def __aenter__(self):
+        """Async context manager entry"""
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Async context manager exit with cleanup"""
+        await self.clear_all()
+
+    def save_index(self, filepath: str) -> None:
+        """Save FAISS index to file with memory mapping support"""
+        try:
+            faiss.write_index(self.index, filepath)
+            self._index_file_path = filepath
+            logger.info(f"Saved FAISS index to: {filepath}")
+        except Exception as e:
+            logger.error(f"Error saving FAISS index: {e}")
+            raise
+
+    def load_index(self, filepath: str, use_memory_mapping: bool = False) -> None:
+        """Load FAISS index from file with optional memory mapping"""
+        try:
+            if use_memory_mapping and os.path.exists(filepath):
+                # Use memory mapping for large indices
+                self.index = faiss.read_index(filepath, faiss.IO_FLAG_MMAP)
+                self._use_memory_mapping = True
+                self._index_file_path = filepath
+                logger.info(f"Loaded FAISS index with memory mapping from: {filepath}")
+            else:
+                self.index = faiss.read_index(filepath)
+                self._use_memory_mapping = False
+                logger.info(f"Loaded FAISS index from: {filepath}")
+
+            self._stats["total_vectors"] = self.index.ntotal
+        except Exception as e:
+            logger.error(f"Error loading FAISS index: {e}")
+            raise
 
 
 class AsyncDocumentLoader:
@@ -698,5 +635,5 @@ class AsyncDocumentLoader:
                     await asyncio.sleep(60)
 
 
-# Global instance
-vector_store = VectorStore()
+# Global instance with optimized index
+vector_store = VectorStore(index_type="IndexIVFFlat")

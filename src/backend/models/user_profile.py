@@ -98,7 +98,7 @@ class UserActivity(Base):
         JSON, nullable=True
     )  # Zmieniono z 'metadata' na 'activity_metadata'
 
-    user = relationship("UserProfile", back_populates="activities")
+    user = relationship("UserProfile", back_populates="activities", lazy="selectin")
 
 
 class UserProfile(Base):
@@ -118,7 +118,10 @@ class UserProfile(Base):
     topics_of_interest = Column(JSON, nullable=False, default=list)
 
     activities = relationship(
-        "UserActivity", back_populates="user", cascade="all, delete-orphan"
+        "UserActivity",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        lazy="selectin",
     )
 
     def get_preferences(self) -> UserPreferences:

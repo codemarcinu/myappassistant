@@ -1,5 +1,5 @@
 'use client';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/Card';
 import { ApiService } from '@/services/ApiService';
 
@@ -15,25 +15,37 @@ export function WeatherSection() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchWeather = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        // Lokacje, dla których chcemy pobrać pogodę
-        const locations = ['Ząbki', 'Warszawa'];
-        const data = await ApiService.getWeather(locations);
-        setWeatherData(data);
-      } catch (err) {
-        setError('Nie udało się pobrać danych pogodowych.');
-        console.error(err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  const fetchWeather = useCallback(async (signal?: AbortSignal) => {
+    setIsLoading(true);
+    setError(null);
 
-    fetchWeather();
+    try {
+      // Lokacje, dla których chcemy pobrać pogodę
+      const locations = ['Ząbki', 'Warszawa'];
+      const data = await ApiService.getWeather(locations, signal);
+      setWeatherData(data as WeatherData[]);
+    } catch (err) {
+      // Don't set error if request was aborted
+      if (err instanceof Error && err.name === 'AbortError') {
+        return;
+      }
+      setError('Nie udało się pobrać danych pogodowych.');
+      console.error('Weather fetch error:', err);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    fetchWeather(controller.signal);
+
+    // Cleanup function to abort request when component unmounts
+    return () => {
+      controller.abort();
+    };
+  }, [fetchWeather]);
 
   return (
     <Card>

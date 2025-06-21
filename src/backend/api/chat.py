@@ -10,6 +10,12 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.config import settings
+from backend.core.async_patterns import (
+    CircuitBreakerConfig,
+    timeout_context,
+    with_backpressure,
+    with_circuit_breaker,
+)
 from backend.core.llm_client import llm_client
 from backend.infrastructure.database.database import get_db
 from backend.orchestrator_management.orchestrator_pool import orchestrator_pool
@@ -35,22 +41,32 @@ class MemoryChatResponse(BaseModel):
     history_length: int
 
 
+# Circuit breaker dla LLM client
+llm_circuit_breaker = CircuitBreakerConfig(
+    failure_threshold=3, recovery_timeout=30.0, name="llm_client"
+)
+
+
+@with_circuit_breaker(llm_circuit_breaker)
+@with_backpressure(max_concurrent=50)
+@with_backpressure(max_concurrent=20)  # Ograniczenie dla memory chat
 async def chat_response_generator(prompt: str, model: str):
     """
     Asynchroniczny generator. Pobiera kawałki odpowiedzi od klienta
     Ollama i od razu przesyła je dalej (yield).
     """
     try:
-        async for chunk in await llm_client.generate_stream(
-            model=model, prompt=prompt, system_prompt=""
-        ):
-            if not isinstance(chunk, dict):
-                continue
-            chunk_dict = cast(Dict[str, Any], chunk)
-            if "response" in chunk_dict:
-                yield chunk_dict["response"]
+        async with timeout_context(30.0):  # 30 second timeout
+            async for chunk in await llm_client.generate_stream(
+                model=model, prompt=prompt, system_prompt=""
+            ):
+                if not isinstance(chunk, dict):
+                    continue
+                chunk_dict = cast(Dict[str, Any], chunk)
+                if "response" in chunk_dict:
+                    yield chunk_dict["response"]
     except Exception as e:
-        print(f"Błąd podczas streamowania: {e}")
+        logger.error(f"Błąd podczas streamowania: {e}")
         yield "Wystąpił błąd serwera."
 
 
@@ -70,6 +86,7 @@ async def chat_with_model(request: ChatRequest):
 import json
 
 
+@with_backpressure(max_concurrent=20)  # Ograniczenie dla memory chat
 async def memory_chat_generator(request: MemoryChatRequest, db: AsyncSession):
     """
     Generator for streaming responses from the orchestrator.
@@ -120,69 +137,28 @@ async def memory_chat_generator(request: MemoryChatRequest, db: AsyncSession):
                 ) + "\n"
             return
 
-        logger.debug(f"Processing command with orchestrator: {request.message}")
-        agent_response = await orchestrator.process_command(
-            user_command=request.message,
-            session_id=request.session_id,
-            agent_states=None,
-            use_perplexity=request.usePerplexity,  # Przekazujemy flagę dalej
-        )
-        logger.debug(f"Agent response received: {agent_response}")
-        logger.debug(f"Agent response type: {type(agent_response)}")
-        logger.debug(f"Agent response attributes: {dir(agent_response)}")
-        logger.debug(f"Agent response text: {getattr(agent_response, 'text', None)}")
-        logger.debug(
-            f"Agent response text_stream: {getattr(agent_response, 'text_stream', None)}"
-        )
-        logger.debug(f"Agent response data: {getattr(agent_response, 'data', None)}")
-        logger.debug(
-            f"Agent response success: {getattr(agent_response, 'success', None)}"
-        )
+        # Process with orchestrator
+        async with timeout_context(60.0):  # 60 second timeout for memory chat
+            response = await orchestrator.process_command(
+                user_command=request.message, session_id=request.session_id
+            )
 
-        # Obsługa streamu tekstowego
-        if hasattr(agent_response, "text_stream") and agent_response.text_stream:
-            logger.debug("Using text stream from agent response")
-            # Sprawdź czy text_stream jest async generatorem
-            if hasattr(agent_response.text_stream, "__aiter__"):
-                async for chunk in agent_response.text_stream:
-                    # Każdy chunk zamieniamy na NDJSON z nową linią
-                    yield json.dumps({"text": chunk, "success": True}) + "\n"
-            else:
-                # Jeśli text_stream nie jest async generatorem, traktuj jako zwykły tekst
-                logger.debug("text_stream is not an async generator, treating as text")
+            if response.success:
                 yield json.dumps(
                     {
-                        "text": str(agent_response.text_stream),
-                        "success": agent_response.success,
+                        "text": response.text or response.message,
+                        "success": True,
+                        "session_id": request.session_id,
                     }
                 ) + "\n"
-        elif hasattr(agent_response, "text") and agent_response.text:
-            logger.debug("Using text from agent response")
-            yield json.dumps(
-                {
-                    "text": agent_response.text,
-                    "success": agent_response.success,
-                    "data": agent_response.data or {},
-                }
-            ) + "\n"
-        elif hasattr(agent_response, "data") and agent_response.data:
-            logger.debug("Using data from agent response")
-            yield json.dumps(
-                {
-                    "text": agent_response.data.get("message", "Response received"),
-                    "success": agent_response.success,
-                    "data": agent_response.data,
-                }
-            ) + "\n"
-        else:
-            logger.debug("Using fallback response")
-            yield json.dumps(
-                {
-                    "text": "No response generated",
-                    "success": getattr(agent_response, "success", False),
-                    "data": {},
-                }
-            ) + "\n"
+            else:
+                yield json.dumps(
+                    {
+                        "text": response.error or "An error occurred",
+                        "success": False,
+                        "session_id": request.session_id,
+                    }
+                ) + "\n"
 
     except Exception as e:
         logger.error(f"Error in memory_chat_generator: {str(e)}", exc_info=True)
@@ -205,9 +181,9 @@ async def chat_with_memory(
     return StreamingResponse(generator, media_type="application/x-ndjson")
 
 
-@router.post("/test_simple")
+@router.post("/test_simple_chat")
 async def test_simple_chat():
     """
-    Simple test endpoint that doesn't use the orchestrator
+    Simple test endpoint for basic chat functionality
     """
-    return {"response": "Test endpoint working", "success": True}
+    return {"message": "Chat endpoint is working correctly"}

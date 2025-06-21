@@ -17,6 +17,7 @@ from backend.core.exceptions import (
     convert_system_exception,
     log_exception_with_context,
 )
+from backend.core.monitoring import async_memory_profiling_context, log_memory_usage
 
 logger = logging.getLogger(__name__)
 
@@ -160,32 +161,63 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         logger.debug(f"Response details: {log_data}")
 
 
-class PerformanceMonitoringMiddleware(BaseHTTPMiddleware):
-    """Middleware do monitorowania wydajności"""
+class MemoryMonitoringMiddleware(BaseHTTPMiddleware):
+    """Middleware do monitoringu pamięci dla FastAPI"""
 
-    def __init__(self, app, slow_request_threshold: float = 1.0):
+    def __init__(self, app, enable_memory_profiling: bool = True):
         super().__init__(app)
-        self.slow_request_threshold = slow_request_threshold
+        self.enable_memory_profiling = enable_memory_profiling
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
-        """Monitoruje wydajność żądania"""
+        """Dispatch z memory monitoring"""
+        start_time = time.time()
+
+        # Memory profiling context
+        if self.enable_memory_profiling:
+            async with async_memory_profiling_context(
+                f"request_{request.url.path}"
+            ) as profiler:
+                # Log start
+                await profiler.log_memory_usage_async(
+                    f"request_start_{request.url.path}"
+                )
+
+                # Process request
+                response = await call_next(request)
+
+                # Log end
+                await profiler.log_memory_usage_async(f"request_end_{request.url.path}")
+
+                # Add memory metrics to response headers
+                metrics = await profiler.get_performance_metrics_async()
+                response.headers["X-Memory-Usage-MB"] = str(
+                    metrics.memory_rss / 1024 / 1024
+                )
+                response.headers["X-CPU-Percent"] = str(metrics.cpu_percent)
+
+                return response
+        else:
+            # Simple timing without memory profiling
+            response = await call_next(request)
+            return response
+
+
+class PerformanceMonitoringMiddleware(BaseHTTPMiddleware):
+    """Middleware do monitoringu wydajności"""
+
+    async def dispatch(self, request: Request, call_next: Callable) -> Response:
+        """Dispatch z performance monitoring"""
         start_time = time.time()
 
         # Process request
         response = await call_next(request)
 
-        # Calculate processing time
-        processing_time = time.time() - start_time
+        # Calculate timing
+        process_time = time.time() - start_time
 
-        # Log slow requests
-        if processing_time > self.slow_request_threshold:
-            logger.warning(
-                f"Slow request detected: {request.method} {request.url} "
-                f"took {processing_time:.2f}s (threshold: {self.slow_request_threshold}s)"
-            )
-
-        # Add processing time to response headers
-        response.headers["X-Processing-Time"] = str(processing_time)
+        # Add timing headers
+        response.headers["X-Process-Time"] = str(process_time)
+        response.headers["X-Request-Path"] = request.url.path
 
         return response
 

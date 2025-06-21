@@ -18,7 +18,7 @@ export function SidebarNavigation() {
   const pathname = usePathname();
 
   return (
-    <div className={cn("relative h-screen bg-card border-r transition-all duration-300", isCollapsed ? "w-20" : "w-64")}>
+    <div className={cn("relative h-screen bg-card border-r transition-all duration-300", isCollapsed ? "w-20" : "w-64")} data-testid="sidebar-navigation">
       <div className="flex items-center justify-between p-4 h-16 border-b">
         {!isCollapsed && (
           <h1 className="text-xl font-bold text-foreground">FoodSave AI</h1>

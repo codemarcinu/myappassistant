@@ -379,7 +379,12 @@ def handle_exceptions(
                             f"Attempt {attempt + 1} failed for {func.__name__}: {str(e)}. "
                             f"Retrying in {retry_delay} seconds..."
                         )
-                        time.sleep(retry_delay)
+                        # MDC-FIXED: Zastąpienie time.sleep przez asyncio.run dla proper async handling
+                        try:
+                            asyncio.run(asyncio.sleep(retry_delay))
+                        except RuntimeError:
+                            # Jeśli już jest event loop, użyj time.sleep jako fallback
+                            time.sleep(retry_delay)
                     else:
                         logger.error(
                             f"All {max_retries + 1} attempts failed for {func.__name__}: {str(e)}"

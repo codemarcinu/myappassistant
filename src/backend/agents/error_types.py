@@ -1,9 +1,8 @@
-from enum import Enum
 from typing import Any, AsyncGenerator, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict
 
-from backend.agents.interfaces import AgentResponse, ErrorSeverity
+from backend.agents.interfaces import ErrorSeverity
 
 
 class AgentResponseEnhanced(BaseModel):

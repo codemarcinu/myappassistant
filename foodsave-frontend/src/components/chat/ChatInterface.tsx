@@ -20,7 +20,7 @@ export function ChatInterface() {
   } = useChat();
 
   return (
-    <Card className="flex flex-col h-[70vh] p-4">
+    <Card className="flex flex-col h-[70vh] p-4" data-testid="chat-interface">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-semibold">Asystent AI</h2>
         <button
