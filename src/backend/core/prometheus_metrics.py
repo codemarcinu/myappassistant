@@ -9,14 +9,11 @@ from typing import Any, Dict
 import psutil
 import structlog
 from prometheus_client import (
-    CONTENT_TYPE_LATEST,
     CollectorRegistry,
     Counter,
     Gauge,
     Histogram,
-    Summary,
     generate_latest,
-    multiprocess,
 )
 
 logger = structlog.get_logger(__name__)
@@ -212,8 +209,8 @@ class MetricsCollector:
             disk_usage = psutil.disk_usage("/")
             SYSTEM_DISK_USAGE.labels(mount_point="/").set(disk_usage.used)
 
-        except Exception as e:
-            logger.error(f"Error collecting system metrics: {e}")
+        except Exception:
+            logger.error("Error collecting system metrics", exc_info=True)
 
 
 class MetricsMiddleware:
@@ -236,7 +233,7 @@ class MetricsMiddleware:
             try:
                 await self.app(scope, receive, send)
                 status = "success"
-            except Exception as e:
+            except Exception:
                 status = "error"
                 raise
             finally:

@@ -5,11 +5,9 @@ This module integrates the existing database (receipts, pantry, meals) with the 
 by converting database records into searchable documents.
 """
 
-import asyncio
-import json
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,7 +15,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.core.crud import get_available_products
 from backend.core.rag_document_processor import RAGDocumentProcessor
 from backend.models.conversation import Conversation
-from backend.models.shopping import Product, ShoppingTrip
 from backend.services.shopping_service import get_shopping_trips
 
 logger = logging.getLogger(__name__)

@@ -8,7 +8,6 @@ from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
 
 from pydantic import BaseModel, ConfigDict
 
-from backend.config import settings
 from backend.core.llm_client import LLMCache, llm_client
 
 logger = logging.getLogger(__name__)
@@ -609,7 +608,6 @@ class HybridLLMClient:
         stream: bool = False,
     ) -> Any:
         """Try with primary model, falling back to simpler model if necessary"""
-        error_msg = None
 
         # Determine complexity if no primary model specified
         if not primary_model:
@@ -623,7 +621,6 @@ class HybridLLMClient:
                     messages=messages, model=primary_model, stream=stream
                 )
             except Exception as e:
-                error_msg = str(e)
                 logger.warning(
                     f"Error with primary model {primary_model}, attempt {attempt+1}: {str(e)}"
                 )

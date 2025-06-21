@@ -1,7 +1,10 @@
+import json
 import logging
+import subprocess
 
-from backend.agents.interfaces import IntentData
+from backend.agents.interfaces import IntentData, MemoryContext
 from backend.core.hybrid_llm_client import hybrid_llm_client
+from backend.core.utils import extract_json_from_text
 
 logger = logging.getLogger(__name__)
 

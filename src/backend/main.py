@@ -4,15 +4,9 @@ import os
 import sys
 import uuid
 from contextlib import asynccontextmanager
-from pathlib import Path
-
-# Set User-Agent environment variable early to prevent warnings
-os.environ.setdefault(
-    "USER_AGENT", "FoodSave-AI/1.0.0 (https://github.com/foodsave-ai)"
-)
 
 import structlog
-from fastapi import APIRouter, BackgroundTasks, FastAPI, Request, Response
+from fastapi import APIRouter, BackgroundTasks, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -30,20 +24,13 @@ from backend.api.v2.endpoints import receipts as receipts_v2
 from backend.api.v2.endpoints import weather as weather_v2
 from backend.api.v2.exceptions import APIErrorDetail, APIException
 from backend.config import settings
-from backend.core.cache_manager import cache_manager
 from backend.core.container import Container
 from backend.core.database import AsyncSessionLocal
 from backend.core.exceptions import (
-    AIModelError,
     BaseCustomException,
-    DatabaseError,
-    FileProcessingError,
-    NetworkError,
-    ValidationError,
     convert_system_exception,
     log_exception_with_context,
 )
-from backend.core.middleware import CORSMiddleware as CustomCORSMiddleware
 from backend.core.middleware import (
     ErrorHandlingMiddleware,
     PerformanceMonitoringMiddleware,
@@ -51,29 +38,21 @@ from backend.core.middleware import (
     SecurityHeadersMiddleware,
 )
 from backend.core.migrations import run_migrations
-from backend.core.monitoring import log_memory_usage
 from backend.core.seed_data import seed_database
-from backend.core.vector_store import vector_store
+from backend.core.telemetry import setup_telemetry
 from backend.infrastructure.database.database import (
-    AsyncSessionLocal,
+    AsyncSessionLocal as DBAsyncSessionLocal,
     Base,
     check_database_health,
     engine,
 )
 from backend.orchestrator_management.orchestrator_pool import orchestrator_pool
 from backend.orchestrator_management.request_queue import request_queue
-from backend.core.alerting import AlertManager
-from backend.core.cache_manager import CacheManager
-from backend.core.database import init_db
-from backend.core.hybrid_llm_client import HybridLLMClient
-from backend.core.memory import MemoryManager
-from backend.core.middleware import (
-    MemoryMonitoringMiddleware,
-    ResponseTimeMiddleware,
+
+# Set User-Agent environment variable early to prevent warnings
+os.environ.setdefault(
+    "USER_AGENT", "FoodSave-AI/1.0.0 (https://github.com/foodsave-ai)"
 )
-from backend.core.prometheus_metrics import metrics
-from backend.core.telemetry import setup_telemetry
-from backend.core.user_activity import UserActivityTracker
 
 # Dodaj import klienta MMLW
 try:

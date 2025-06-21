@@ -1,8 +1,9 @@
 from unittest.mock import patch
 
 import pytest
+from unittest.mock import AsyncMock, MagicMock
 
-from backend.agents.base_agent import AgentResponse
+from backend.agents.interfaces import AgentResponse
 from backend.agents.ocr_agent import OCRAgent
 
 

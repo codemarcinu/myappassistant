@@ -5,13 +5,12 @@ Zgodnie z regułami MDC dla zarządzania pamięcią i monitoringu
 
 import asyncio
 import gc
-import logging
 import os
 import time
 import tracemalloc
 from contextlib import asynccontextmanager, contextmanager
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from typing import List, Tuple
 from weakref import WeakSet
 
 import psutil

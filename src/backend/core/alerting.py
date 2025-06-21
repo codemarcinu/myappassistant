@@ -356,7 +356,6 @@ def record_system_metrics():
     process = psutil.Process()
 
     # Memory usage
-    memory_info = process.memory_info()
     memory_percent = process.memory_percent()
     alert_manager.record_metric("system_memory_usage_bytes", memory_percent / 100.0)
 

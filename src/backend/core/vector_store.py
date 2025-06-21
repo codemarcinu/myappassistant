@@ -4,15 +4,12 @@ Zgodnie z regułami MDC dla zarządzania pamięcią i optymalizacji
 """
 
 import asyncio
-import hashlib
-import json
 import logging
 import os
 import weakref
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from datetime import datetime, timedelta
-from functools import lru_cache
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
@@ -26,9 +23,6 @@ try:
 except ImportError:
     FAISS_AVAILABLE = False
     logging.warning("FAISS not available, falling back to simple vector store")
-
-from backend.config import settings
-from backend.core.llm_client import llm_client
 
 logger = logging.getLogger(__name__)
 

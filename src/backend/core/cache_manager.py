@@ -6,8 +6,7 @@ import asyncio
 import json
 import logging
 import pickle
-from datetime import timedelta
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, Optional
 
 try:
     import redis.asyncio as redis

@@ -1,10 +1,10 @@
 from io import BytesIO
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
 
-from backend.agents.base_agent import AgentResponse, BaseAgent
+from backend.agents.interfaces import AgentResponse, BaseAgent
 from backend.api.v2.exceptions import APIErrorCodes
 from backend.main import app
 

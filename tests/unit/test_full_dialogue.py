@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from sqlalchemy import select
 
-from backend.agents.base_agent import AgentResponse, BaseAgent
+from backend.agents.interfaces import AgentResponse, BaseAgent
 from src.backend.agents.orchestrator import Orchestrator
 from src.backend.config import settings
 from src.backend.core import crud

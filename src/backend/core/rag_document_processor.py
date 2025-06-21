@@ -6,12 +6,9 @@ Zgodnie z regułami MDC dla zarządzania pamięcią i optymalizacji
 import asyncio
 import hashlib
 import logging
-import os
-import re
 import weakref
 from contextlib import asynccontextmanager
-from datetime import datetime, timedelta
-from functools import lru_cache
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 

@@ -1,13 +1,13 @@
 import sys
 import time
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pybreaker
 import pytest
 
-from backend.agents.base_agent import AgentResponse, BaseAgent
-from backend.agents.interfaces import ErrorSeverity
+from backend.agents.adapters.error_handler import ErrorHandler
+from backend.agents.interfaces import AgentResponse, BaseAgent, ErrorSeverity
 
 # Add src directory to path
 sys.path.append(str(Path(__file__).parent.parent))

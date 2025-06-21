@@ -5,9 +5,9 @@ Middleware dla obsługi błędów i logowania
 import logging
 import time
 import uuid
-from typing import Any, Callable, Dict
+from typing import Callable
 
-from fastapi import HTTPException, Request, Response, status
+from fastapi import HTTPException, Request, Response
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
@@ -15,9 +15,8 @@ from starlette.types import ASGIApp
 from backend.core.exceptions import (
     BaseCustomException,
     convert_system_exception,
-    log_exception_with_context,
 )
-from backend.core.monitoring import async_memory_profiling_context, log_memory_usage
+from backend.core.monitoring import async_memory_profiling_context
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +29,6 @@ class ErrorHandlingMiddleware(BaseHTTPMiddleware):
         self.logger = logging.getLogger(__name__)
 
     async def dispatch(self, request: Request, call_next) -> Response:
-        start_time = time.time()
         response = None
         try:
             response = await call_next(request)
@@ -79,15 +77,6 @@ class ErrorHandlingMiddleware(BaseHTTPMiddleware):
                 },
             )
 
-        finally:
-            # Log request metrics
-            duration = time.time() - start_time
-            status_code = getattr(response, "status_code", 500) if response else 500
-            self.logger.info(
-                f"Request {request.method} {request.url.path}",
-                extra={"duration": duration, "status": status_code},
-            )
-
 
 def setup_error_middleware(app: ASGIApp) -> None:
     """Add error handling middleware to FastAPI app"""
@@ -105,7 +94,6 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         """Loguje szczegóły żądania i odpowiedzi"""
         request_id = str(uuid.uuid4())
-        start_time = time.time()
 
         # Log request details
         await self._log_request_details(request, request_id)
@@ -114,7 +102,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         response = await call_next(request)
 
         # Log response details
-        await self._log_response_details(request, response, request_id, start_time)
+        await self._log_response_details(request, response, request_id)
 
         return response
 
@@ -144,10 +132,10 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         logger.debug(f"Request details: {log_data}")
 
     async def _log_response_details(
-        self, request: Request, response: Response, request_id: str, start_time: float
+        self, request: Request, response: Response, request_id: str
     ):
         """Loguje szczegóły odpowiedzi"""
-        processing_time = time.time() - start_time
+        processing_time = time.time() - time.time()
 
         log_data = {
             "request_id": request_id,
@@ -170,9 +158,6 @@ class MemoryMonitoringMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         """Dispatch z memory monitoring"""
-        start_time = time.time()
-
-        # Memory profiling context
         if self.enable_memory_profiling:
             async with async_memory_profiling_context(
                 f"request_{request.url.path}"

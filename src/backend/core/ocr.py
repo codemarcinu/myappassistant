@@ -2,7 +2,7 @@ import io
 import logging
 import tempfile
 import tracemalloc
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 import fitz  # Import biblioteki PyMuPDF
 import pytesseract

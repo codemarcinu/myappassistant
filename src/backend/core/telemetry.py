@@ -8,12 +8,8 @@ from typing import Optional
 
 from opentelemetry import trace
 from opentelemetry.exporter.jaeger.thrift import JaegerExporter
-from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
 from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
-from opentelemetry.sdk.metrics import MeterProvider
-from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
-from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
 from prometheus_client import start_http_server
@@ -79,12 +75,6 @@ def setup_prometheus_metrics(port: int = 8001) -> None:
         print(f"Prometheus metrics server started on port {port}")
     except Exception as e:
         print(f"Failed to start Prometheus server: {e}")
-
-
-def instrument_fastapi(app) -> None:
-    """Instrument FastAPI app z OpenTelemetry (tymczasowo wyłączone z powodu błędu slow_request_threshold)"""
-    # FastAPIInstrumentor.instrument_app(app)
-    pass
 
 
 def instrument_sqlalchemy(engine) -> None:

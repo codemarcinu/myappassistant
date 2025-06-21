@@ -3,8 +3,7 @@ Centralny system obsługi błędów dla FoodSave AI
 """
 
 import logging
-import traceback
-from typing import Any, Dict, Optional, Type
+from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
 

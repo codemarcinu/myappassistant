@@ -6,7 +6,9 @@ Provides core functionality for all agent types.
 import json
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional
+from typing import Any, AsyncGenerator, Callable, Dict, Generic, List, Optional, TypeVar
+
+from pydantic import BaseModel, ValidationError
 
 from backend.agents.interfaces import AgentResponse
 from backend.agents.interfaces import BaseAgent as IBaseAgent

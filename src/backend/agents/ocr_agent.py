@@ -7,12 +7,6 @@ from backend.agents.interfaces import AgentResponse
 from backend.core.decorators import handle_exceptions
 from backend.core.ocr import process_image_file, process_pdf_file
 
-import logging
-import os
-import base64
-
-from backend.core.hybrid_llm_client import hybrid_llm_client
-
 
 class OCRAgentInput(BaseModel):
     """Model wejściowy dla OCRAgent."""

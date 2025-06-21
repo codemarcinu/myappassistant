@@ -9,7 +9,7 @@ import time
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, TypeVar
+from typing import Any, Callable, List, Optional, TypeVar
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +67,7 @@ class CircuitBreaker:
             await self._on_success()
             return result
 
-        except self.config.expected_exception as e:
+        except self.config.expected_exception:
             await self._on_failure()
             raise
 
