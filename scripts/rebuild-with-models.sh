@@ -21,6 +21,16 @@ if ! docker info > /dev/null 2>&1; then
   exit 1
 fi
 
+# Check if NVIDIA GPU is available
+if command -v nvidia-smi &> /dev/null; then
+  echo "✅ NVIDIA GPU detected"
+  nvidia-smi
+  USE_GPU=true
+else
+  echo "⚠️ NVIDIA GPU not detected, will use CPU only"
+  USE_GPU=false
+fi
+
 # Stop existing containers
 echo "🛑 Stopping existing containers..."
 docker-compose -f docker-compose.dev.yml down
@@ -31,7 +41,7 @@ docker rmi my_ai_assistant_backend_1 2>/dev/null || true
 
 # Rebuild with pre-loaded models
 echo "🔨 Rebuilding backend with pre-loaded models..."
-echo "This will download the MMLW embedding model (~248MB)..."
+echo "This will download the MMLW embedding model (~248MB) and Bielik-4.5B-v3.0-Instruct model..."
 echo ""
 
 # Build the backend image

@@ -68,8 +68,8 @@ class HybridLLMClient:
     and automatic fallback.
     """
 
-    default_model = "SpeakLeash/bielik-11b-v2.3-instruct:Q5_K_M"
-    fallback_model = "gemma3:12b"
+    default_model = "SpeakLeash/bielik-4.5b-v3.0-instruct:Q8_0"
+    fallback_model = "SpeakLeash/bielik-11b-v2.3-instruct:Q5_K_M"
     use_perplexity_fallback = True
     perplexity_client = None  # do mockowania w testach
 
@@ -100,6 +100,21 @@ class HybridLLMClient:
     def _init_model_configs(self) -> Dict[str, ModelConfig]:
         """Initialize model configurations"""
         return {
+            "SpeakLeash/bielik-4.5b-v3.0-instruct:Q8_0": ModelConfig(
+                name="SpeakLeash/bielik-4.5b-v3.0-instruct:Q8_0",
+                complexity_levels=[
+                    ModelComplexity.SIMPLE,
+                    ModelComplexity.STANDARD,
+                    ModelComplexity.COMPLEX,
+                    ModelComplexity.CRITICAL,
+                ],
+                max_tokens=32768,
+                cost_per_token=0.10,
+                priority=1,  # Najwyższy priorytet - nowy domyślny model
+                concurrency_limit=3,
+                supports_embedding=True,
+                description="Polish language specialized model v3 - primary model",
+            ),
             "SpeakLeash/bielik-11b-v2.3-instruct:Q5_K_M": ModelConfig(
                 name="SpeakLeash/bielik-11b-v2.3-instruct:Q5_K_M",
                 complexity_levels=[
@@ -110,10 +125,10 @@ class HybridLLMClient:
                 ],
                 max_tokens=32768,
                 cost_per_token=0.15,
-                priority=1,  # Najwyższy priorytet - domyślny model
-                concurrency_limit=5,
+                priority=2,  # Obniżony priorytet - model zapasowy
+                concurrency_limit=2,
                 supports_embedding=True,
-                description="Polish language specialized model - primary model",
+                description="Polish language specialized model - fallback model",
             ),
             "gemma3:12b": ModelConfig(
                 name="gemma3:12b",
@@ -124,7 +139,7 @@ class HybridLLMClient:
                 ],
                 max_tokens=4096,
                 cost_per_token=0.01,
-                priority=2,  # Niższy priorytet - model zapasowy
+                priority=3,  # Niższy priorytet - model zapasowy
                 concurrency_limit=20,
                 supports_embedding=True,
                 description="Fallback model for simple queries",
@@ -134,7 +149,7 @@ class HybridLLMClient:
                 complexity_levels=[ModelComplexity.SIMPLE],
                 max_tokens=8192,
                 cost_per_token=0.0,
-                priority=3,
+                priority=4,
                 concurrency_limit=10,
                 supports_embedding=True,
                 supports_streaming=False,
