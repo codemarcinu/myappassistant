@@ -53,7 +53,7 @@ export function useChat(context: 'general' | 'shopping' | 'cooking' = 'general')
         usePerplexity: usePerplexity || false,
         useBielik: useBielik !== undefined ? useBielik : true,
       };
-      
+
       // Set as the current streaming message
       setStreamingMessage(assistantMessage);
 
@@ -89,12 +89,12 @@ export function useChat(context: 'general' | 'shopping' | 'cooking' = 'general')
         if (prev.some(msg => msg.id === assistantMessageId)) {
           return prev;
         }
-        
+
         // If we have a streaming message, use that as the final message
         if (streamingMessage && streamingMessage.content) {
           return [...prev, streamingMessage];
         }
-        
+
         // Fallback to the response from the API if no streaming content
         const finalMessage: Message = {
           id: assistantMessageId,

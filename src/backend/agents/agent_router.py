@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, List, Optional, AsyncGenerator
+from typing import Any, AsyncGenerator, Dict, List, Optional
 
 from .base_agent import BaseAgent
 from .interfaces import (
@@ -75,28 +75,38 @@ class AgentRouter(IAgentRouter):
             )
             input_data["use_perplexity"] = use_perplexity
             input_data["use_bielik"] = use_bielik
-            
+
             # Add streaming flag if supported
             if stream and hasattr(agent, "process_stream"):
                 input_data["stream"] = True
-                logger.info(f"Routing intent '{intent.type}' to agent {agent_type.value} with streaming")
-                
+                logger.info(
+                    f"Routing intent '{intent.type}' to agent {agent_type.value} with streaming"
+                )
+
                 # Use streaming process if available
                 if hasattr(agent, "process_stream"):
                     return await agent.process_stream(input_data)
                 else:
                     # Fallback to regular process if streaming not supported
-                    logger.warning(f"Agent {agent_type.value} does not support streaming, falling back to regular process")
+                    logger.warning(
+                        f"Agent {agent_type.value} does not support streaming, falling back to regular process"
+                    )
                     response = await agent.process(input_data)
-                    
+
                     # Return a single-item async generator
                     async def single_response_generator():
-                        yield {"text": response.text or "", "data": response.data or {}, "success": response.success}
-                    
+                        yield {
+                            "text": response.text or "",
+                            "data": response.data or {},
+                            "success": response.success,
+                        }
+
                     return single_response_generator()
             else:
                 # Process with agent normally
-                logger.info(f"Routing intent '{intent.type}' to agent {agent_type.value}")
+                logger.info(
+                    f"Routing intent '{intent.type}' to agent {agent_type.value}"
+                )
                 return await agent.process(input_data)
 
         except NameError as e:

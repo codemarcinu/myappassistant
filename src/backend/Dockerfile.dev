@@ -1,47 +1,40 @@
-FROM python:3.12-slim
+# Stage 1: Base image with Python and Poetry
+FROM python:3.12-slim as base
 
-# Install system dependencies including tesseract-ocr and build essentials
-RUN apt-get update && apt-get install -y \
-    tesseract-ocr \
-    build-essential \
-    swig \
-    git \
+# Prevents Python from writing pyc files.
+ENV PYTHONDONTWRITEBYTECODE 1
+# Ensures Python output is sent straight to the terminal without buffering.
+ENV PYTHONUNBUFFERED 1
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Set working directory
+# Install Poetry
+RUN curl -sSL https://install.python-poetry.org | python3 -
+
+# Add Poetry to PATH
+ENV PATH="/root/.local/bin:$PATH"
+
 WORKDIR /app
 
-# Install poetry with increased network timeout
-RUN pip install poetry --timeout 300 && \
-    poetry config virtualenvs.create false && \
-    pip config set global.timeout 600
+# Stage 2: Install dependencies
+FROM base as dependencies
 
-# Copy dependency files
-COPY pyproject.toml poetry.lock /app/
+# Copy only files required for dependency installation
+COPY pyproject.toml poetry.lock ./
 
-# Install all dependencies using poetry
-RUN poetry install
+# Install dependencies, without creating a virtualenv in the project
+RUN poetry config virtualenvs.create false && \
+    poetry install --no-root --only main --no-interaction --no-ansi
 
-# Copy application code
-COPY . /app/
+# Stage 3: Application image
+FROM dependencies as application
 
-# Create necessary directories
-RUN mkdir -p /app/data /app/logs
+# Copy the entire application source code
+COPY . .
 
-# Create user for development
-RUN useradd --create-home --shell /bin/bash app && \
-    chown -R app:app /app
-
-# Set environment variables
-ENV PYTHONPATH=/app
-ENV ENVIRONMENT=development
-
-# Expose port 8000
-EXPOSE 8000
-
-# Switch to app user
-USER app
-
-# Command to run the application with reload for development
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+# Command to run the application
+CMD ["poetry", "run", "uvicorn", "src.backend.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

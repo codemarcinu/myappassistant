@@ -443,9 +443,12 @@ class HybridLLMClient:
                 self.model_stats[model].last_error = str(error_msg)
 
             # Return error response in expected format
+            error_message = f"Error processing request: {str(error_msg)}"
             return {
-                "message": {"content": f"Error processing request: {str(error_msg)}"},
-                "response": f"Error processing request: {str(error_msg)}",
+                "message": {"content": error_message},
+                "response": error_message,
+                "error_type": type(error_msg).__name__,
+                "timestamp": datetime.now().isoformat(),
             }
 
     async def _wrap_streaming_response(
@@ -497,13 +500,18 @@ class HybridLLMClient:
 
         except Exception as error_msg:
             logger.error(f"Error in streaming response: {str(error_msg)}")
-            self.model_stats[model].failed_requests += 1
-            self.model_stats[model].last_error = str(error_msg)
 
-            # Yield error message
+            if model and model in self.model_stats:
+                self.model_stats[model].failed_requests += 1
+                self.model_stats[model].last_error = str(error_msg)
+
+            # Yield an error response that matches the expected format
+            error_message = f"Error in streaming response: {str(error_msg)}"
             yield {
-                "message": {"content": f"Error during streaming: {str(error_msg)}"},
-                "response": f"Error during streaming: {str(error_msg)}",
+                "message": {"content": error_message},
+                "text": error_message,
+                "error_type": type(error_msg).__name__,
+                "timestamp": datetime.now().isoformat(),
             }
 
     async def embed(self, text: str, model: Optional[str] = None) -> List[float]:

@@ -143,11 +143,11 @@ async def memory_chat_generator(request: MemoryChatRequest, db: AsyncSession):
         async with timeout_context(60.0):  # 60 second timeout for memory chat
             # Create a list to collect chunks
             chunks = []
-            
+
             # Define the callback function
             def handle_chunk(chunk):
                 chunks.append(chunk)
-            
+
             # Process the command with streaming
             response = await orchestrator.process_command(
                 user_command=request.message,
@@ -156,26 +156,30 @@ async def memory_chat_generator(request: MemoryChatRequest, db: AsyncSession):
                 use_perplexity=request.usePerplexity,
                 use_bielik=request.useBielik,
                 stream=True,
-                stream_callback=handle_chunk
+                stream_callback=handle_chunk,
             )
-            
+
             # If no chunks were collected, use the response
             if not chunks and response:
-                yield json.dumps({
-                    "text": response.text or "",
-                    "success": response.success,
-                    "session_id": request.session_id,
-                    "data": response.data
-                }) + "\n"
+                yield json.dumps(
+                    {
+                        "text": response.text or "",
+                        "success": response.success,
+                        "session_id": request.session_id,
+                        "data": response.data,
+                    }
+                ) + "\n"
             else:
                 # Stream all collected chunks
                 for chunk in chunks:
-                    yield json.dumps({
-                        "text": chunk.get("text", ""),
-                        "success": chunk.get("success", True),
-                        "session_id": request.session_id,
-                        "data": chunk.get("data")
-                    }) + "\n"
+                    yield json.dumps(
+                        {
+                            "text": chunk.get("text", ""),
+                            "success": chunk.get("success", True),
+                            "session_id": request.session_id,
+                            "data": chunk.get("data"),
+                        }
+                    ) + "\n"
 
     except Exception as e:
         logger.error(f"Error in memory_chat_generator: {str(e)}", exc_info=True)

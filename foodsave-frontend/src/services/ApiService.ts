@@ -380,10 +380,28 @@ class ApiServiceClass {
         throw new ApiError(`HTTP error! status: ${response.status}`, response.status);
       }
 
+      // Create a default response object
+      let responseData: {
+        response: string;
+        data: any;
+        success: boolean;
+        session_id: string;
+        error: string | null;
+      } = {
+        response: '',
+        data: null,
+        success: true,
+        session_id: request.session_id,
+        error: null
+      };
+
       // Handle streaming response if onChunk is provided
       if (onChunk && response.body) {
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
+        let fullText = '';
+        let hasError = false;
+        let errorMessage = '';
 
         try {
           while (true) {
@@ -397,6 +415,24 @@ class ApiServiceClass {
               try {
                 const data = JSON.parse(line);
                 onChunk(data);
+
+                // Check if this is an error response
+                if (data.error_type) {
+                  hasError = true;
+                  errorMessage = data.text || `Error: ${data.error_type}`;
+                  responseData.error = errorMessage;
+                  responseData.success = false;
+                }
+
+                // Accumulate text from chunks if available
+                if (data.text) {
+                  fullText += data.text;
+                }
+
+                // Update response data with any additional fields
+                if (data.data) {
+                  responseData.data = data.data;
+                }
               } catch (e) {
                 // Skip invalid JSON lines
                 console.warn('Invalid JSON chunk:', line);
@@ -406,9 +442,10 @@ class ApiServiceClass {
         } finally {
           reader.releaseLock();
         }
-        // If we streamed the response, we can't read it again.
-        // The data has been handled by the onChunk callback.
-        return;
+
+        // Set the accumulated text as the response
+        responseData.response = hasError ? errorMessage : (fullText || 'Przetworzono odpowiedź strumieniową.');
+        return responseData;
       }
 
       // If not streaming, parse the whole response.

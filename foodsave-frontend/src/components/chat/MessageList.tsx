@@ -43,7 +43,7 @@ export function MessageList({
           </div>
         </div>
       )}
-      
+
       {/* Invisible element for auto-scrolling */}
       <div ref={messagesEndRef} />
     </div>

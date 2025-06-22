@@ -1,12 +1,24 @@
 import asyncio
 import logging
+import os
 import time
 from datetime import datetime
 from typing import Any, AsyncGenerator, Dict, List, Optional, Union
 
-import ollama
-
 logger = logging.getLogger(__name__)
+
+# Configure ollama client to use the correct host
+ollama_host = os.getenv("OLLAMA_HOST", "localhost")
+ollama_url = os.getenv("OLLAMA_URL", "http://localhost:11434")
+
+# Set the host for the ollama library
+if ollama_host != "localhost":
+    # The ollama library uses OLLAMA_HOST environment variable
+    os.environ["OLLAMA_HOST"] = ollama_host
+    logger.info(f"Configured ollama client to use host: {ollama_host}")
+    logger.info(f"Ollama URL: {ollama_url}")
+
+import ollama
 
 
 class LLMCache:

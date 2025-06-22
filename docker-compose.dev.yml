@@ -1,143 +1,95 @@
-version: '3.8'
+version: "3.8"
 
 services:
   # Serwis Ollama dla lokalnych modeli LLM
   ollama:
-    image: ollama/ollama:latest
+    image: ollama/ollama
     container_name: foodsave-ollama-dev
     ports:
       - "11434:11434"
-    environment:
-      - OLLAMA_HOST=0.0.0.0
-      - OLLAMA_KEEP_ALIVE=24h
     volumes:
       - ollama_data:/root/.ollama
+    tty: true
+    pull_policy: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - foodsave-network
+
+  # Sidecar container to capture Ollama logs
+  ollama-logger:
+    image: alpine:latest
+    container_name: foodsave-ollama-logger
+    volumes:
       - ./logs/ollama:/var/log/ollama
+      - ./scripts/ollama-logger.sh:/ollama-logger.sh:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command: sh /ollama-logger.sh
+    depends_on:
+      - ollama
     networks:
       - foodsave-network
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost:11434/api/version || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "5"
 
   # Backend FastAPI - Development z hot-reload
   backend:
     build:
       context: .
-      dockerfile: Dockerfile.dev.backend
-    container_name: foodsave-backend-dev
+      dockerfile: src/backend/Dockerfile.dev
+    volumes:
+      - ./src:/app/src
+      - ./logs:/app/logs
     ports:
       - "8000:8000"
-    env_file:
-      - .env.dev
     environment:
-      - ENVIRONMENT=development
-      - OLLAMA_URL=http://ollama:11434
-      - OLLAMA_MODEL=gemma:2b
-      - DATABASE_URL=sqlite+aiosqlite:///./data/foodsave_dev.db
-      - SQLALCHEMY_DATABASE_URI=sqlite+aiosqlite:///./data/foodsave_dev.db
       - LOG_LEVEL=DEBUG
-      - CORS_ORIGINS=http://localhost:3000,http://frontend:3000,http://localhost:3001
-      - RAG_VECTOR_STORE_PATH=/app/data/vector_store_dev
-      - REDIS_URL=redis://redis:6379
-    volumes:
-      - ./data:/app/data
-      - ./logs:/app/logs
-      - ./backups:/app/backups
-      # Hot reload dla development - montowanie kodu źródłowego
-      - ./src/backend:/app/src/backend:cached
-      - ./scripts:/app/scripts:ro
-      - ./pyproject.toml:/app/pyproject.toml:ro
-      - ./poetry.lock:/app/poetry.lock:ro
-    depends_on:
-      ollama:
-        condition: service_started
-      redis:
-        condition: service_started
-    networks:
-      - foodsave-network
-    restart: unless-stopped
+    tty: true
+    stdin_open: true
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 30s
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "5"
+    depends_on:
+      - redis
+      - ollama
+    networks:
+      - foodsave-network
 
   # Frontend Next.js - Development z hot-reload
   frontend:
     build:
       context: ./foodsave-frontend
       dockerfile: Dockerfile.dev.frontend
-    container_name: foodsave-frontend-dev
     ports:
       - "3000:3000"
-    env_file:
-      - .env.dev
-    environment:
-      - NODE_ENV=development
-      - NEXT_PUBLIC_API_URL=http://backend:8000
-      - NEXT_PUBLIC_APP_NAME=FoodSave AI (Dev)
     volumes:
-      # Hot reload dla development - montowanie kodu źródłowego
-      - ./foodsave-frontend:/app:cached
+      - ./foodsave-frontend:/app
       - /app/node_modules
-      - /app/.next
-      - ./logs/frontend:/app/logs
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
     depends_on:
-      backend:
-        condition: service_started
+      - backend
     networks:
       - foodsave-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost:3000/ || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "5"
 
-  # Redis dla cache (wersja developerska)
+  # Redis for caching and message queue
   redis:
     image: redis:7-alpine
-    container_name: foodsave-redis-dev
     ports:
       - "6379:6379"
     volumes:
-      - redis_data:/data
-      - ./logs/redis:/var/log/redis
-    networks:
-      - foodsave-network
-    restart: unless-stopped
-    command: redis-server --appendonly yes --loglevel notice
+      - redis-data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "5"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - foodsave-network
 
   # PostgreSQL dla development (opcjonalny)
   postgres:
@@ -145,27 +97,19 @@ services:
     container_name: foodsave-postgres-dev
     ports:
       - "5432:5432"
-    environment:
-      - POSTGRES_DB=foodsave_dev
-      - POSTGRES_USER=foodsave
-      - POSTGRES_PASSWORD=foodsave_dev_password
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./logs/postgres:/var/log/postgresql
+    environment:
+      - POSTGRES_DB=foodsave_db
+      - POSTGRES_USER=foodsave_user
+      - POSTGRES_PASSWORD=foodsave_password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U foodsave_user -d foodsave_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - foodsave-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U foodsave -d foodsave_dev"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "5"
 
   # Prometheus dla monitoring (development)
   prometheus:
@@ -174,23 +118,14 @@ services:
     ports:
       - "9090:9090"
     volumes:
-      - ./monitoring/prometheus.dev.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus.dev.yml:/etc/prometheus/prometheus.yml
       - prometheus_data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--web.console.libraries=/etc/prometheus/console_libraries'
-      - '--web.console.templates=/etc/prometheus/consoles'
-      - '--storage.tsdb.retention.time=200h'
-      - '--web.enable-lifecycle'
+    depends_on:
+      - backend
     networks:
       - foodsave-network
-    restart: unless-stopped
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "5"
 
   # Grafana dla wizualizacji (development)
   grafana:
@@ -198,33 +133,51 @@ services:
     container_name: foodsave-grafana-dev
     ports:
       - "3001:3000"
-    environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
     volumes:
       - grafana_data:/var/lib/grafana
-      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
-      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
-    depends_on:
-      - prometheus
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
     networks:
       - foodsave-network
-    restart: unless-stopped
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "5"
+
+  # Loki dla logów (development)
+  loki:
+    image: grafana/loki:latest
+    container_name: foodsave-loki-dev
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./monitoring/loki-config.yaml:/etc/loki/config.yaml
+      - loki_data:/loki
+    command: -config.file=/etc/loki/config.yaml
+    networks:
+      - foodsave-network
+
+  # Promtail dla zbierania logów (development)
+  promtail:
+    image: grafana/promtail:latest
+    container_name: foodsave-promtail-dev
+    volumes:
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - ./monitoring/promtail-config.yaml:/etc/promtail/config.yaml
+    command: -config.file=/etc/promtail/config.yaml
+    networks:
+      - foodsave-network
 
 volumes:
   ollama_data:
     driver: local
-  redis_data:
+  redis-data:
     driver: local
   postgres_data:
     driver: local
   prometheus_data:
     driver: local
   grafana_data:
+    driver: local
+  loki_data:
     driver: local
 
 networks:

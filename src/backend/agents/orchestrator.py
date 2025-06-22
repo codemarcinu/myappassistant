@@ -1,7 +1,7 @@
 import logging
 import uuid
 from datetime import datetime
-from typing import Dict, Optional, Callable, AsyncGenerator
+from typing import AsyncGenerator, Callable, Dict, Optional
 
 import pybreaker
 
@@ -229,7 +229,9 @@ class Orchestrator:
                     OrchestratorError("Intent detector not initialized")
                 )
 
-            intent_data = await self.intent_detector.detect_intent(user_command, context)
+            intent_data = await self.intent_detector.detect_intent(
+                user_command, context
+            )
 
             # 4. Route to agent with circuit breaker
             try:
@@ -248,7 +250,7 @@ class Orchestrator:
                         data={},
                         request_id=str(uuid.uuid4()),
                     )
-                    
+
                     # Route to agent with streaming
                     agent_response = await self.agent_router.route_to_agent(
                         intent_data,
@@ -258,25 +260,30 @@ class Orchestrator:
                         use_bielik=use_bielik,
                         stream=True,
                     )
-                    
+
                     # If the agent response is a generator, process it
                     if hasattr(agent_response, "__aiter__"):
                         async for chunk in agent_response:
                             # Update the response with the chunk
                             if isinstance(chunk, dict) and "text" in chunk:
                                 response.text += chunk["text"]
-                                
+
                                 # If there's data in the chunk, merge it
                                 if "data" in chunk and isinstance(chunk["data"], dict):
                                     response.data.update(chunk["data"])
-                                
+
                                 # Call the callback with the chunk
                                 stream_callback(chunk)
                     else:
                         # If not a generator, treat as regular response
                         response = agent_response
                         if stream_callback:
-                            stream_callback({"text": response.text or "", "data": response.data or {}})
+                            stream_callback(
+                                {
+                                    "text": response.text or "",
+                                    "data": response.data or {},
+                                }
+                            )
                 else:
                     # Non-streaming approach
                     response = await self.circuit_breaker.call_async(
@@ -304,7 +311,9 @@ class Orchestrator:
                     OrchestratorError("Service temporarily unavailable")
                 )
                 if stream_callback:
-                    stream_callback({"text": error_response.error or "", "success": False})
+                    stream_callback(
+                        {"text": error_response.error or "", "success": False}
+                    )
                 return error_response
 
         except Exception as e:

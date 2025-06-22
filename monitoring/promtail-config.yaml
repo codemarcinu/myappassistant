@@ -1,0 +1,68 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  - job_name: system
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: varlogs
+          __path__: /var/log/*log
+
+  - job_name: backend_logs
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: foodsave-backend
+          app: backend
+          __path__: /logs/backend/*log
+
+  - job_name: frontend_logs
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: foodsave-frontend
+          app: frontend
+          __path__: /logs/frontend/*log
+
+  - job_name: nginx_logs
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: nginx
+          __path__: /logs/nginx/*log
+
+  - job_name: ollama_logs
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: ollama
+          __path__: /logs/ollama/*log
+
+  - job_name: redis_logs
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: redis
+          __path__: /logs/redis/*log
+
+  - job_name: postgres_logs
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: postgres
+          __path__: /logs/postgres/*log

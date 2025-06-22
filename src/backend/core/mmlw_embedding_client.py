@@ -2,6 +2,7 @@
 MMLW Embedding Client - specjalizowany klient dla polskiego modelu embeddingów
 """
 
+import asyncio
 import logging
 from typing import Any, Dict, List
 
@@ -29,9 +30,30 @@ class MMLWEmbeddingClient:
         self.model = None
         self.device = None
         self.is_initialized = False
+        self._initialization_lock = asyncio.Lock()
+        self._initialization_task = None
 
-    async def initialize(self):
-        """Inicjalizacja modelu MMLW"""
+    async def _ensure_initialized(self):
+        """Zapewnia, że model jest zainicjalizowany (lazy loading)"""
+        if self.is_initialized:
+            return True
+
+        # Jeśli inicjalizacja już trwa, poczekaj na jej zakończenie
+        if self._initialization_task and not self._initialization_task.done():
+            await self._initialization_task
+            return self.is_initialized
+
+        # Rozpocznij inicjalizację
+        async with self._initialization_lock:
+            if self.is_initialized:  # Sprawdź ponownie po uzyskaniu locka
+                return True
+
+            self._initialization_task = asyncio.create_task(self._initialize_model())
+            await self._initialization_task
+            return self.is_initialized
+
+    async def _initialize_model(self):
+        """Wewnętrzna metoda inicjalizacji modelu"""
         if not TRANSFORMERS_AVAILABLE:
             logger.error("Transformers not available. Cannot initialize MMLW.")
             return False
@@ -48,7 +70,10 @@ class MMLWEmbeddingClient:
                 logger.info("Using CPU for MMLW embeddings")
 
             # Załaduj tokenizer i model
+            logger.info("Loading tokenizer...")
             self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+
+            logger.info("Loading model...")
             self.model = AutoModel.from_pretrained(self.model_name)
             self.model.to(self.device)
             self.model.eval()
@@ -59,7 +84,12 @@ class MMLWEmbeddingClient:
 
         except Exception as e:
             logger.error(f"Failed to initialize MMLW model: {e}")
+            self.is_initialized = False
             return False
+
+    async def initialize(self):
+        """Inicjalizacja modelu MMLW (deprecated - użyj _ensure_initialized)"""
+        return await self._ensure_initialized()
 
     async def embed_text(self, text: str) -> List[float]:
         """
@@ -71,7 +101,8 @@ class MMLWEmbeddingClient:
         Returns:
             Lista floatów reprezentująca embedding (768 wymiarów)
         """
-        if not self.is_initialized:
+        # Lazy loading - zainicjalizuj model jeśli potrzebny
+        if not await self._ensure_initialized():
             logger.error("MMLW model not initialized")
             return []
 
@@ -109,7 +140,8 @@ class MMLWEmbeddingClient:
         Returns:
             Lista list floatów reprezentujących embeddingi
         """
-        if not self.is_initialized:
+        # Lazy loading - zainicjalizuj model jeśli potrzebny
+        if not await self._ensure_initialized():
             logger.error("MMLW model not initialized")
             return [[] for _ in texts]
 
@@ -161,6 +193,12 @@ class MMLWEmbeddingClient:
             "is_initialized": self.is_initialized,
             "device": str(self.device) if self.device else None,
             "embedding_dimension": self.get_embedding_dimension(),
+            "initialization_in_progress": (
+                self._initialization_task is not None
+                and not self._initialization_task.done()
+                if self._initialization_task
+                else False
+            ),
         }
 
 

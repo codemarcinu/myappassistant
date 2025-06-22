@@ -98,6 +98,33 @@ flowchart TD
     F4 --> E5
 ```
 
+## 🔌 Struktura submodułu Git
+
+**Ważna uwaga:** Katalog `src/backend` jest zarządzany jako **submoduł Git**. Oznacza to, że jest to osobne repozytorium zagnieżdżone w głównym projekcie.
+
+### Implikacje dla deweloperów:
+
+1.  **Osobna historia Git**: `src/backend` ma własną historię commitów, niezależną od głównego repozytorium.
+2.  **Zarządzanie zależnościami**: Posiada własne pliki `pyproject.toml` i `poetry.lock`. Chociaż główny projekt również je zawiera, zależności submodułu są zarządzane autonomicznie. Należy dbać o ich spójność.
+3.  **Proces deweloperski**:
+    *   Aby wprowadzić zmiany w backendzie, należy wejść do katalogu `src/backend` i pracować jak w normalnym repozytorium (tworzyć gałęzie, commity).
+    *   Po wypchnięciu zmian w submodule, należy wrócić do głównego repozytorium, dodać (`git add src/backend`) i zatwierdzić zmianę wskaźnika submodułu.
+
+### Klonowanie repozytorium z submodułami:
+
+```bash
+# Sklonuj repozytorium i automatycznie zainicjuj submoduły
+git clone --recurse-submodules <URL_repozytorium_głównego>
+```
+
+### Aktualizacja submodułów:
+```bash
+# Zaktualizuj wszystkie submoduły do najnowszych commitów
+git submodule update --remote --merge
+```
+
+Zrozumienie tej struktury jest kluczowe dla prawidłowej pracy z kodem backendu.
+
 ## 🎯 Komponenty Systemu
 
 ### 1. API Layer

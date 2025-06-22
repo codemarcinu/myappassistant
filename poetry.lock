@@ -3652,6 +3652,21 @@ files = [
 ]
 
 [[package]]
+name = "pybreaker"
+version = "1.3.0"
+description = "Python implementation of the Circuit Breaker pattern"
+optional = false
+python-versions = ">=3.9"
+groups = ["main"]
+files = [
+    {file = "pybreaker-1.3.0-py3-none-any.whl", hash = "sha256:ebebdf8a1c0de677c5a4e1adf29045747dbd1d6bf13b860be453d38337d66ad6"},
+    {file = "pybreaker-1.3.0.tar.gz", hash = "sha256:4a4e2ffc3a4dc47909b96cf0d707e3343c898c97cfe3f161ff9bd0c779ddeb9f"},
+]
+
+[package.extras]
+test = ["fakeredis", "mock", "pytest", "redis", "tornado", "types-mock", "types-redis"]
+
+[[package]]
 name = "pycodestyle"
 version = "2.11.1"
 description = "Python style guide checker"
@@ -6179,4 +6194,4 @@ cffi = ["cffi (>=1.11)"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.12"
-content-hash = "bfe5f0c6fc43f74f28d76a54f8caf1693958e6704ba02b625017e95e6dc07d55"
+content-hash = "bf25af1eb383d7683a49c87af4b08cb5ca1bdf500cfe359648e5e807202f77bd"
