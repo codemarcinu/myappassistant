@@ -82,3 +82,16 @@ monitoring/grafana-data/
 monitoring/loki-data/
 monitoring/grafana-data/
 monitoring/prometheus/
+
+# Nieśledzone pliki testowe i eksperymentalne
+src/backend/agents/enhanced_rag_agent.py
+tests/README.md
+tests/test_orchestrator.py
+tests/test_rag_system.py
+tests/test_rag_system_fixed.py
+tests/test_receipt_processing.py
+tests/test_search_agent_fixed.py
+tests/test_shopping_conversation.py
+tests/test_shopping_conversation_fixed.py
+tests/test_weather_agent.py
+tests/test_weather_agent_fixed.py
