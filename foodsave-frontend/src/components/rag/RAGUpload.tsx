@@ -30,6 +30,11 @@ export default function RAGUpload({ onUpload }: RAGUploadProps) {
   const [description, setDescription] = useState('');
   const [tags, setTags] = useState('');
   const [selectedDirectory, setSelectedDirectory] = useState<string | null>(null);
+  const [showMoveModal, setShowMoveModal] = useState(false);
+  const [movingDocument, setMovingDocument] = useState<RAGDocument | null>(null);
+  const [targetDirectory, setTargetDirectory] = useState('');
+  const [moving, setMoving] = useState(false);
+  const [moveError, setMoveError] = useState<string | null>(null);
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     setUploading(true);
@@ -133,6 +138,53 @@ export default function RAGUpload({ onUpload }: RAGUploadProps) {
       }
     } catch (error) {
       console.error('Delete error:', error);
+    }
+  };
+
+  const handleMoveDocument = async (document: RAGDocument) => {
+    setMovingDocument(document);
+    setTargetDirectory('');
+    setMoveError(null);
+    setShowMoveModal(true);
+  };
+
+  const executeMove = async () => {
+    if (!movingDocument || !targetDirectory.trim()) {
+      setMoveError('Please select a target directory');
+      return;
+    }
+
+    setMoving(true);
+    setMoveError(null);
+
+    try {
+      const response = await fetch(`/api/v2/rag/documents/${movingDocument.document_id}/move`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ new_directory_path: targetDirectory.trim() }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to move document');
+      }
+
+      // Update the document in the local state
+      setDocuments(prev => prev.map(doc =>
+        doc.document_id === movingDocument.document_id
+          ? { ...doc, metadata: { ...doc.metadata, directory_path: targetDirectory.trim() } }
+          : doc
+      ));
+
+      setShowMoveModal(false);
+      setMovingDocument(null);
+      setTargetDirectory('');
+    } catch (err: any) {
+      setMoveError(err.message || 'Unknown error');
+    } finally {
+      setMoving(false);
     }
   };
 
@@ -317,6 +369,11 @@ export default function RAGUpload({ onUpload }: RAGUploadProps) {
                           {new Date(doc.uploaded_at).toLocaleDateString()}
                         </span>
                       )}
+                      {doc.metadata?.directory_path && (
+                        <span className="text-blue-600">
+                          📁 {doc.metadata.directory_path}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -341,6 +398,14 @@ export default function RAGUpload({ onUpload }: RAGUploadProps) {
                   )}
 
                   <button
+                    onClick={() => handleMoveDocument(doc)}
+                    className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded"
+                    title="Move document"
+                  >
+                    📁
+                  </button>
+
+                  <button
                     onClick={() => handleDeleteDocument(doc.document_id)}
                     className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded"
                     title="Delete document"
@@ -353,6 +418,64 @@ export default function RAGUpload({ onUpload }: RAGUploadProps) {
           </div>
         )}
       </div>
+
+      {/* Move Document Modal */}
+      {showMoveModal && movingDocument && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-96 max-w-full mx-4">
+            <h3 className="text-lg font-semibold mb-4">Move Document</h3>
+
+            <div className="mb-4">
+              <p className="text-sm text-gray-600 mb-2">
+                Moving: <strong>{movingDocument.filename}</strong>
+              </p>
+              <p className="text-sm text-gray-600 mb-4">
+                From: <span className="font-mono">{movingDocument.metadata?.directory_path || 'default'}</span>
+              </p>
+
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                To Directory
+              </label>
+              <input
+                type="text"
+                value={targetDirectory}
+                onChange={(e) => setTargetDirectory(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Enter directory name"
+                onKeyPress={(e) => e.key === 'Enter' && executeMove()}
+              />
+            </div>
+
+            {moveError && (
+              <div className="mb-4 p-2 bg-red-50 text-red-600 text-sm rounded">
+                {moveError}
+              </div>
+            )}
+
+            <div className="flex justify-end space-x-2">
+              <button
+                onClick={() => {
+                  setShowMoveModal(false);
+                  setMovingDocument(null);
+                  setTargetDirectory('');
+                  setMoveError(null);
+                }}
+                className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                disabled={moving}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={executeMove}
+                disabled={moving || !targetDirectory.trim()}
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {moving ? 'Moving...' : 'Move'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

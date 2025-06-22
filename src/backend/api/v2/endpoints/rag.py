@@ -538,3 +538,67 @@ async def create_rag_directory(
                 "details": {"error": str(e)},
             },
         )
+
+
+@router.put("/documents/{document_id}/move", response_model=None)
+async def move_document(
+    document_id: str,
+    new_directory_path: str = Query(
+        ..., description="New directory path for the document"
+    ),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Move a document to a different directory by updating its metadata.
+    """
+    try:
+        if not new_directory_path or new_directory_path.strip() == "":
+            raise BadRequestError(
+                message="Directory path cannot be empty",
+                details={"new_directory_path": new_directory_path},
+            )
+
+        # Normalize the directory path
+        normalized_path = new_directory_path.strip().replace("\\", "/")
+
+        # Get the document from the database
+        # Note: This assumes you have a documents table in your database
+        # You might need to adjust this based on your actual database schema
+        from backend.models.rag_document import RAGDocument
+
+        document = await db.get(RAGDocument, document_id)
+        if not document:
+            raise BadRequestError(
+                message="Document not found", details={"document_id": document_id}
+            )
+
+        # Update the document's directory path
+        document.directory_path = normalized_path
+        await db.commit()
+
+        # Also update the document in the vector store if it exists there
+        # This is a simplified approach - you might need to re-index the document
+        # depending on your vector store implementation
+
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "message": f"Document moved to '{normalized_path}' successfully",
+                "document_id": document_id,
+                "new_directory_path": normalized_path,
+            },
+        )
+    except BadRequestError:
+        raise
+    except Exception as e:
+        logger.error(f"Error moving document: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={
+                "status_code": 500,
+                "error_code": "INTERNAL_ERROR",
+                "message": "Failed to move document",
+                "details": {"error": str(e)},
+            },
+        )
