@@ -49,7 +49,11 @@ class TestIntegrationNewFeatures:
         db = None
         profile_manager = Dummy()
         intent_detector = Dummy()
-        return Orchestrator(db, profile_manager, intent_detector)
+        return Orchestrator(
+            db_session=db,
+            profile_manager=profile_manager,
+            intent_detector=intent_detector,
+        )
 
     @pytest.fixture
     def intent_detector(self):

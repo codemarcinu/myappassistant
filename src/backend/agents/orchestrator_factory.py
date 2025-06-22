@@ -53,7 +53,7 @@ def create_orchestrator(db: AsyncSession) -> Orchestrator:
 
     # Utwórz i zwróć orchestrator
     orchestrator = Orchestrator(
-        db=db,
+        db_session=db,
         profile_manager=profile_manager,
         intent_detector=intent_detector,
         agent_router=agent_router,

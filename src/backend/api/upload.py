@@ -31,7 +31,7 @@ async def upload_file(
 
         file_bytes = await file.read()
 
-        orchestrator = Orchestrator(db)
+        orchestrator = Orchestrator(db_session=db)
         response = await orchestrator.process_file(
             file_bytes=file_bytes,
             filename=file.filename,

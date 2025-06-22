@@ -17,9 +17,9 @@ from sqlalchemy.ext.asyncio import AsyncSession  # type: ignore
 from backend.agents.agent_registry import agent_registry
 from backend.agents.interfaces import AgentType
 from backend.agents.orchestrator_factory import create_orchestrator
-from backend.api.food import get_db
 from backend.config import settings
 from backend.core.database import AsyncSessionLocal
+from backend.infrastructure.database.database import get_db
 
 # Import MMLW client
 try:
@@ -65,9 +65,10 @@ async def execute_orchestrator_task(
     Orchestrator sam decyduje, który agent wykona zadanie.
     """
     import time
+
     start_time = time.time()
     session_id = request.session_id or str(uuid.uuid4())
-    
+
     logger.info(
         "Agent task received",
         extra={
@@ -76,10 +77,10 @@ async def execute_orchestrator_task(
             "use_perplexity": request.usePerplexity,
             "use_bielik": request.useBielik,
             "agent_states": request.agent_states,
-            "agent_event": "task_received"
-        }
+            "agent_event": "task_received",
+        },
     )
-    
+
     try:
         # Użyj fabryki do utworzenia orchestrator z wymaganymi zależnościami
         orchestrator = create_orchestrator(db)
@@ -96,7 +97,7 @@ async def execute_orchestrator_task(
         # Logowanie zakończenia przetwarzania przez agenta
         processing_time = (time.time() - start_time) * 1000  # w ms
         response_text = agent_response.text or agent_response.message or ""
-        
+
         logger.info(
             "Agent task completed",
             extra={
@@ -105,10 +106,10 @@ async def execute_orchestrator_task(
                 "response_length": len(response_text),
                 "processing_time_ms": int(processing_time),
                 "agent_event": "task_completed",
-                "has_error": bool(agent_response.error)
-            }
+                "has_error": bool(agent_response.error),
+            },
         )
-        
+
         # Konwertuj AgentResponse na format oczekiwany przez endpoint
         return AgentResponse(
             success=agent_response.success,
@@ -133,8 +134,8 @@ async def execute_orchestrator_task(
                 "error_type": type(e).__name__,
                 "error_message": str(e),
                 "processing_time_ms": int(processing_time),
-                "agent_event": "task_error"
-            }
+                "agent_event": "task_error",
+            },
         )
         # Also return session_id on error so client can continue
         return AgentResponse(success=False, error=str(e), session_id=session_id)
