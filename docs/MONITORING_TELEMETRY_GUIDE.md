@@ -18,244 +18,113 @@ OpenTelemetry służy jako podstawa systemu telemetrii, zapewniając:
 - `opentelemetry-api` - API dla instrumentacji kodu
 - `opentelemetry-sdk` - Implementacja SDK
 - `opentelemetry-instrumentation-fastapi` - Automatyczna instrumentacja FastAPI
-- `opentelemetry-instrumentation-sqlalchemy` - Instrumentacja dla SQLAlchemy
-- `opentelemetry-instrumentation-httpx` - Instrumentacja dla HTTPX
-- `opentelemetry-exporter-jaeger` - Eksporter do Jaeger
-- `prometheus-client` - Klient Prometheus
+- `opentelemetry-instrumentation-sqlalchemy` - Instrumentacja SQLAlchemy dla baz danych
+- `opentelemetry-instrumentation-httpx` - Instrumentacja klienta HTTP
+- `opentelemetry-exporter-jaeger` - Eksporter do systemu Jaeger
+- `prometheus-client` - Klient Prometheus dla metryk
 - `prometheus-fastapi-instrumentator` - Instrumentacja FastAPI dla Prometheus
 
 ### 2. **Prometheus**
 
-Prometheus zbiera metryki z aplikacji i infrastruktury:
-- Liczba zapytań
-- Czas odpowiedzi
-- Użycie zasobów (CPU, pamięć)
-- Metryki niestandardowe
+Prometheus służy do zbierania i przechowywania metryk z różnych komponentów systemu:
+- Metryki wydajności aplikacji
+- Metryki zasobów systemowych (CPU, pamięć, dysk)
+- Metryki niestandardowe specyficzne dla aplikacji
+- Alerty oparte na progach
 
 ### 3. **Grafana**
 
-Grafana wizualizuje zebrane metryki:
-- Interaktywne dashboardy
-- Alerty
-- Analizy trendów
+Grafana zapewnia wizualizację danych monitoringu:
+- Dashboardy dla różnych aspektów systemu
+- Wykresy metryk w czasie rzeczywistym
+- Wizualizacja logów
+- Alerty i powiadomienia
 
 ### 4. **Loki**
 
-Loki agreguje i przeszukuje logi:
-- Centralizacja logów
-- Korelacja z metrykami
-- Etykietowanie i filtrowanie
+Loki to system agregacji logów, który:
+- Zbiera logi z różnych komponentów
+- Umożliwia wyszukiwanie i filtrowanie logów
+- Integruje się z Grafaną dla wizualizacji
+- Zapewnia długoterminowe przechowywanie logów
 
-## Konfiguracja Systemu
+#### Konfiguracja Loki:
 
-### Konfiguracja OpenTelemetry w Backend
-
-Backend wykorzystuje OpenTelemetry do śledzenia zapytań i metryk wydajności. Pakiety zostały dodane do `requirements.txt` i są automatycznie instalowane podczas budowania obrazu Docker.
-
-### Niestandardowy Obraz Ollama
-
-Dla zapewnienia poprawnych health checków, używamy niestandardowego obrazu Ollama z zainstalowanym curl:
-
-```dockerfile
-FROM ollama/ollama:latest
-
-# Instalacja curl
-RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
-
-# Kontynuuj z oryginalną konfiguracją
-CMD ["serve"]
-```
-
-Health check w docker-compose.yaml używa curl do sprawdzenia, czy API Ollama jest dostępne:
+Loki wymaga specjalnej konfiguracji, aby działać poprawnie:
 
 ```yaml
-healthcheck:
-  test: ["CMD-SHELL", "curl -f http://localhost:11434/api/version || exit 1"]
-  interval: 30s
-  timeout: 10s
-  retries: 3
-  start_period: 120s
+loki:
+  image: grafana/loki:2.9.6
+  container_name: foodsave-loki
+  user: "0:0"  # Uruchom jako root, aby uniknąć problemów z uprawnieniami
+  volumes:
+    - ./monitoring/loki-config.yaml:/etc/loki/local-config.yaml
+    - loki_data:/loki  # Używaj nazwanego wolumenu zamiast lokalnego katalogu
 ```
 
-### Konfiguracja Prometheus
+> **Uwaga**: Uruchomienie Loki jako root (user: "0:0") jest konieczne, aby uniknąć problemów z uprawnieniami podczas zapisywania danych. W środowisku produkcyjnym należy rozważyć bardziej bezpieczne rozwiązanie.
 
-Prometheus jest skonfigurowany do zbierania metryk z backendu FastAPI oraz innych komponentów systemu. Konfiguracja znajduje się w pliku `monitoring/prometheus.yml`.
+### 5. **Promtail**
 
-### Konfiguracja Grafana
+Promtail to agent zbierający logi dla Loki:
+- Śledzi pliki logów
+- Przesyła logi do Loki
+- Dodaje etykiety i metadane
+- Obsługuje różne formaty logów (JSON, syslog, itp.)
 
-Grafana jest skonfigurowana do wyświetlania metryk z Prometheus i logów z Loki. Dashboardy są dostępne w katalogu `monitoring/grafana/dashboards`.
+## Konfiguracja i Uruchomienie
 
-## Uruchomienie Systemu Monitoringu
-
-System monitoringu można uruchomić za pomocą profilu `monitoring` w docker-compose:
+### Uruchamianie systemu monitoringu:
 
 ```bash
-docker compose up -d --profile monitoring
+docker compose --profile monitoring --profile logging up -d
 ```
 
-Dostęp do interfejsów:
+### Dostęp do interfejsów:
+
+- Grafana: http://localhost:3001 (domyślne dane: admin/admin)
 - Prometheus: http://localhost:9090
-- Grafana: http://localhost:3001 (domyślne dane logowania: admin/admin)
+- Loki: http://localhost:3100
 
-## Rozwiązywanie Problemów
+## Rozwiązywanie problemów
 
-### Problemy z Health Checkami
+### Problemy z uprawnieniami Loki
 
-Jeśli kontenery są oznaczone jako "unhealthy", sprawdź:
-1. Czy usługi są dostępne na oczekiwanych portach
-2. Czy narzędzia używane w health checkach (np. curl) są dostępne w kontenerach
-3. Czy parametry health checków (timeout, retries) są odpowiednio skonfigurowane
+Jeśli w logach Loki pojawiają się błędy typu:
 
-### Problemy z Metrykami
-
-Jeśli metryki nie są widoczne w Prometheus/Grafana:
-1. Sprawdź, czy instrumentacja OpenTelemetry jest poprawnie skonfigurowana
-2. Sprawdź, czy Prometheus ma dostęp do endpointów z metrykami
-3. Zweryfikuj konfigurację data source w Grafana
-
-## Dobre Praktyki
-
-1. Używaj znaczących nazw dla metryk i logów
-2. Dodawaj odpowiednie etykiety do metryk dla lepszej filtracji
-3. Koreluj logi z metrykami za pomocą identyfikatorów trace
-4. Regularnie przeglądaj dashboardy w poszukiwaniu anomalii
-
-## Przydatne Polecenia
-
-```bash
-# Sprawdzenie logów serwisów monitoringu
-docker compose logs prometheus
-docker compose logs grafana
-
-# Sprawdzenie statusu health checków
-docker ps
-
-# Restart usług monitoringu
-docker compose restart prometheus grafana
+```
+level=error ts=2025-06-22T19:36:01.199521567Z caller=flush.go:143 org_id=fake msg="failed to flush" err="failed to flush chunks: store put chunk: open /loki/chunks/fake/210dd47453d74b0d/MTk3OTkxMzIxM2U6MTk3OTkxM2U1ZTA6ZTg2OTk1NGM=: permission denied
 ```
 
-## Uruchamianie Systemu Monitoringu
+Rozwiązania:
+1. Uruchom Loki jako root (user: "0:0")
+2. Użyj nazwanego wolumenu Docker zamiast montowania lokalnego katalogu
+3. Upewnij się, że katalog docelowy ma odpowiednie uprawnienia
 
-### Lokalne Środowisko
+### Problemy z siecią Docker
 
-```bash
-# Uruchomienie systemu monitoringu
-./scripts/start_monitoring.sh
+Jeśli występują konflikty sieci:
 
-# Sprawdzenie statusu
-docker compose ps
+```
+failed to create network foodsave-network: Error response from daemon: invalid pool request: Pool overlaps with other one on this address space
 ```
 
-### Dostęp do Interfejsów
+Rozwiązania:
+1. Usuń definicję sieci z pliku docker-compose.yaml i pozwól Docker Compose utworzyć ją automatycznie
+2. Zatrzymaj wszystkie kontenery i sieci przed ponownym uruchomieniem
+3. Użyj `docker network prune` aby usunąć nieużywane sieci
 
-- **Grafana**: http://localhost:3030 (admin/foodsave)
-- **Prometheus**: http://localhost:9090
-- **Loki**: http://localhost:3100
+## Dobre praktyki
 
-## Dostępne Dashboardy
+1. Regularnie monitoruj dashboardy Grafana
+2. Ustaw alerty dla kluczowych metryk
+3. Analizuj logi w przypadku problemów
+4. Utrzymuj odpowiednią retencję danych
+5. Twórz kopie zapasowe konfiguracji dashboardów
 
-### 1. Główny Dashboard FoodSave
+## Przyszły rozwój
 
-Zawiera podstawowe metryki aplikacji:
-- Liczba zapytań HTTP
-- Czas odpowiedzi
-- Błędy i wyjątki
-- Wykorzystanie zasobów
-
-### 2. Dashboard Interakcji Czatu
-
-Dedykowany do monitorowania interakcji z czatem:
-- Liczba wiadomości
-- Czas generowania odpowiedzi
-- Wykorzystanie modeli AI
-- Błędy w przetwarzaniu
-
-## Konfiguracja Alertów
-
-System zawiera predefiniowane reguły alertów:
-
-1. **High Error Rate**
-   - Trigger: >5% zapytań z błędami w ciągu 5 minut
-   - Severity: critical
-
-2. **Slow Response Time**
-   - Trigger: średni czas odpowiedzi >2s w ciągu 5 minut
-   - Severity: warning
-
-3. **Database Connection Errors**
-   - Trigger: błędy połączenia z bazą danych
-   - Severity: critical
-
-## Rozwiązywanie Problemów
-
-### Problem: Brak danych w Grafana
-
-```bash
-# Sprawdź status źródeł danych
-curl -s http://localhost:3030/api/datasources | jq
-
-# Sprawdź logi Prometheus
-docker compose logs prometheus
-
-# Sprawdź logi Loki
-docker compose logs loki
-```
-
-### Problem: Brak metryk z aplikacji
-
-```bash
-# Sprawdź endpoint metryk
-curl -s http://localhost:8000/metrics
-
-# Sprawdź logi aplikacji
-docker compose logs backend | grep -i "metrics\|telemetry\|opentelemetry"
-```
-
-## Rozszerzenia
-
-### Dodawanie Własnych Metryk
-
-```python
-from prometheus_client import Counter, Histogram
-
-# Licznik zapytań
-request_counter = Counter(
-    'app_requests_total',
-    'Total number of requests',
-    ['method', 'endpoint', 'status']
-)
-
-# Histogram czasów odpowiedzi
-response_time = Histogram(
-    'app_response_time_seconds',
-    'Response time in seconds',
-    ['method', 'endpoint']
-)
-
-# Użycie w kodzie
-def process_request():
-    request_counter.labels(method='GET', endpoint='/api/data', status='200').inc()
-
-    with response_time.labels(method='GET', endpoint='/api/data').time():
-        # Kod obsługujący zapytanie
-        pass
-```
-
-### Dodawanie Własnych Dashboardów
-
-1. Zaloguj się do Grafana (http://localhost:3030)
-2. Wybierz "Create" > "Dashboard"
-3. Dodaj nowe panele z metrykami
-4. Zapisz dashboard w katalogu `monitoring/grafana/dashboards/`
-
-## Podsumowanie
-
-Implementacja systemu monitoringu i telemetrii w FoodSave AI zapewnia:
-
-- **Kompleksowy wgląd** w działanie aplikacji
-- **Szybką diagnostykę** problemów
-- **Śledzenie wydajności** w czasie rzeczywistym
-- **Alerty** o potencjalnych problemach
-- **Wizualizację danych** dla łatwiejszej analizy
-
-System jest skalowalny i może być rozszerzany o dodatkowe metryki, dashboardy i alerty w miarę rozwoju aplikacji.
+- Implementacja distributed tracingu z Jaeger
+- Rozszerzenie metryk specyficznych dla aplikacji
+- Automatyczne alerty przez email/Slack
+- Integracja z systemami CI/CD
