@@ -12,55 +12,44 @@ This guide covers all deployment scenarios for the FoodSave AI system, from loca
 4. [Environment Configuration](#environment-configuration)
 5. [Monitoring Setup](#monitoring-setup)
 6. [Backup and Recovery](#backup-and-recovery)
-7. [Troubleshooting](#troubleshooting)
+7. [Troubleshooting](#troubleshooting-deployment)
 
 ## Local Development Setup
 
 ### Prerequisites
 
-- Python 3.11+
-- Node.js 18+
-- Docker and Docker Compose
-- Git
+- **Python 3.12+**
+- **Node.js 20+**
+- **Poetry** for Python package management
+- **Ollama** installed and running locally
+- **Git**
 
 ### Quick Start
 
 ```bash
 # Clone the repository
-git clone <repository-url>
-cd my_ai_assistant
+git clone https://github.com/yourusername/foodsave-ai.git
+cd foodsave-ai
 
-# Setup development environment
-./scripts/dev-setup.sh
+# Copy environment variables file
+cp env.dev.example .env
 
-# Start all services
-./run_dev.sh
+# Run the setup and startup script
+./run_all.sh
 ```
-
-### Manual Setup
-
-```bash
-# Backend setup
-cd src/backend
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r requirements.txt
-
-# Frontend setup
-cd foodsave-frontend
-npm install
-
-# Database setup
-python scripts/seed_db.py
-```
+This script will check for dependencies, install them if necessary, and start the backend and frontend services.
 
 ## Docker Deployment
 
 ### Development Environment
+This is the recommended method for development as it provides a consistent and complete environment with all services.
 
 ```bash
-# Start development environment
-docker-compose -f docker-compose.dev.yml up -d
+# First, ensure you have an environment file
+cp env.dev.example .env
+
+# Build and start development environment
+docker-compose -f docker-compose.dev.yml up -d --build
 
 # View logs
 docker-compose -f docker-compose.dev.yml logs -f
@@ -68,19 +57,24 @@ docker-compose -f docker-compose.dev.yml logs -f
 # Stop services
 docker-compose -f docker-compose.dev.yml down
 ```
+> **Note on PostgreSQL Port:** If you have a local PostgreSQL instance running, you might encounter a port conflict on `5432`. We've already changed the configuration in `docker-compose.dev.yml` to use port **5433** for the container, so this issue should be resolved.
 
 ### Production Environment
 
 ```bash
-# Build and start production services
+# Create a production environment file from the example
+cp env.prod.example .env.production
+# IMPORTANT: Edit .env.production with your production secrets and configuration
+
+# Build and start production services using the production config
 docker-compose up -d --build
 
-# Scale services
+# Scale services (example)
 docker-compose up -d --scale backend=3 --scale frontend=2
 
-# Update services
-docker-compose pull
-docker-compose up -d
+# To update running services
+docker-compose pull # Pull the latest images
+docker-compose up -d --build # Rebuild and restart services
 ```
 
 ### Docker Configuration Files
@@ -89,7 +83,8 @@ docker-compose up -d
 - `docker-compose.dev.yml` - Development configuration
 - `Dockerfile` - Backend production image
 - `Dockerfile.dev` - Backend development image
-- `foodsave-frontend/Dockerfile` - Frontend image
+- `foodsave-frontend/Dockerfile` - Frontend production image
+- `foodsave-frontend/Dockerfile.dev.frontend` - Frontend development image
 
 ## Production Deployment
 
@@ -108,11 +103,11 @@ docker-compose up -d
    # Update system
    sudo apt update && sudo apt upgrade -y
 
-   # Install Docker
+   # Install Docker Engine
    curl -fsSL https://get.docker.com -o get-docker.sh
    sudo sh get-docker.sh
 
-   # Install Docker Compose
+   # Install Docker Compose v2
    sudo curl -L "https://github.com/docker/compose/releases/download/v2.20.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
    sudo chmod +x /usr/local/bin/docker-compose
    ```
@@ -121,11 +116,11 @@ docker-compose up -d
    ```bash
    # Clone repository
    git clone <repository-url>
-   cd my_ai_assistant
+   cd foodsave-ai
 
    # Configure environment
-   cp env.dev.example .env
-   # Edit .env with production values
+   cp env.prod.example .env.production
+   # IMPORTANT: Edit .env.production with your production values
 
    # Deploy
    docker-compose up -d --build
@@ -137,7 +132,7 @@ docker-compose up -d
    sudo apt install certbot python3-certbot-nginx
 
    # Generate certificate
-   sudo certbot --nginx -d yourdomain.com
+   sudo certbot --nginx -d foodsave.yourdomain.com
    ```
 
 ### Load Balancer Configuration
@@ -157,7 +152,7 @@ upstream frontend {
 
 server {
     listen 80;
-    server_name yourdomain.com;
+    server_name foodsave.yourdomain.com;
 
     location / {
         proxy_pass http://frontend;
@@ -175,98 +170,75 @@ server {
 
 ## Environment Configuration
 
-### Required Environment Variables
+### Key Environment Variables (`.env` file)
 
 ```bash
-# Database
-DATABASE_URL=postgresql://user:password@localhost:5432/foodsave
-REDIS_URL=redis://localhost:6379
+# --- General Settings ---
+ENVIRONMENT=development # or "production"
+SECRET_KEY=your_super_secret_key_for_jwt
 
-# AI Models
+# --- Database ---
+DATABASE_URL=postgresql+asyncpg://foodsave_user:foodsave_password@postgres:5432/foodsave_db # For Docker
+# DATABASE_URL=sqlite+aiosqlite:///./foodsave.db # For local setup
+REDIS_URL=redis://redis:6379 # For Docker
+# REDIS_URL=redis://localhost:6379 # For local setup
+
+# --- AI Models (Ollama) ---
 OLLAMA_BASE_URL=http://localhost:11434
-OPENAI_API_KEY=your_openai_key
+OLLAMA_MODEL=gemma3:latest
+OLLAMA_EMBED_MODEL=nomic-embed-text
 
-# Security
-SECRET_KEY=your_secret_key
-JWT_SECRET_KEY=your_jwt_secret
+# --- External Services (Optional) ---
+PERPLEXITY_API_KEY=your_perplexity_api_key_if_used
 
-# External Services
-WEATHER_API_KEY=your_weather_api_key
-GOOGLE_MAPS_API_KEY=your_google_maps_key
-
-# Monitoring
+# --- Monitoring & Telemetry ---
 PROMETHEUS_ENABLED=true
-GRAFANA_ENABLED=true
-```
+TELEMETRY_ENABLED=true
+JAEGER_AGENT_HOST=jaeger # For Docker setup
 
-### Environment File Structure
-
+# --- Frontend URL ---
+NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
-.env
-├── .env.production    # Production settings
-├── .env.staging      # Staging settings
-├── .env.development  # Development settings
-└── .env.local        # Local overrides
-```
+> This is a sample configuration. Refer to `env.dev.example` for the complete list of variables used in development. Production deployments should use a separate, secured configuration.
 
 ## Monitoring Setup
+The monitoring stack (Prometheus, Grafana, Loki) is pre-configured in the `docker-compose.dev.yml` file.
 
 ### Prometheus Configuration
 
 ```yaml
-# prometheus.yml
+# monitoring/prometheus.dev.yml
 global:
   scrape_interval: 15s
 
 scrape_configs:
   - job_name: 'foodsave-backend'
+    # This target points to the backend container within Docker's network
     static_configs:
       - targets: ['backend:8000']
-    metrics_path: '/metrics'
-
-  - job_name: 'foodsave-frontend'
-    static_configs:
-      - targets: ['frontend:3000']
     metrics_path: '/metrics'
 ```
 
 ### Grafana Dashboards
+Access Grafana at `http://localhost:3001` (user: `admin`, pass: `admin`).
 
 1. **System Overview Dashboard**
    - CPU and memory usage
-   - Network traffic
+   - Network traffic and container health
    - Disk I/O
 
 2. **Application Metrics Dashboard**
-   - Request rates and response times
-   - Error rates
-   - AI model performance
+   - API request rates and response times (latency)
+   - HTTP status code distribution (2xx, 4xx, 5xx)
+   - Agent performance and execution times
 
 3. **Business Metrics Dashboard**
    - User activity
    - Feature usage
    - AI agent performance
 
-### Log Aggregation
-
-```yaml
-# Loki configuration
-loki:
-  config:
-    auth_enabled: false
-    server:
-      http_listen_port: 3100
-    ingester:
-      lifecycler:
-        address: 127.0.0.1
-        ring:
-          kvstore:
-            store: inmemory
-          replication_factor: 1
-        final_sleep: 0s
-      chunk_idle_period: 5m
-      chunk_retain_period: 30s
-```
+### Log Aggregation (Loki)
+Logs from all Docker containers are automatically collected by Promtail and sent to Loki. You can query and view these logs directly in Grafana using the "Loki" data source.
 
 ## Backup and Recovery
 

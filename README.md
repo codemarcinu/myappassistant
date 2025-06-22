@@ -15,7 +15,7 @@
 - [📖 Project Overview](#-project-overview)
 - [🏗️ Architecture](#️-architecture)
 - [🛠️ Technology Stack](#️-technology-stack)
-- [📦 Installation](#-installation)
+- [📦 Installation & Setup](#-installation--setup)
 - [🚀 Usage](#-usage)
 - [🧪 Testing](#-testing)
 - [📊 Monitoring](#-monitoring)
@@ -24,27 +24,31 @@
 - [🤝 Contributing](#-contributing)
 - [📄 License](#-license)
 
-## 🚀 Quick Start
+## 🚀 Quick Start (Docker - Recommended)
 
-**Fastest way to get started:**
+This is the fastest and most reliable way to get the entire FoodSave AI system running.
 
 ```bash
 # 1. Clone the repository
 git clone https://github.com/yourusername/foodsave-ai.git
 cd foodsave-ai
 
-# 2. Run the application with one command
-./run_all.sh
+# 2. Create environment file from the example
+cp env.dev.example .env
+
+# 3. Build and run all services in detached mode
+docker-compose -f docker-compose.dev.yml up --build -d
 ```
 
 **Application will be available at:**
-- 🌐 Frontend: http://localhost:3000
-- 🔧 Backend API: http://localhost:8000
-- 📚 API Documentation: http://localhost:8000/docs
+- 🌐 **Frontend**: http://localhost:3000
+- 🔧 **Backend API**: http://localhost:8000
+- 📚 **API Docs**: http://localhost:8000/docs
+- 📊 **Monitoring (Grafana)**: http://localhost:3001
 
 **To stop the application:**
 ```bash
-./stop_all.sh
+docker-compose -f docker-compose.dev.yml down
 ```
 
 ---
@@ -149,124 +153,125 @@ my_ai_assistant/
 - **🧪 Pytest** - Testing framework
 - **📊 Grafana** - Monitoring dashboard
 
-## 📦 Installation
+## 📦 Installation & Setup
 
-### Prerequisites
+You can run the project in two ways: using Docker (recommended for consistency) or setting it up manually on your local machine.
 
+### Method 1: Docker Setup (Recommended)
+
+This method ensures that all services (backend, frontend, databases, monitoring) run in an isolated and consistent environment.
+
+#### Prerequisites
+- **🐳 Docker** and **Docker Compose**
+- **🌐 Git**
+
+#### Steps
+1.  **Clone the repository:**
+    ```bash
+    git clone https://github.com/yourusername/foodsave-ai.git
+    cd foodsave-ai
+    ```
+
+2.  **Create Environment File:**
+    Copy the development environment example file. No changes are needed to get started.
+    ```bash
+    cp env.dev.example .env
+    ```
+
+3.  **Build and Run:**
+    This command will build the necessary Docker images and start all services defined in `docker-compose.dev.yml`.
+    ```bash
+    docker-compose -f docker-compose.dev.yml up --build -d
+    ```
+    > **Note on PostgreSQL Port:** If you have a local PostgreSQL instance running, you might encounter a port conflict on `5432`. We've already changed the configuration in `docker-compose.dev.yml` to use port **5433** for the container, so this issue should be resolved.
+
+4.  **Verify Services:**
+    Check if all containers are running.
+    ```bash
+    docker ps
+    ```
+    You should see `foodsave-backend-dev`, `foodsave-frontend-dev`, `foodsave-ollama-dev`, and others running.
+
+### Method 2: Manual Local Setup
+
+Use this method if you prefer to run the services directly on your machine without Docker.
+
+#### Prerequisites
 - **🐍 Python 3.12+**
-- **🟢 Node.js 18.x or higher**
-- **🤖 [Ollama](https://ollama.com/)** for local language models
-- **📦 [Poetry](https://python-poetry.org/)** for Python dependency management
+- **📦 Poetry**
+- **🟢 Node.js 20.x or higher**
+- **🤖 [Ollama](https://ollama.com/)** installed and running.
 
-### Automatic Installation (Recommended)
+#### Steps
+1.  **Clone and Setup Environment:**
+    ```bash
+    git clone https://github.com/yourusername/foodsave-ai.git
+    cd foodsave-ai
+    cp env.dev.example .env
+    ```
 
-Easiest way to get started:
+2.  **Backend Setup:**
+    ```bash
+    # Install Python dependencies
+    poetry install
+    # Activate virtual environment
+    poetry shell
+    # Run database migrations (if applicable)
+    # poetry run alembic upgrade head
+    ```
 
-```bash
-# Clone the repository
-git clone https://github.com/yourusername/foodsave-ai.git
-cd foodsave-ai
+3.  **Frontend Setup:**
+    ```bash
+    # Navigate to frontend directory
+    cd foodsave-frontend
+    # Install Node.js dependencies
+    npm install
+    cd ..
+    ```
 
-# Run setup script (will install everything and start the application)
-./run_all.sh
-```
-
-The script automatically:
-- ✅ Checks all prerequisites
-- ✅ Installs Python dependencies
-- ✅ Installs Node.js dependencies
-- ✅ Configures environment variables
-- ✅ Starts backend and frontend
-- ✅ Verifies everything is working
-
-### Manual Installation
-
-If you prefer to configure manually:
-
-#### 1. Backend Setup
-```bash
-# Install Python dependencies
-poetry install
-
-# Activate virtual environment
-poetry shell
-```
-
-#### 2. Frontend Setup
-```bash
-# Navigate to frontend directory
-cd foodsave-frontend
-
-# Install Node.js dependencies
-npm install
-```
-
-#### 3. Ollama Configuration
-```bash
-# Install Ollama
-curl -fsSL https://ollama.com/install.sh | sh
-
-# Download required models (minimum 16GB RAM recommended)
-ollama pull gemma3:latest  # ~5GB
-ollama pull SpeakLeash/bielik-11b-v2.3-instruct:Q6_K  # ~7GB
-ollama pull nomic-embed-text  # ~0.5GB
-
-# Start Ollama
-ollama serve
-```
-
-#### 4. Start Application
-```bash
-# Start backend
-cd src/backend
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
-
-# In another terminal, start frontend
-cd foodsave-frontend
-npm run dev
-```
-
-### Docker Setup
-
-For containerized deployment:
-
-```bash
-# Build and run with Docker Compose
-docker-compose up --build
-
-# Or use rebuild script
-./rebuild.sh
-```
+4.  **Run the Application:**
+    You can use the provided script to run all services locally.
+    ```bash
+    ./run_all.sh
+    ```
+    This script will start the backend, frontend, and check for Ollama.
 
 ## 🚀 Usage
 
 ### Starting the Application
 
-```bash
-# Quick start (recommended)
-./run_all.sh
+- **Docker (Recommended):**
+  ```bash
+  docker-compose -f docker-compose.dev.yml up -d
+  ```
 
-# Manual start
-./stop_all.sh  # Stop any running instances
-./run_all.sh   # Start fresh
-```
+- **Local Machine:**
+  ```bash
+  ./run_all.sh
+  ```
 
 ### Accessing the Application
 
 - **🌐 Frontend**: http://localhost:3000
 - **🔧 Backend API**: http://localhost:8000
-- **📚 API Documentation**: http://localhost:8000/docs
-- **📖 Alternative documentation**: http://localhost:8000/redoc
+- **📚 API Docs**: http://localhost:8000/docs / http://localhost:8000/redoc
+- **📊 Monitoring (Grafana)**: http://localhost:3001 (for Docker setup)
 
 ### Stopping the Application
 
-```bash
-./stop_all.sh
-```
+- **Docker:**
+  ```bash
+  docker-compose -f docker-compose.dev.yml down
+  ```
+
+- **Local Machine:**
+  ```bash
+  ./stop_all.sh
+  ```
 
 ## 🧪 Testing
 
-### Running Tests
+### Running Backend Tests
 
 ```bash
 # Run all tests with coverage
@@ -275,9 +280,14 @@ pytest --cov=src tests/ -v
 # Run specific test types
 pytest tests/unit/ -v
 pytest tests/integration/ -v
+```
 
-# Run performance tests
-locust -f locustfile.py
+### Running Frontend Tests
+```bash
+cd foodsave-frontend
+npm test
+# For E2E tests
+npm run test:e2e
 ```
 
 ### Test Coverage
@@ -289,20 +299,27 @@ locust -f locustfile.py
 
 ## 📊 Monitoring
 
-### Monitoring Endpoints
-- **📊 `/metrics`** - Prometheus metrics
-- **📈 `/api/v1/metrics`** - JSON metrics
-- **📋 `/api/v1/status`** - Detailed system status
-- **🚨 `/api/v1/alerts`** - Active alerts
-- **📜 `/api/v1/alerts/history`** - Alert history
-- **💚 `/health`** - Basic health check
-- **✅ `/ready`** - Readiness check
+The project is equipped with a monitoring stack available in the Docker setup.
+
+### Monitoring Dashboards
+- **Grafana**: http://localhost:3001 (user: `admin`, pass: `admin`)
+  - Pre-configured dashboards for application and log metrics.
+- **Prometheus**: http://localhost:9090
+  - Scrapes metrics from the backend.
+
+### Backend Health & Metric Endpoints
+- **💚 Health Check**: `http://localhost:8000/health`
+- **📊 Prometheus Metrics**: `http://localhost:8000/metrics`
+- **✅ Readiness Check**: `http://localhost:8000/ready`
+- **📋 System Status**: `http://localhost:8000/api/v1/status`
 
 ### System Metrics
 - **Memory usage**: Real-time monitoring
 - **API performance**: Response times, throughput
 - **Agent status**: Health checks for all agents
 - **Database**: Connection pool, query performance
+- **Ollama logs**: Run `docker logs foodsave-ollama-dev`
+- **Combined logs**: Check Grafana's Loki data source.
 
 ## 🔧 Troubleshooting
 
@@ -335,7 +352,7 @@ locust -f locustfile.py
 - **Frontend logs**: `logs/frontend/`
 - **Ollama logs**: `journalctl -u ollama -f` (Linux)
 
-## �� Documentation
+## 📚 Documentation
 
 ### Quick Start
 - **[📖 Documentation Hub](docs/README.md)** - Complete documentation overview

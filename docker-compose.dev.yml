@@ -153,18 +153,22 @@ services:
       - loki_data:/loki
     command: -config.file=/etc/loki/config.yaml
     networks:
-      - foodsave-network
+      foodsave-network:
+        ipv4_address: 172.20.0.10
 
   # Promtail dla zbierania logów (development)
   promtail:
     image: grafana/promtail:latest
     container_name: foodsave-promtail-dev
     volumes:
+      - ./logs:/logs:ro
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - ./monitoring/promtail-config.yaml:/etc/promtail/config.yaml
     command: -config.file=/etc/promtail/config.yaml
     networks:
       - foodsave-network
+    depends_on:
+      - loki
 
 volumes:
   ollama_data:
