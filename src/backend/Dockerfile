@@ -6,6 +6,10 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     swig \
     git \
+    libopenblas-dev \
+    libblas-dev \
+    liblapack-dev \
+    gfortran \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
@@ -21,7 +25,8 @@ COPY pyproject.toml poetry.lock /app/
 
 # Install core dependencies first
 RUN pip install --retries 3 --timeout 300 fastapi uvicorn python-multipart httpx pydantic pydantic-settings python-dotenv \
-    sqlalchemy aiosqlite pytz psutil
+    sqlalchemy aiosqlite pytz psutil structlog==24.1.0 langdetect==1.0.9 redis==5.2.0 pybreaker==1.3.0 \
+    dependency_injector>=4.41.0 slowapi==0.1.9 alembic asyncpg
 
 # Install ML dependencies in smaller groups with alternatives to problematic packages
 RUN pip install --retries 5 --timeout 600 \
@@ -47,6 +52,12 @@ RUN pip install --retries 3 --timeout 300 \
 
 # Install sentence-transformers (which includes a GPU-enabled pytorch)
 RUN pip install --retries 5 --timeout 600 sentence-transformers==2.2.2
+
+# Try to install faiss-cpu with multiple approaches
+RUN pip install --no-cache-dir --retries 5 --timeout 600 faiss-cpu || \
+    pip install --no-cache-dir --retries 5 --timeout 600 faiss-cpu==1.7.0 || \
+    pip install --no-cache-dir --retries 5 --timeout 600 -i https://pypi.tuna.tsinghua.edu.cn/simple faiss-cpu || \
+    echo "Warning: faiss-cpu installation failed, using scikit-learn as alternative"
 
 # Copy backend code
 COPY . /app/backend
