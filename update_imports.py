@@ -1,128 +1,137 @@
 #!/usr/bin/env python3
 """
 Skrypt do automatycznej aktualizacji importów w projekcie FoodSave AI.
-Zamienia wszystkie importy 'src.backend' na 'backend'.
+
+Ten skrypt przeszukuje pliki Python w projekcie i zamienia importy używające
+formatu 'src.backend' na format 'backend', aby zapewnić spójność importów
+w całym projekcie i zgodność ze strukturą kontenerów Docker.
+
+Sposób użycia:
+    python update_imports.py [--dry-run] [--verbose] [katalog]
+
+Argumenty:
+    --dry-run   Tylko wyświetla zmiany, które zostaną wprowadzone, bez faktycznej modyfikacji plików
+    --verbose   Wyświetla szczegółowe informacje o przetwarzanych plikach
+    katalog     Opcjonalny katalog do przeszukania (domyślnie: bieżący katalog)
+
+Przykłady:
+    python update_imports.py --dry-run           # Podgląd zmian bez modyfikacji plików
+    python update_imports.py --verbose src/      # Aktualizacja importów w katalogu src z pełnymi informacjami
+    python update_imports.py                     # Aktualizacja importów w bieżącym katalogu
 """
 
+import os
 import re
 import sys
-from pathlib import Path
-from typing import List, Tuple
+import argparse
+from typing import List, Tuple, Dict
 
+# Wzorce importów do zastąpienia
+IMPORT_PATTERNS = [
+    # from src.backend import X
+    (r'from\s+src\.backend\b', 'from backend'),
+    # import src.backend.X
+    (r'import\s+src\.backend\b', 'import backend'),
+]
 
-def find_files_with_imports(directory: str, pattern: str = "*.py") -> List[str]:
+def find_python_files(directory: str) -> List[str]:
     """
-    Znajduje wszystkie pliki Python zawierające określony wzorzec importu.
-
+    Znajduje wszystkie pliki Python w podanym katalogu i jego podkatalogach.
+    
     Args:
         directory: Katalog do przeszukania
-        pattern: Wzorzec plików do przeszukania
-
+        
     Returns:
-        Lista ścieżek do plików zawierających wzorzec importu
+        Lista ścieżek do plików Python
     """
-    files_with_imports = []
+    python_files = []
+    for root, _, files in os.walk(directory):
+        for file in files:
+            if file.endswith('.py'):
+                python_files.append(os.path.join(root, file))
+    return python_files
 
-    for path in Path(directory).rglob(pattern):
-        if path.is_file():
-            with open(path, "r", encoding="utf-8") as f:
-                content = f.read()
-                if "from src.backend" in content or "import src.backend" in content:
-                    files_with_imports.append(str(path))
-
-    return files_with_imports
-
-
-def update_imports_in_file(file_path: str) -> Tuple[int, int]:
+def update_imports_in_file(file_path: str, dry_run: bool = False, verbose: bool = False) -> Tuple[int, Dict[str, int]]:
     """
-    Aktualizuje importy w pliku, zamieniając 'src.backend' na 'backend'.
-
+    Aktualizuje importy w pojedynczym pliku.
+    
     Args:
-        file_path: Ścieżka do pliku
-
+        file_path: Ścieżka do pliku Python
+        dry_run: Czy tylko wyświetlić zmiany bez modyfikacji pliku
+        verbose: Czy wyświetlać szczegółowe informacje
+        
     Returns:
-        Krotka (liczba_zmienionych_linii, całkowita_liczba_importów)
+        Krotka (liczba zmienionych linii, słownik ze statystykami zmian)
     """
-    with open(file_path, "r", encoding="utf-8") as f:
+    with open(file_path, 'r', encoding='utf-8') as f:
         content = f.read()
-
-    # Wzorce do zamiany
-    pattern1 = r"from src\.backend"
-    pattern2 = r"import src\.backend"
-
-    # Zamiana wzorców
-    new_content1 = re.sub(pattern1, "from backend", content)
-    new_content2 = re.sub(pattern2, "import backend", new_content1)
-
-    # Liczba zmienionych linii
-    changed_lines = 0
-    if new_content2 != content:
-        changed_lines = (
-            new_content2.count("from backend")
-            + new_content2.count("import backend")
-            - content.count("from backend")
-            - content.count("import backend")
-        )
-
-    # Całkowita liczba importów
-    total_imports = content.count("from src.backend") + content.count(
-        "import src.backend"
-    )
-
-    # Zapisz zmiany
-    if new_content2 != content:
-        with open(file_path, "w", encoding="utf-8") as f:
-            f.write(new_content2)
-
-    return changed_lines, total_imports
-
+    
+    original_content = content
+    changes_count = 0
+    pattern_counts = {pattern[0]: 0 for pattern in IMPORT_PATTERNS}
+    
+    for pattern, replacement in IMPORT_PATTERNS:
+        matches = re.findall(pattern, content)
+        pattern_counts[pattern] = len(matches)
+        content = re.sub(pattern, replacement, content)
+    
+    total_changes = sum(pattern_counts.values())
+    changes_count = total_changes
+    
+    if original_content != content:
+        if verbose:
+            print(f"Znaleziono {total_changes} importów do aktualizacji w {file_path}")
+            for pattern, count in pattern_counts.items():
+                if count > 0:
+                    print(f"  - Wzorzec '{pattern}': {count} wystąpień")
+        
+        if not dry_run:
+            with open(file_path, 'w', encoding='utf-8') as f:
+                f.write(content)
+            if verbose or total_changes > 0:
+                print(f"Zaktualizowano {total_changes} importów w {file_path}")
+    elif verbose:
+        print(f"Brak importów do aktualizacji w {file_path}")
+    
+    return changes_count, pattern_counts
 
 def main():
-    """Główna funkcja skryptu."""
-    print("🔧 Skrypt aktualizacji importów w projekcie FoodSave AI")
-    print("=" * 60)
-
-    # Katalog do przeszukania
-    directory = "src/backend"
-    if len(sys.argv) > 1:
-        directory = sys.argv[1]
-
-    print(f"Przeszukiwanie katalogu: {directory}")
-
-    # Znajdź pliki z importami
-    files = find_files_with_imports(directory)
-    print(f"Znaleziono {len(files)} plików z importami 'src.backend'")
-
-    if not files:
-        print("Nie znaleziono plików do aktualizacji.")
-        return
-
-    # Aktualizuj importy
-    total_changed = 0
-    total_imports = 0
-
-    print("\nAktualizacja importów:")
-    print("-" * 60)
-
-    for file_path in files:
-        changed, imports = update_imports_in_file(file_path)
-        total_changed += changed
-        total_imports += imports
-
-        status = "✅" if changed > 0 else "⚠️"
-        print(f"{status} {file_path}: zmieniono {changed}/{imports} importów")
-
-    print("-" * 60)
-    print(
-        f"Łącznie zaktualizowano {total_changed}/{total_imports} importów w {len(files)} plikach."
-    )
-
-    # Instrukcje po aktualizacji
-    print("\n📋 Następne kroki:")
-    print("1. Sprawdź zmiany w plikach")
-    print("2. Uruchom testy, aby upewnić się, że wszystko działa poprawnie")
-    print("3. Zbuduj i uruchom kontenery za pomocą docker-compose")
-
+    parser = argparse.ArgumentParser(description="Aktualizuje importy z 'src.backend' na 'backend'")
+    parser.add_argument('directory', nargs='?', default='.', help="Katalog do przeszukania")
+    parser.add_argument('--dry-run', action='store_true', help="Tylko wyświetla zmiany, bez modyfikacji plików")
+    parser.add_argument('--verbose', action='store_true', help="Wyświetla szczegółowe informacje")
+    args = parser.parse_args()
+    
+    python_files = find_python_files(args.directory)
+    total_files = len(python_files)
+    total_changes = 0
+    changed_files = 0
+    all_pattern_counts = {pattern[0]: 0 for pattern in IMPORT_PATTERNS}
+    
+    print(f"Znaleziono {total_files} plików Python do przeanalizowania...")
+    
+    for file_path in python_files:
+        changes, pattern_counts = update_imports_in_file(file_path, args.dry_run, args.verbose)
+        if changes > 0:
+            changed_files += 1
+            total_changes += changes
+            for pattern, count in pattern_counts.items():
+                all_pattern_counts[pattern] += count
+    
+    print("\n=== PODSUMOWANIE ===")
+    print(f"Przeanalizowano plików: {total_files}")
+    print(f"Zmieniono plików: {changed_files}")
+    print(f"Całkowita liczba zmienionych importów: {total_changes}")
+    
+    if total_changes > 0:
+        print("\nSzczegóły zmian:")
+        for pattern, count in all_pattern_counts.items():
+            if count > 0:
+                print(f"  - Wzorzec '{pattern}': {count} wystąpień")
+    
+    if args.dry_run:
+        print("\nUWAGA: Uruchomiono w trybie --dry-run, żadne pliki nie zostały zmodyfikowane.")
+        print("Aby wprowadzić zmiany, uruchom skrypt bez flagi --dry-run.")
 
 if __name__ == "__main__":
     main()
