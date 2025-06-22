@@ -13,7 +13,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
-import faiss
 import numpy as np
 
 try:
@@ -29,9 +28,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class DocumentChunk:
-    """Document chunk with __slots__ optimization for memory efficiency"""
-
-    __slots__ = ["id", "content", "metadata"]
+    """Document chunk with metadata and embedding support"""
 
     id: str
     content: str
@@ -41,8 +38,6 @@ class DocumentChunk:
 
     def __post_init__(self):
         if self.created_at is None:
-            from datetime import datetime
-
             self.created_at = datetime.now().isoformat()
 
 
@@ -74,35 +69,27 @@ class SmartChunker:
         self, text: str, metadata: Dict[str, Any]
     ) -> List[DocumentChunk]:
         """Split document into semantically meaningful chunks"""
-        chunks: List[DocumentChunk] = []  # Already properly typed
+        chunks: List[DocumentChunk] = []
 
         # Handle empty or very short documents
         if not text or len(text) < self.chunk_size / 2:
-            # Sprawdź czy metadata jest słownikiem
             if isinstance(metadata, dict):
                 metadata_copy = metadata.copy()
             else:
                 metadata_copy = {"content": str(metadata)}
-            return [DocumentChunk(text=text, metadata=metadata_copy)]
+            return [DocumentChunk(id="", content=text, metadata=metadata_copy)]
 
-        # Split text using semantic boundaries
         current_pos = 0
         while current_pos < len(text):
-            # Find end position for this chunk
             end_pos = min(current_pos + self.chunk_size, len(text))
-
-            # Try to find a natural boundary near the end position
             if end_pos < len(text):
                 for separator in self.separators:
                     boundary = text.rfind(separator, current_pos, end_pos)
                     if boundary != -1:
                         end_pos = boundary + len(separator)
                         break
-
-            # Extract chunk text
             chunk_text = text[current_pos:end_pos].strip()
             if chunk_text:
-                # Create chunk with metadata including position info
                 if isinstance(metadata, dict):
                     chunk_metadata = metadata.copy()
                 else:
@@ -114,12 +101,11 @@ class SmartChunker:
                         "chunk_index": len(chunks),
                     }
                 )
-                chunks.append(DocumentChunk(text=chunk_text, metadata=chunk_metadata))
-
-            # Move position for next chunk, with overlap
+                chunks.append(
+                    DocumentChunk(id="", content=chunk_text, metadata=chunk_metadata)
+                )
             next_pos = end_pos - self.chunk_overlap
             current_pos = max(current_pos + 1, next_pos)
-
         return chunks
 
 
@@ -171,11 +157,14 @@ class VectorStore:
         self._stats = {
             "total_documents": 0,
             "total_vectors": 0,
-            "last_cleanup": None,
+            "last_cleanup": 0.0,
             "cleanup_count": 0,
             "cache_hits": 0,
             "cache_misses": 0,
         }
+
+        # Track chunks since last save
+        self.chunks_since_save = 0
 
     def _cleanup_callback(self, weak_ref):
         """Callback when document is garbage collected"""
@@ -193,9 +182,9 @@ class VectorStore:
     def _get_cached_embedding(self, doc_id: str) -> Optional[np.ndarray]:
         """Get embedding from cache"""
         if doc_id in self._vector_cache:
-            self._stats["cache_hits"] += 1
+            self._stats["cache_hits"] = int(self._stats.get("cache_hits", 0)) + 1
             return self._vector_cache[doc_id]
-        self._stats["cache_misses"] += 1
+        self._stats["cache_misses"] = int(self._stats.get("cache_misses", 0)) + 1
         return None
 
     def _cache_embedding(self, doc_id: str, embedding: np.ndarray):
@@ -206,38 +195,41 @@ class VectorStore:
             del self._vector_cache[oldest_key]
         self._vector_cache[doc_id] = embedding
 
+    async def add_document(self, text: str, metadata: Dict[str, Any]) -> None:
+        """Add a single document to the vector store"""
+        # Create a simple document chunk
+        doc = DocumentChunk(
+            id=f"doc_{len(self._documents)}", content=text, metadata=metadata
+        )
+        await self.add_documents([doc])
+
     async def add_documents(self, documents: List[DocumentChunk]) -> None:
         """Add documents to vector store with memory management and caching"""
         if len(self._documents) + len(documents) >= self._max_documents:
             await self._cleanup_old_documents()
-
         embeddings = []
         for doc in documents:
             if doc.embedding is not None:
                 embeddings.append(doc.embedding)
-                # Cache the embedding
                 self._cache_embedding(doc.id, doc.embedding)
-                # Use weak reference to avoid memory leaks
                 self._documents[doc.id] = weakref.ref(doc, self._cleanup_callback)
                 self._document_ids.append(doc.id)
-                self._stats["total_documents"] += 1
-
+                self._stats["total_documents"] = (
+                    int(self._stats.get("total_documents", 0)) + 1
+                )
+                self.chunks_since_save += 1
         if embeddings:
             embeddings_array = np.array(embeddings, dtype=np.float32)
-
-            # Train index if needed (for IVF indices)
             if hasattr(self, "_is_trained") and not self._is_trained:
-                if len(embeddings_array) >= 100:  # Need enough vectors to train
+                if len(embeddings_array) >= 100:
                     self.index.train(embeddings_array)
                     self._is_trained = True
                     logger.info("Trained FAISS index")
                 else:
-                    # For small datasets, use FlatL2 as fallback
                     self.index = faiss.IndexFlatL2(self.dimension)
                     logger.info("Using FlatL2 index for small dataset")
-
             self.index.add(embeddings_array)
-            self._stats["total_vectors"] = self.index.ntotal
+            self._stats["total_vectors"] = int(self.index.ntotal)
             logger.debug(f"Added {len(documents)} documents to vector store")
 
     async def search(
@@ -272,29 +264,24 @@ class VectorStore:
 
                     weak_ref = self._documents.get(doc_id)
 
-                    if weak_ref:
-                        doc = weak_ref()
-                        if doc:  # Check if weak reference is still valid
-                            results.append((doc, float(distance)))
-                        else:
-                            # Clean up invalid reference
-                            del self._documents[doc_id]
-                            if doc_id in self._document_ids:
-                                self._document_ids.remove(doc_id)
+                    doc_chunk: Optional[DocumentChunk] = (
+                        weak_ref() if weak_ref else None
+                    )
+                    if doc_chunk is not None:
+                        results.append((doc_chunk, float(distance)))
                     else:
-                        # Clean up missing reference
+                        # Clean up invalid reference
+                        if doc_id in self._documents:
+                            del self._documents[doc_id]
                         if doc_id in self._document_ids:
                             self._document_ids.remove(doc_id)
-
             return results
-
         except Exception as e:
             logger.error(f"Error during vector search: {e}")
             return []
 
     async def get_document(self, doc_id: str) -> Optional[DocumentChunk]:
         """Get document by ID with cleanup and caching"""
-        # Try cache first
         cached_embedding = self._get_cached_embedding(doc_id)
         if cached_embedding is not None:
             return DocumentChunk(
@@ -303,20 +290,16 @@ class VectorStore:
                 metadata={"cached": True},
                 embedding=cached_embedding,
             )
-
         weak_ref = self._documents.get(doc_id)
-        if weak_ref:
-            doc = weak_ref()
-            if doc:  # Check if weak reference is still valid
-                return doc
-            else:
-                # Clean up invalid reference
+        doc: Optional[DocumentChunk] = weak_ref() if weak_ref else None
+        if doc is not None:
+            return doc
+        else:
+            if doc_id in self._documents:
                 del self._documents[doc_id]
-                if doc_id in self._document_ids:
-                    self._document_ids.remove(doc_id)
-                logger.debug(
-                    f"Cleaned up invalid weak reference for document: {doc_id}"
-                )
+            if doc_id in self._document_ids:
+                self._document_ids.remove(doc_id)
+            logger.debug(f"Cleaned up invalid weak reference for document: {doc_id}")
         return None
 
     async def remove_document(self, doc_id: str) -> bool:
@@ -338,41 +321,31 @@ class VectorStore:
         async with self._cleanup_lock:
             if len(self._documents) <= self._cleanup_threshold:
                 return
-
-            # Get valid documents and their timestamps
             valid_documents = []
             for doc_id, weak_ref in self._documents.items():
                 doc = weak_ref()
                 if doc:
-                    valid_documents.append((doc_id, doc, doc.created_at))
+                    created_at = doc.created_at or ""
+                    valid_documents.append((doc_id, doc, created_at))
                 else:
-                    # Clean up invalid references
                     del self._documents[doc_id]
                     if doc_id in self._document_ids:
                         self._document_ids.remove(doc_id)
                     if doc_id in self._vector_cache:
                         del self._vector_cache[doc_id]
-
-            # Sort by created_at and remove oldest
-            valid_documents.sort(key=lambda x: x[2], reverse=True)
-
-            # Keep only the newest documents
+            valid_documents.sort(key=lambda x: str(x[2]), reverse=True)
             docs_to_keep = valid_documents[: self._cleanup_threshold]
-
-            # Rebuild documents dict with weak references
             new_documents = {}
             new_document_ids = []
             for doc_id, doc, _ in docs_to_keep:
                 new_documents[doc_id] = weakref.ref(doc, self._cleanup_callback)
                 new_document_ids.append(doc_id)
-
             removed_count = len(self._documents) - len(new_documents)
             self._documents = new_documents
             self._document_ids = new_document_ids
             self._stats["total_documents"] = len(self._documents)
-            self._stats["last_cleanup"] = asyncio.get_event_loop().time()
-            self._stats["cleanup_count"] += 1
-
+            self._stats["last_cleanup"] = float(asyncio.get_event_loop().time())
+            self._stats["cleanup_count"] = int(self._stats.get("cleanup_count", 0)) + 1
             logger.info(
                 f"Cleaned up {removed_count} old documents. "
                 f"Total documents: {len(self._documents)}"
@@ -380,7 +353,6 @@ class VectorStore:
 
     async def get_stats(self) -> Dict[str, Any]:
         """Get vector store statistics with cleanup and cache info"""
-        # Clean up invalid references before stats
         await self._cleanup_old_documents()
 
         valid_documents = []
@@ -389,18 +361,21 @@ class VectorStore:
             if doc:
                 valid_documents.append(doc)
 
+        cache_hits = int(self._stats.get("cache_hits", 0))
+        cache_misses = int(self._stats.get("cache_misses", 0))
+        total_cache_attempts = cache_hits + cache_misses
+
         return {
             "total_documents": len(valid_documents),
-            "total_vectors": self.index.ntotal,
+            "total_vectors": int(self.index.ntotal),
             "max_documents": self._max_documents,
             "cleanup_threshold": self._cleanup_threshold,
             "index_type": self.index_type,
             "dimension": self.dimension,
             "cache_size": len(self._vector_cache),
-            "cache_hits": self._stats["cache_hits"],
-            "cache_misses": self._stats["cache_misses"],
-            "cache_hit_rate": self._stats["cache_hits"]
-            / max(1, self._stats["cache_hits"] + self._stats["cache_misses"]),
+            "cache_hits": cache_hits,
+            "cache_misses": cache_misses,
+            "cache_hit_rate": cache_hits / max(1, total_cache_attempts),
             "stats": self._stats,
         }
 
@@ -415,9 +390,16 @@ class VectorStore:
             self._stats["total_vectors"] = 0
             self._stats["cache_hits"] = 0
             self._stats["cache_misses"] = 0
-            self._stats["last_cleanup"] = asyncio.get_event_loop().time()
-            self._stats["cleanup_count"] += 1
+            self._stats["last_cleanup"] = float(asyncio.get_event_loop().time())
+            self._stats["cleanup_count"] = int(self._stats.get("cleanup_count", 0)) + 1
+            self.chunks_since_save = 0
             logger.info("Cleared all documents from vector store")
+
+    async def save_index_async(self) -> None:
+        """Save index asynchronously"""
+        if self._index_file_path:
+            self.save_index(self._index_file_path)
+            self.chunks_since_save = 0
 
     @asynccontextmanager
     async def context_manager(self):
@@ -466,13 +448,28 @@ class VectorStore:
             logger.error(f"Error loading FAISS index: {e}")
             raise
 
+    async def list_directories(self) -> list[dict]:
+        """Zwraca listę katalogów z liczbą dokumentów"""
+        directories = {}
+        for doc_id, ref in self._documents.items():
+            doc = ref()
+            if doc and hasattr(doc, "metadata"):
+                dir_path = doc.metadata.get("directory_path", "default")
+                if dir_path not in directories:
+                    directories[dir_path] = 0
+                directories[dir_path] += 1
+        return [
+            {"path": path, "document_count": count}
+            for path, count in directories.items()
+        ]
+
 
 class AsyncDocumentLoader:
     """Asynchronous document loader with incremental indexing"""
 
     def __init__(self, vector_store: VectorStore):
         self.vector_store = vector_store
-        self.loading_task = None
+        self.loading_task: Optional[asyncio.Task] = None
         self._stop_event = asyncio.Event()
         self.last_modified_times: Dict[str, float] = {}
 
@@ -549,7 +546,7 @@ class AsyncDocumentLoader:
         self._stop_event.clear()
 
         # Track last modified times
-        self.last_modified_times: Dict[str, float] = {}
+        self.last_modified_times.clear()
 
         async def _indexing_task():
             while not self._stop_event.is_set():
@@ -627,6 +624,9 @@ class AsyncDocumentLoader:
                     logger.error(f"Error in incremental indexing: {e}")
                     # Wait before retrying
                     await asyncio.sleep(60)
+
+        # Start the indexing task
+        self.loading_task = asyncio.create_task(_indexing_task())
 
 
 # Global instance with optimized index

@@ -8,6 +8,7 @@ import hashlib
 import logging
 import weakref
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
@@ -22,12 +23,9 @@ try:
 except ImportError:
     MMLW_AVAILABLE = False
 
-from backend.config import settings
-
 # Import existing clients
 from backend.core.hybrid_llm_client import hybrid_llm_client
-from backend.core.llm_client import llm_client
-from backend.core.vector_store import DocumentChunk, VectorStore
+from backend.core.vector_store import VectorStore
 
 # LangChain imports (optional)
 try:
@@ -79,6 +77,14 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
+@dataclass
+class Stats:
+    total_processed: int = 0
+    total_chunks: int = 0
+    last_cleanup: float = 0.0
+    cleanup_count: int = 0
+
+
 class RAGDocumentProcessor:
     """RAG Document Processor with proper memory management and cleanup"""
 
@@ -114,12 +120,7 @@ class RAGDocumentProcessor:
         self._cleanup_lock = asyncio.Lock()
 
         # Performance tracking
-        self._stats = {
-            "total_processed": 0,
-            "total_chunks": 0,
-            "last_cleanup": None,
-            "cleanup_count": 0,
-        }
+        self._stats = Stats()
 
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
@@ -246,7 +247,9 @@ class RAGDocumentProcessor:
 
         return emb_array
 
-    def load_document(self, file_path: Union[str, Path]) -> List[str]:
+    def load_document(
+        self, file_path: Union[str, Path]
+    ) -> List[Union[str, Dict[str, Any]]]:
         """
         Load a document from a file path
 
@@ -375,6 +378,14 @@ class RAGDocumentProcessor:
         if metadata:
             base_metadata.update(metadata)
 
+        # Normalize directory path in metadata
+        if "directory_path" in base_metadata:
+            base_metadata["directory_path"] = self._normalize_path(
+                base_metadata["directory_path"]
+            )
+        else:
+            base_metadata["directory_path"] = "default"
+
         # Chunk the document
         chunks = self.chunk_text(content)
 
@@ -390,8 +401,8 @@ class RAGDocumentProcessor:
             chunk_metadata = base_metadata.copy()
             chunk_metadata.update(
                 {
-                    "chunk_index": i,
-                    "total_chunks": len(chunks),
+                    "chunk_index": str(i),  # Convert to string
+                    "total_chunks": str(len(chunks)),  # Convert to string
                 }
             )
 
@@ -495,7 +506,7 @@ class RAGDocumentProcessor:
             section_metadata = base_metadata.copy()
 
             # Get content metadata if available (from PDF loader etc)
-            content_metadata = {}
+            content_metadata: Dict[str, Any] = {}
             if isinstance(content, dict) and "metadata" in content:
                 content_metadata = content["metadata"]
                 # Ensure numeric metadata values are strings
@@ -569,7 +580,7 @@ class RAGDocumentProcessor:
             # Update metadata with section information
             section_metadata = base_metadata.copy()
             section_metadata.update(
-                {"section_index": i, "total_sections": len(contents)}
+                {"section_index": str(i), "total_sections": str(len(contents))}
             )
 
             # Process this section
@@ -589,7 +600,7 @@ class RAGDocumentProcessor:
     async def process_directory(
         self,
         directory: Union[str, Path],
-        file_extensions: List[str] = None,
+        file_extensions: Optional[List[str]] = None,
         recursive: bool = True,
         metadata_fn: Optional[Callable[[Path], Dict[str, Any]]] = None,
         batch_size: int = 5,
@@ -690,7 +701,12 @@ class RAGDocumentProcessor:
             tasks.append(self.process_document(text, source_id, metadata))
 
         # Process concurrently
-        return await asyncio.gather(*tasks)
+        results = await asyncio.gather(*tasks)
+        # Flatten the results since each task returns a list
+        flattened_results = []
+        for result_list in results:
+            flattened_results.extend(result_list)
+        return flattened_results
 
     def _cleanup_callback(self, weak_ref):
         """Callback when document is garbage collected"""
@@ -706,168 +722,40 @@ class RAGDocumentProcessor:
         """Calculate hash for document content"""
         return hashlib.sha256(content.encode("utf-8")).hexdigest()
 
-    async def process_document(
-        self,
-        content: str,
-        metadata: Dict[str, Any],
-        chunk_size: int = 1000,
-        overlap: int = 200,
-    ) -> List[str]:
-        """Process document with memory management and deduplication"""
+    def _normalize_path(self, path: str) -> str:
+        """
+        Normalize directory path for consistent storage
 
-        # Check if document already processed
-        doc_hash = self._calculate_document_hash(content)
-        if doc_hash in self._document_hashes:
-            logger.debug(f"Document already processed, skipping: {doc_hash[:8]}")
-            return []
+        Args:
+            path: Directory path to normalize
 
-        # Cleanup if needed
-        if len(self._processed_documents) >= self._max_documents:
-            await self._cleanup_old_documents()
+        Returns:
+            Normalized path string
+        """
+        if not path or path.strip() == "":
+            return "default"
 
-        # Create chunks
-        chunks = self._create_chunks(content, metadata, chunk_size, overlap)
+        # Remove leading/trailing slashes and normalize
+        normalized = path.strip().strip("/").strip("\\")
 
-        # Create document chunks with embeddings
-        document_chunks = []
-        for i, chunk_text in enumerate(chunks):
-            chunk_id = f"{doc_hash}_{i}"
-            chunk_metadata = {
-                **metadata,
-                "chunk_index": i,
-                "total_chunks": len(chunks),
-                "chunk_id": chunk_id,
-            }
+        # Replace backslashes with forward slashes
+        normalized = normalized.replace("\\", "/")
 
-            # Create document chunk
-            doc_chunk = DocumentChunk(
-                id=chunk_id, content=chunk_text, metadata=chunk_metadata
-            )
-            document_chunks.append(doc_chunk)
+        # Remove any double slashes
+        while "//" in normalized:
+            normalized = normalized.replace("//", "/")
 
-        # Generate embeddings for chunks
-        await self._generate_embeddings(document_chunks)
+        # Handle special characters and ensure valid path
+        import re
 
-        # Add to vector store
-        await self.vector_store.add_documents(document_chunks)
+        # Allow alphanumeric, hyphens, underscores, dots, and forward slashes
+        normalized = re.sub(r"[^a-zA-Z0-9_/\-\.]", "_", normalized)
 
-        # Store document info with weak reference
-        doc_info = {
-            "hash": doc_hash,
-            "chunk_count": len(chunks),
-            "processed_at": datetime.now().isoformat(),
-            "metadata": metadata,
-        }
-        self._processed_documents[doc_hash] = weakref.ref(
-            doc_info, self._cleanup_callback
-        )
-        self._document_hashes[doc_hash] = doc_hash
+        # Ensure it's not empty after normalization
+        if not normalized:
+            return "default"
 
-        # Update stats
-        self._stats["total_processed"] += 1
-        self._stats["total_chunks"] += len(chunks)
-
-        logger.info(f"Processed document with {len(chunks)} chunks")
-        return [chunk.id for chunk in document_chunks]
-
-    def _create_chunks(
-        self, content: str, metadata: Dict[str, Any], chunk_size: int, overlap: int
-    ) -> List[str]:
-        """Create text chunks with overlap"""
-        chunks = []
-        start = 0
-
-        while start < len(content):
-            end = start + chunk_size
-
-            # If not the last chunk, try to break at sentence boundary
-            if end < len(content):
-                # Look for sentence endings
-                for i in range(end, max(start + chunk_size - 100, start), -1):
-                    if content[i] in ".!?":
-                        end = i + 1
-                        break
-
-            chunk = content[start:end].strip()
-            if chunk:
-                chunks.append(chunk)
-
-            # Move start position with overlap
-            start = end - overlap
-            if start >= len(content):
-                break
-
-        return chunks
-
-    async def _generate_embeddings(self, document_chunks: List[DocumentChunk]) -> None:
-        """Generate embeddings for document chunks"""
-        try:
-            for chunk in document_chunks:
-                if chunk.embedding is None:
-                    embedding = await llm_client.embed(
-                        model=settings.DEFAULT_EMBEDDING_MODEL, text=chunk.content
-                    )
-                    chunk.embedding = embedding
-
-        except Exception as e:
-            logger.error(f"Error generating embeddings: {e}")
-            raise
-
-    async def search_documents(
-        self, query: str, k: int = 5, filter_metadata: Optional[Dict[str, Any]] = None
-    ) -> List[Dict[str, Any]]:
-        """Search documents with proper error handling"""
-        try:
-            # Generate query embedding
-            query_embedding = await llm_client.embed(
-                model=settings.DEFAULT_EMBEDDING_MODEL, text=query
-            )
-
-            # Search in vector store
-            results = await self.vector_store.search(query_embedding, k)
-
-            # Format results
-            formatted_results = []
-            for doc_chunk, distance in results:
-                # Apply metadata filter if specified
-                if filter_metadata and not self._matches_filter(
-                    doc_chunk.metadata, filter_metadata
-                ):
-                    continue
-
-                formatted_results.append(
-                    {
-                        "chunk_id": doc_chunk.id,
-                        "content": doc_chunk.content,
-                        "metadata": doc_chunk.metadata,
-                        "similarity": 1.0
-                        - distance / 2.0,  # Convert distance to similarity
-                        "distance": float(distance),
-                    }
-                )
-
-            return formatted_results
-
-        except Exception as e:
-            logger.error(f"Error searching documents: {e}")
-            return []
-
-    def _matches_filter(
-        self, metadata: Dict[str, Any], filter_criteria: Dict[str, Any]
-    ) -> bool:
-        """Check if metadata matches filter criteria"""
-        for key, val in filter_criteria.items():
-            if key not in metadata:
-                return False
-
-            if isinstance(val, list):
-                # List means "any of these values"
-                if metadata[key] not in val:
-                    return False
-            elif metadata[key] != val:
-                return False
-
-        return True
+        return normalized
 
     async def get_document_info(self, doc_hash: str) -> Optional[Dict[str, Any]]:
         """Get document info by hash with cleanup"""
@@ -892,7 +780,7 @@ class RAGDocumentProcessor:
             del self._processed_documents[doc_hash]
             if doc_hash in self._document_hashes:
                 del self._document_hashes[doc_hash]
-            self._stats["total_processed"] = len(self._processed_documents)
+            self._stats.total_processed = len(self._processed_documents)
             logger.debug(f"Removed document: {doc_hash}")
             return True
         return False
@@ -933,9 +821,10 @@ class RAGDocumentProcessor:
             removed_count = len(self._processed_documents) - len(new_documents)
             self._processed_documents = new_documents
             self._document_hashes = new_hashes
-            self._stats["total_processed"] = len(self._processed_documents)
-            self._stats["last_cleanup"] = asyncio.get_event_loop().time()
-            self._stats["cleanup_count"] += 1
+            self._stats.total_processed = len(self._processed_documents)
+            self._stats.last_cleanup = float(asyncio.get_event_loop().time())
+            current_cleanup_count = self._stats.cleanup_count
+            self._stats.cleanup_count = current_cleanup_count + 1
 
             logger.info(
                 f"Cleaned up {removed_count} old documents. "
@@ -957,7 +846,7 @@ class RAGDocumentProcessor:
 
         return {
             "total_processed": len(valid_documents),
-            "total_chunks": self._stats["total_chunks"],
+            "total_chunks": self._stats.total_chunks,
             "max_documents": self._max_documents,
             "cleanup_threshold": self._cleanup_threshold,
             "vector_store_stats": vector_store_stats,
@@ -970,10 +859,11 @@ class RAGDocumentProcessor:
             self._processed_documents.clear()
             self._document_hashes.clear()
             await self.vector_store.clear_all()
-            self._stats["total_processed"] = 0
-            self._stats["total_chunks"] = 0
-            self._stats["last_cleanup"] = asyncio.get_event_loop().time()
-            self._stats["cleanup_count"] += 1
+            self._stats.total_processed = 0
+            self._stats.total_chunks = 0
+            self._stats.last_cleanup = float(asyncio.get_event_loop().time())
+            current_cleanup_count = self._stats.cleanup_count
+            self._stats.cleanup_count = current_cleanup_count + 1
             logger.info("Cleared all documents from processor")
 
     @asynccontextmanager

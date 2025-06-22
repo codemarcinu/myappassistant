@@ -8,12 +8,11 @@ This module provides API endpoints for managing the RAG system:
 - System statistics
 """
 
-import asyncio
 import logging
 import os
 import uuid
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
 from fastapi import (
     APIRouter,
@@ -27,11 +26,7 @@ from fastapi import (
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.api.v2.exceptions import (
-    APIErrorCodes,
-    BadRequestError,
-    UnprocessableEntityError,
-)
+from backend.api.v2.exceptions import BadRequestError, UnprocessableEntityError
 from backend.core.rag_document_processor import rag_document_processor
 from backend.core.rag_integration import rag_integration
 from backend.core.vector_store import vector_store
@@ -56,6 +51,7 @@ async def upload_document_to_rag(
     file: UploadFile = File(...),
     description: Optional[str] = None,
     tags: Optional[List[str]] = None,
+    directory_path: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -94,6 +90,7 @@ async def upload_document_to_rag(
             file.filename,
             description,
             tags or [],
+            directory_path,
         )
 
         return RAGUploadResponse(
@@ -119,22 +116,21 @@ async def process_document_background(
     filename: str,
     description: Optional[str],
     tags: List[str],
+    directory_path: Optional[str],
 ):
     """Background task to process uploaded document"""
     try:
-        # Przetwarzanie dokumentu
-        chunks = await rag_processor.process_document(file_path)
-
-        # Dodanie do vector store
+        # Przygotowanie metadanych
         metadata = {
             "document_id": document_id,
             "filename": filename,
             "description": description,
             "tags": tags,
+            "directory_path": directory_path or "default",
             "source": "upload",
         }
-
-        await vector_store.add_documents(chunks, metadata)
+        # Przetwarzanie dokumentu
+        await rag_processor.process_file(file_path, metadata)
 
         # Czyszczenie pliku tymczasowego
         if os.path.exists(file_path):
@@ -466,4 +462,26 @@ async def delete_rag_document(document_id: str, db: AsyncSession = Depends(get_d
         logger.error(f"Error deleting document: {e}")
         raise UnprocessableEntityError(
             message="Failed to delete document", details={"error": str(e)}
+        )
+
+
+@router.get("/directories", response_model=None)
+async def list_rag_directories():
+    """
+    List all RAG directories and their document counts.
+    Returns a list of objects: {"path": str, "document_count": int}
+    """
+    try:
+        directories = await vector_store.list_directories()
+        return JSONResponse(status_code=200, content={"directories": directories})
+    except Exception as e:
+        logger.error(f"Error listing RAG directories: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={
+                "status_code": 500,
+                "error_code": "INTERNAL_ERROR",
+                "message": "Failed to list RAG directories",
+                "details": {"error": str(e)},
+            },
         )
