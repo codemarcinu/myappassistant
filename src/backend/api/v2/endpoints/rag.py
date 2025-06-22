@@ -602,3 +602,137 @@ async def move_document(
                 "details": {"error": str(e)},
             },
         )
+
+
+@router.post("/documents/bulk-move", response_model=None)
+async def bulk_move_documents(
+    document_ids: List[str] = Query(..., description="List of document IDs to move"),
+    new_directory_path: str = Query(
+        ..., description="New directory path for the documents"
+    ),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Move multiple documents to a different directory by updating their metadata.
+    """
+    try:
+        if not new_directory_path or new_directory_path.strip() == "":
+            raise BadRequestError(
+                message="Directory path cannot be empty",
+                details={"new_directory_path": new_directory_path},
+            )
+
+        if not document_ids:
+            raise BadRequestError(
+                message="No document IDs provided",
+                details={"document_ids": document_ids},
+            )
+
+        # Normalize the directory path
+        normalized_path = new_directory_path.strip().replace("\\", "/")
+
+        # Get the documents from the database
+        from backend.models.rag_document import RAGDocument
+
+        moved_count = 0
+        failed_documents = []
+
+        for document_id in document_ids:
+            try:
+                document = await db.get(RAGDocument, document_id)
+                if document:
+                    document.directory_path = normalized_path
+                    moved_count += 1
+                else:
+                    failed_documents.append(
+                        {"id": document_id, "reason": "Document not found"}
+                    )
+            except Exception as e:
+                failed_documents.append({"id": document_id, "reason": str(e)})
+
+        await db.commit()
+
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "message": f"Moved {moved_count} documents to '{normalized_path}'",
+                "moved_count": moved_count,
+                "total_count": len(document_ids),
+                "failed_documents": failed_documents,
+                "new_directory_path": normalized_path,
+            },
+        )
+    except BadRequestError:
+        raise
+    except Exception as e:
+        logger.error(f"Error bulk moving documents: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={
+                "status_code": 500,
+                "error_code": "INTERNAL_ERROR",
+                "message": "Failed to bulk move documents",
+                "details": {"error": str(e)},
+            },
+        )
+
+
+@router.post("/documents/bulk-delete", response_model=None)
+async def bulk_delete_documents(
+    document_ids: List[str] = Query(..., description="List of document IDs to delete"),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Delete multiple documents from the RAG system.
+    """
+    try:
+        if not document_ids:
+            raise BadRequestError(
+                message="No document IDs provided",
+                details={"document_ids": document_ids},
+            )
+
+        from backend.models.rag_document import RAGDocument
+
+        deleted_count = 0
+        failed_documents = []
+
+        for document_id in document_ids:
+            try:
+                document = await db.get(RAGDocument, document_id)
+                if document:
+                    await db.delete(document)
+                    deleted_count += 1
+                else:
+                    failed_documents.append(
+                        {"id": document_id, "reason": "Document not found"}
+                    )
+            except Exception as e:
+                failed_documents.append({"id": document_id, "reason": str(e)})
+
+        await db.commit()
+
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "message": f"Deleted {deleted_count} documents",
+                "deleted_count": deleted_count,
+                "total_count": len(document_ids),
+                "failed_documents": failed_documents,
+            },
+        )
+    except BadRequestError:
+        raise
+    except Exception as e:
+        logger.error(f"Error bulk deleting documents: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={
+                "status_code": 500,
+                "error_code": "INTERNAL_ERROR",
+                "message": "Failed to bulk delete documents",
+                "details": {"error": str(e)},
+            },
+        )

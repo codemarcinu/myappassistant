@@ -35,6 +35,12 @@ export default function RAGUpload({ onUpload }: RAGUploadProps) {
   const [targetDirectory, setTargetDirectory] = useState('');
   const [moving, setMoving] = useState(false);
   const [moveError, setMoveError] = useState<string | null>(null);
+  const [selectedDocuments, setSelectedDocuments] = useState<Set<string>>(new Set());
+  const [showBulkMoveModal, setShowBulkMoveModal] = useState(false);
+  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
+  const [bulkTargetDirectory, setBulkTargetDirectory] = useState('');
+  const [bulkOperating, setBulkOperating] = useState(false);
+  const [bulkError, setBulkError] = useState<string | null>(null);
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     setUploading(true);
@@ -188,6 +194,100 @@ export default function RAGUpload({ onUpload }: RAGUploadProps) {
     }
   };
 
+  const handleDocumentSelect = (documentId: string, selected: boolean) => {
+    setSelectedDocuments(prev => {
+      const newSet = new Set(prev);
+      if (selected) {
+        newSet.add(documentId);
+      } else {
+        newSet.delete(documentId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleSelectAll = () => {
+    if (selectedDocuments.size === filteredDocuments.length) {
+      setSelectedDocuments(new Set());
+    } else {
+      setSelectedDocuments(new Set(filteredDocuments.map(doc => doc.document_id)));
+    }
+  };
+
+  const executeBulkMove = async () => {
+    if (selectedDocuments.size === 0 || !bulkTargetDirectory.trim()) {
+      setBulkError('Please select documents and enter a target directory');
+      return;
+    }
+
+    setBulkOperating(true);
+    setBulkError(null);
+
+    try {
+      const response = await fetch('/api/v2/rag/documents/bulk-move', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          document_ids: Array.from(selectedDocuments),
+          new_directory_path: bulkTargetDirectory.trim()
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to bulk move documents');
+      }
+
+      // Refresh documents list
+      await loadDocuments();
+      setSelectedDocuments(new Set());
+      setShowBulkMoveModal(false);
+      setBulkTargetDirectory('');
+    } catch (err: any) {
+      setBulkError(err.message || 'Unknown error');
+    } finally {
+      setBulkOperating(false);
+    }
+  };
+
+  const executeBulkDelete = async () => {
+    if (selectedDocuments.size === 0) {
+      setBulkError('Please select documents to delete');
+      return;
+    }
+
+    setBulkOperating(true);
+    setBulkError(null);
+
+    try {
+      const response = await fetch('/api/v2/rag/documents/bulk-delete', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          document_ids: Array.from(selectedDocuments)
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to bulk delete documents');
+      }
+
+      // Refresh documents list
+      await loadDocuments();
+      setSelectedDocuments(new Set());
+      setShowBulkDeleteModal(false);
+    } catch (err: any) {
+      setBulkError(err.message || 'Unknown error');
+    } finally {
+      setBulkOperating(false);
+    }
+  };
+
   const loadDocuments = async () => {
     try {
       const response = await fetch('/api/v2/rag/documents');
@@ -337,10 +437,43 @@ export default function RAGUpload({ onUpload }: RAGUploadProps) {
 
       {/* Documents List */}
       <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-xl font-semibold mb-4 flex items-center">
-          <File className="w-5 h-5 mr-2" />
-          Uploaded Documents ({filteredDocuments.length})
-        </h2>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-semibold flex items-center">
+            <File className="w-5 h-5 mr-2" />
+            Uploaded Documents ({filteredDocuments.length})
+          </h2>
+
+          {filteredDocuments.length > 0 && (
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={handleSelectAll}
+                className="text-sm text-blue-600 hover:text-blue-800 underline"
+              >
+                {selectedDocuments.size === filteredDocuments.length ? 'Deselect All' : 'Select All'}
+              </button>
+
+              {selectedDocuments.size > 0 && (
+                <>
+                  <span className="text-sm text-gray-500">
+                    ({selectedDocuments.size} selected)
+                  </span>
+                  <button
+                    onClick={() => setShowBulkMoveModal(true)}
+                    className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors"
+                  >
+                    Move Selected
+                  </button>
+                  <button
+                    onClick={() => setShowBulkDeleteModal(true)}
+                    className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors"
+                  >
+                    Delete Selected
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+        </div>
 
         {filteredDocuments.length === 0 ? (
           <div className="text-center py-8 text-gray-500">
@@ -353,9 +486,19 @@ export default function RAGUpload({ onUpload }: RAGUploadProps) {
             {filteredDocuments.map((doc) => (
               <div
                 key={doc.document_id}
-                className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
+                className={`flex items-center justify-between p-4 border rounded-lg transition-colors ${
+                  selectedDocuments.has(doc.document_id)
+                    ? 'border-blue-500 bg-blue-50'
+                    : 'border-gray-200 hover:bg-gray-50'
+                }`}
               >
                 <div className="flex items-center space-x-3">
+                  <input
+                    type="checkbox"
+                    checked={selectedDocuments.has(doc.document_id)}
+                    onChange={(e) => handleDocumentSelect(doc.document_id, e.target.checked)}
+                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  />
                   <File className="w-5 h-5 text-blue-600" />
                   <div>
                     <h3 className="font-medium text-gray-900">{doc.filename}</h3>
@@ -471,6 +614,104 @@ export default function RAGUpload({ onUpload }: RAGUploadProps) {
                 className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {moving ? 'Moving...' : 'Move'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Move Modal */}
+      {showBulkMoveModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-96 max-w-full mx-4">
+            <h3 className="text-lg font-semibold mb-4">Move Selected Documents</h3>
+
+            <div className="mb-4">
+              <p className="text-sm text-gray-600 mb-2">
+                Moving <strong>{selectedDocuments.size} documents</strong>
+              </p>
+
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                To Directory
+              </label>
+              <input
+                type="text"
+                value={bulkTargetDirectory}
+                onChange={(e) => setBulkTargetDirectory(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Enter directory name"
+                onKeyPress={(e) => e.key === 'Enter' && executeBulkMove()}
+              />
+            </div>
+
+            {bulkError && (
+              <div className="mb-4 p-2 bg-red-50 text-red-600 text-sm rounded">
+                {bulkError}
+              </div>
+            )}
+
+            <div className="flex justify-end space-x-2">
+              <button
+                onClick={() => {
+                  setShowBulkMoveModal(false);
+                  setBulkTargetDirectory('');
+                  setBulkError(null);
+                }}
+                className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                disabled={bulkOperating}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={executeBulkMove}
+                disabled={bulkOperating || !bulkTargetDirectory.trim()}
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {bulkOperating ? 'Moving...' : 'Move'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Delete Modal */}
+      {showBulkDeleteModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-96 max-w-full mx-4">
+            <h3 className="text-lg font-semibold mb-4 text-red-600">Delete Selected Documents</h3>
+
+            <div className="mb-4">
+              <p className="text-sm text-gray-600 mb-2">
+                Are you sure you want to delete <strong>{selectedDocuments.size} documents</strong>?
+              </p>
+              <p className="text-sm text-red-600">
+                This action cannot be undone.
+              </p>
+            </div>
+
+            {bulkError && (
+              <div className="mb-4 p-2 bg-red-50 text-red-600 text-sm rounded">
+                {bulkError}
+              </div>
+            )}
+
+            <div className="flex justify-end space-x-2">
+              <button
+                onClick={() => {
+                  setShowBulkDeleteModal(false);
+                  setBulkError(null);
+                }}
+                className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                disabled={bulkOperating}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={executeBulkDelete}
+                disabled={bulkOperating}
+                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {bulkOperating ? 'Deleting...' : 'Delete'}
               </button>
             </div>
           </div>
