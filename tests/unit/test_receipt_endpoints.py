@@ -1,13 +1,14 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 import json
+from fastapi import HTTPException
 
 from fastapi import UploadFile
 from fastapi.responses import JSONResponse
 
 from backend.agents.interfaces import AgentResponse
 from backend.api.v2.endpoints.receipts import upload_receipt, ALLOWED_FILE_TYPES
-from backend.api.v2.exceptions import BadRequestError
+from backend.api.v2.exceptions import BadRequestError, UnprocessableEntityError
 
 
 class TestReceiptEndpoints:
@@ -57,12 +58,12 @@ class TestReceiptEndpoints:
         mock_file.content_type = None
         
         # Call the endpoint and expect an exception
-        with pytest.raises(Exception) as excinfo:
+        with pytest.raises(HTTPException) as excinfo:
             await upload_receipt(file=mock_file)
         
         # Verify the exception
-        assert "400" in str(excinfo.value) or "Bad Request" in str(excinfo.value)
-        assert "Missing content type" in str(excinfo.value) or "Content-Type" in str(excinfo.value)
+        assert excinfo.value.status_code == 400
+        assert "Missing content type" in str(excinfo.value.detail)
 
     @pytest.mark.asyncio
     async def test_upload_receipt_invalid_file_type(self):
@@ -72,11 +73,12 @@ class TestReceiptEndpoints:
         mock_file.content_type = "text/plain"
         
         # Call the endpoint and expect an exception
-        with pytest.raises(BadRequestError) as excinfo:
+        with pytest.raises(HTTPException) as excinfo:
             await upload_receipt(file=mock_file)
         
         # Verify the exception
-        assert "Unsupported file type" in str(excinfo.value)
+        assert excinfo.value.status_code == 400
+        assert "Unsupported file type" in str(excinfo.value.detail["message"])
 
     @pytest.mark.asyncio
     async def test_upload_receipt_ocr_failure(self, mock_file):
@@ -92,11 +94,12 @@ class TestReceiptEndpoints:
         # Mock the OCR agent
         with patch('backend.agents.ocr_agent.OCRAgent.process', return_value=mock_ocr_response):
             # Call the endpoint and expect an exception
-            with pytest.raises(Exception) as excinfo:
+            with pytest.raises(HTTPException) as excinfo:
                 await upload_receipt(file=mock_file)
             
             # Verify the exception
-            assert "Failed to process receipt" in str(excinfo.value)
+            assert excinfo.value.status_code == 422
+            assert "Failed to process receipt" in str(excinfo.value.detail["message"])
 
     @pytest.mark.asyncio
     async def test_upload_receipt_unexpected_error(self, mock_file):

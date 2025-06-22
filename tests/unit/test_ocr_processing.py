@@ -159,7 +159,6 @@ class TestOCRProcessing:
             
             # Setup mock PDF with 2 pages
             mock_pdf = MagicMock()
-            mock_pdf.__len__ = lambda _: 2
             mock_open.return_value = mock_pdf
             
             # Setup page mocks
@@ -170,6 +169,12 @@ class TestOCRProcessing:
             mock_pixmap.width = 100
             mock_pixmap.height = 100
             mock_pixmap.samples = b"mock_image_data"
+            
+            # Set the PDF to have 2 pages
+            mock_pdf.__len__ = lambda _: 2
+            
+            # Create a list of pages for iteration
+            mock_pdf.__iter__ = lambda _: iter(range(2))
             
             result = processor.process_pdf(sample_bytes)
             
