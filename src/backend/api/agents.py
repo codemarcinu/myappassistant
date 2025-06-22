@@ -33,7 +33,8 @@ from backend.core.perplexity_client import perplexity_client
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api", tags=["agents"])
+# Simple router without prefixes
+router = APIRouter()
 
 
 class OrchestratorRequest(BaseModel):
@@ -54,7 +55,7 @@ class AgentResponse(BaseModel):
     conversation_state: Optional[Dict[str, Any]] = None
 
 
-@router.post("/agents/agents/execute", response_model=AgentResponse)
+@router.post("/execute", response_model=AgentResponse)
 async def execute_orchestrator_task(
     request: OrchestratorRequest,
     db: AsyncSession = Depends(get_db),
@@ -63,7 +64,22 @@ async def execute_orchestrator_task(
     Główny endpoint do zlecania zadań.
     Orchestrator sam decyduje, który agent wykona zadanie.
     """
+    import time
+    start_time = time.time()
     session_id = request.session_id or str(uuid.uuid4())
+    
+    logger.info(
+        "Agent task received",
+        extra={
+            "session_id": session_id,
+            "task_length": len(request.task),
+            "use_perplexity": request.usePerplexity,
+            "use_bielik": request.useBielik,
+            "agent_states": request.agent_states,
+            "agent_event": "task_received"
+        }
+    )
+    
     try:
         # Użyj fabryki do utworzenia orchestrator z wymaganymi zależnościami
         orchestrator = create_orchestrator(db)
@@ -77,10 +93,26 @@ async def execute_orchestrator_task(
             use_bielik=request.useBielik,
         )
 
+        # Logowanie zakończenia przetwarzania przez agenta
+        processing_time = (time.time() - start_time) * 1000  # w ms
+        response_text = agent_response.text or agent_response.message or ""
+        
+        logger.info(
+            "Agent task completed",
+            extra={
+                "session_id": session_id,
+                "success": agent_response.success,
+                "response_length": len(response_text),
+                "processing_time_ms": int(processing_time),
+                "agent_event": "task_completed",
+                "has_error": bool(agent_response.error)
+            }
+        )
+        
         # Konwertuj AgentResponse na format oczekiwany przez endpoint
         return AgentResponse(
             success=agent_response.success,
-            response=agent_response.text or agent_response.message,
+            response=response_text,
             error=agent_response.error,
             data=agent_response.data,
             session_id=session_id,
@@ -91,6 +123,19 @@ async def execute_orchestrator_task(
             ),
         )
     except Exception as e:
+        # Logowanie błędu
+        processing_time = (time.time() - start_time) * 1000  # w ms
+        logger.error(
+            f"Agent task error: {str(e)}",
+            exc_info=True,
+            extra={
+                "session_id": session_id,
+                "error_type": type(e).__name__,
+                "error_message": str(e),
+                "processing_time_ms": int(processing_time),
+                "agent_event": "task_error"
+            }
+        )
         # Also return session_id on error so client can continue
         return AgentResponse(success=False, error=str(e), session_id=session_id)
 

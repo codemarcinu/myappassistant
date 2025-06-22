@@ -6,28 +6,125 @@ positions:
   filename: /tmp/positions.yaml
 
 clients:
-  - url: http://172.20.0.10:3100/loki/api/v1/push
+  - url: http://foodsave-loki:3100/loki/api/v1/push
 
 scrape_configs:
-  # Docker container discovery for all containers
-  - job_name: docker
+  # Docker container logs with label-based filtering
+  - job_name: container_logs
     docker_sd_configs:
       - host: unix:///var/run/docker.sock
         refresh_interval: 5s
+        filters:
+          - name: name
+            values: ["foodsave-*"]
     relabel_configs:
       - source_labels: ['__meta_docker_container_name']
+        regex: '/(.*)'
         target_label: 'container'
-      - source_labels: ['__meta_docker_container_id']
-        target_label: 'container_id'
       - source_labels: ['__meta_docker_container_log_stream']
         target_label: 'stream'
+
+  # Backend logs - plain text format for test logs
+  - job_name: backend_test_logs
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: backend_logs
+          service: foodsave-backend
+          __path__: /logs/backend/test.log
+          
+  # Chat test logs - JSON format
+  - job_name: chat_test_logs
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: backend_logs
+          service: foodsave-backend
+          __path__: /logs/backend/chat_test.log
     pipeline_stages:
-      - docker: {}
       - json:
           expressions:
+            timestamp: timestamp
             level: level
             message: message
+            logger: logger
+            module: module
+            session_id: session_id
+            chat_event: chat_event
+            processing_time_ms: processing_time_ms
+      - timestamp:
+          source: timestamp
+          format: RFC3339
+      - labels:
+          level:
+          logger:
+          module:
+          session_id:
+          chat_event:
+
+  # Backend logs - structured JSON logs (FastAPI)
+  - job_name: backend_logs
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: backend
+          service: foodsave-backend
+          __path__: /logs/backend/*.log
+          __exclude__: /logs/backend/test.log
+    pipeline_stages:
+      - json:
+          expressions:
             timestamp: timestamp
+            level: level
+            message: message
+            logger: logger
+            module: module
+      - timestamp:
+          source: timestamp
+          format: RFC3339
+      - labels:
+          level:
+          logger:
+          module:
+      - output:
+          source: message
+
+  # Frontend test logs - plain text format
+  - job_name: frontend_test_logs
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: frontend_logs
+          service: foodsave-frontend
+          __path__: /logs/frontend/test.log
+    pipeline_stages:
+      - regex:
+          expression: '^\[(?P<timestamp>[^\]]+)\]\s+(?P<level>\w+):\s+(?P<message>.*)$'
+      - timestamp:
+          source: timestamp
+          format: 'pon, 2 sty 2006, 15:04:05 MST'
+      - labels:
+          level:
+      - output:
+          source: message
+
+  # Frontend logs - Next.js logs (might be in various formats)
+  - job_name: frontend_logs
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: frontend
+          service: foodsave-frontend
+          __path__: /logs/frontend/*.log
+          __exclude__: /logs/frontend/test.log
+    pipeline_stages:
+      - regex:
+          expression: '(?P<timestamp>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z)\s+(?P<level>info|warn|error)\s+-\s+(?P<message>.*)'
       - timestamp:
           source: timestamp
           format: RFC3339
@@ -36,53 +133,31 @@ scrape_configs:
       - output:
           source: message
 
-  # Keep existing file-based log collection for specific services
-  - job_name: foodsave-backend
+  # Ollama logs
+  - job_name: ollama_logs
     static_configs:
       - targets:
           - localhost
         labels:
-          job: foodsave-backend
-          app: backend
-          __path__: /logs/backend/*log
+          job: ollama
+          service: foodsave-ollama
+          __path__: /logs/ollama/*.log
+    pipeline_stages:
+      - regex:
+          expression: '^(?P<timestamp>\d{4}/\d{2}/\d{2}\s\d{2}:\d{2}:\d{2})(?:\s+)(?P<level>\w+)(?:\s+)(?P<message>.*)$'
+      - timestamp:
+          source: timestamp
+          format: '2006/01/02 15:04:05'
+      - labels:
+          level:
+      - output:
+          source: message
 
-  - job_name: foodsave-frontend
-    static_configs:
-      - targets:
-          - localhost
-        labels:
-          job: foodsave-frontend
-          app: frontend
-          __path__: /logs/frontend/*log
-
+  # Nginx logs
   - job_name: nginx_logs
     static_configs:
       - targets:
           - localhost
         labels:
           job: nginx
-          __path__: /logs/nginx/*log
-
-  - job_name: ollama
-    static_configs:
-      - targets:
-          - localhost
-        labels:
-          job: ollama
-          __path__: /logs/ollama/*log
-
-  - job_name: redis_logs
-    static_configs:
-      - targets:
-          - localhost
-        labels:
-          job: redis
-          __path__: /logs/redis/*log
-
-  - job_name: postgres_logs
-    static_configs:
-      - targets:
-          - localhost
-        labels:
-          job: postgres
-          __path__: /logs/postgres/*log
+          __path__: /logs/nginx/*.log
