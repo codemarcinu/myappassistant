@@ -49,8 +49,8 @@ class OCRAgent(BaseAgent):
         """
         try:
             if not isinstance(input_data, OCRAgentInput):
-                # Walidacja i konwersja przez Pydantic
-                input_data = OCRAgentInput.parse_obj(input_data)
+                # Walidacja i konwersja przez Pydantic (używamy model_validate zgodnie z Pydantic V2.0)
+                input_data = OCRAgentInput.model_validate(input_data)
         except ValidationError as ve:
             return AgentResponse(
                 success=False,
