@@ -357,6 +357,10 @@ def handle_exceptions(
                 return fallback_response
 
             # Rzuć ostatni wyjątek
+            if last_exception is None:
+                raise ValueError(
+                    "handle_exceptions decorator used with max_retries < 0"
+                )
             raise last_exception
 
         @functools.wraps(func)
@@ -394,6 +398,10 @@ def handle_exceptions(
                 return fallback_response
 
             # Rzuć ostatni wyjątek
+            if last_exception is None:
+                raise ValueError(
+                    "handle_exceptions decorator used with max_retries < 0"
+                )
             raise last_exception
 
         # Zwróć odpowiedni wrapper w zależności od typu funkcji
