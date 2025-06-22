@@ -1,7 +1,7 @@
 import logging
 import uuid
 from datetime import datetime
-from typing import Any, Callable, Dict, Optional
+from typing import Callable, Dict, Optional
 
 import pybreaker
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -338,6 +338,9 @@ class Orchestrator:
         """Initialize and register default agents using dynamic imports to avoid circular dependencies"""
         try:
             # Dynamic imports to avoid circular dependencies
+            from backend.core.hybrid_llm_client import hybrid_llm_client
+            from backend.core.vector_store import vector_store
+
             from .categorization_agent import CategorizationAgent
             from .chef_agent import ChefAgent
             from .general_conversation_agent import GeneralConversationAgent
@@ -348,7 +351,9 @@ class Orchestrator:
 
             # Create agent instances
             self.chef_agent = ChefAgent()
-            self.search_agent = SearchAgent()
+            self.search_agent = SearchAgent(
+                vector_store=vector_store, llm_client=hybrid_llm_client
+            )
             self.ocr_agent = OCRAgent()
             self.weather_agent = WeatherAgent()
             self.rag_agent = RAGAgent(name="rag_agent")
