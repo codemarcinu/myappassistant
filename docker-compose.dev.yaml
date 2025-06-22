@@ -21,7 +21,8 @@ services:
       - foodsave-network
     environment:
       - OLLAMA_HOST=0.0.0.0
-    command: ["ollama", "serve"]
+    command: serve
+    # No healthcheck for now since the container doesn't have wget or curl
     logging:
       driver: "json-file"
       options:
@@ -32,14 +33,13 @@ services:
   # Backend FastAPI - Development Mode
   backend:
     build:
-      context: ./src/backend
-      dockerfile: Dockerfile.dev
+      context: .
+      dockerfile: src/backend/Dockerfile.dev
     container_name: foodsave-backend-dev
     ports:
       - "8000:8000"
     volumes:
-      - ./src/backend:/app
-      - /app/venv
+      - ./:/app  # Mapowanie całego katalogu projektu
       - ./logs/backend:/app/logs
     environment:
       - PYTHONPATH=/app
@@ -76,6 +76,12 @@ services:
       - foodsave-network
     depends_on:
       - backend
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3000/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
     logging:
       driver: "json-file"
       options:

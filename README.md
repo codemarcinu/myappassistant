@@ -428,3 +428,39 @@ For support and questions:
 ---
 
 **🍽️ FoodSave AI** - Intelligent culinary assistant for sustainable living
+
+## Rozwiązanie problemów z importami
+
+W projekcie zidentyfikowano i rozwiązano problem niezgodności między strukturą importów w kodzie aplikacji a strukturą plików w kontenerze backend. Problem polegał na tym, że kod aplikacji używał importów zaczynających się od `src.backend`, podczas gdy w kontenerze pliki były umieszczone bezpośrednio w katalogu `/app`.
+
+### Wdrożone rozwiązanie
+
+Zastosowano podejście dostosowania struktury kontenerów do struktury kodu:
+
+1. Zmodyfikowano plik `src/backend/Dockerfile.dev`, aby używał poprawnej ścieżki importu:
+   ```python
+   RUN echo 'from src.backend.app_factory import create_app\napp = create_app()' > main.py
+   ```
+
+2. Zaktualizowano plik `docker-compose.dev.yaml`, aby mapował cały katalog projektu:
+   ```yaml
+   volumes:
+     - ./:/app  # Mapowanie całego katalogu projektu
+   ```
+
+3. Dostosowano komendę uruchamiającą aplikację:
+   ```yaml
+   command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--log-level=debug"]
+   ```
+
+4. Dodano skrypt `fix_test_imports.py` do weryfikacji i naprawy importów w testach.
+
+### Weryfikacja importów
+
+Aby sprawdzić poprawność importów w projekcie, można użyć skryptu `fix_test_imports.py`:
+
+```bash
+python fix_test_imports.py
+```
+
+Skrypt analizuje strukturę importów i generuje raport kompatybilności, który pomaga zidentyfikować potencjalne problemy.

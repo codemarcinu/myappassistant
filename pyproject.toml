@@ -8,7 +8,7 @@ version = "0.1.0"
 description = ""
 authors = ["Author Name <author@example.com>"]
 packages = [
-    { include = "backend", from = "src" }
+    { include = "backend" }
 ]
 
 [tool.poetry.dependencies]
