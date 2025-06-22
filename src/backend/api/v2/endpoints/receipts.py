@@ -1,5 +1,6 @@
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.agents.ocr_agent import OCRAgent, OCRAgentInput
 from backend.agents.receipt_analysis_agent import ReceiptAnalysisAgent
@@ -8,6 +9,9 @@ from backend.api.v2.exceptions import (
     BadRequestError,
     UnprocessableEntityError,
 )
+from backend.core.database import get_db
+from backend.schemas import shopping_schemas
+from backend.services.shopping_service import create_shopping_trip
 
 router = APIRouter(prefix="/receipts", tags=["Receipts"])
 
@@ -146,6 +150,47 @@ async def analyze_receipt(ocr_text: str = File(...)):
                 "status_code": 500,
                 "error_code": "INTERNAL_SERVER_ERROR",
                 "message": "Unexpected error analyzing receipt",
+                "details": {"error": str(e)},
+            },
+        )
+
+
+@router.post("/save", response_model=None)
+async def save_receipt_data(
+    receipt_data: shopping_schemas.ShoppingTripCreate,
+    db: AsyncSession = Depends(get_db),
+):
+    """Save analyzed receipt data to database.
+
+    Returns:
+        JSONResponse: Result of saving receipt data
+    """
+    try:
+        # Create shopping trip with products in database
+        created_trip = await create_shopping_trip(db, receipt_data)
+
+        # Return success response with created trip ID
+        return JSONResponse(
+            status_code=200,
+            content={
+                "status_code": 200,
+                "message": "Receipt data saved successfully",
+                "data": {
+                    "trip_id": created_trip.id,
+                    "products_count": len(created_trip.products),
+                },
+            },
+        )
+
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={
+                "status_code": 500,
+                "error_code": "INTERNAL_SERVER_ERROR",
+                "message": "Unexpected error saving receipt data",
                 "details": {"error": str(e)},
             },
         )
