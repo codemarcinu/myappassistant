@@ -11,6 +11,7 @@ This module provides API endpoints for managing the RAG system:
 import logging
 import os
 import uuid
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import List, Optional
 
@@ -24,6 +25,7 @@ from fastapi import (
     UploadFile,
 )
 from fastapi.responses import JSONResponse
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.v2.exceptions import BadRequestError, UnprocessableEntityError
@@ -733,6 +735,229 @@ async def bulk_delete_documents(
                 "status_code": 500,
                 "error_code": "INTERNAL_ERROR",
                 "message": "Failed to bulk delete documents",
+                "details": {"error": str(e)},
+            },
+        )
+
+
+@router.delete("/directories/{directory_path}", response_model=None)
+async def delete_rag_directory(
+    directory_path: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Delete a RAG directory and move all its documents to the default directory.
+    """
+    try:
+        if not directory_path or directory_path.strip() == "":
+            raise BadRequestError(
+                message="Directory path cannot be empty",
+                details={"directory_path": directory_path},
+            )
+
+        # Normalize the directory path
+        normalized_path = directory_path.strip().replace("\\", "/")
+
+        # Get all documents in this directory
+        from backend.models.rag_document import RAGDocument
+
+        # Find documents in this directory
+        documents = await db.execute(
+            select(RAGDocument).where(RAGDocument.directory_path == normalized_path)
+        )
+        documents = documents.scalars().all()
+
+        # Move documents to default directory (set directory_path to None)
+        moved_count = 0
+        for document in documents:
+            document.directory_path = None
+            moved_count += 1
+
+        await db.commit()
+
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "message": f"Directory '{normalized_path}' deleted. {moved_count} documents moved to default directory.",
+                "directory_path": normalized_path,
+                "moved_documents_count": moved_count,
+            },
+        )
+    except BadRequestError:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting directory: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={
+                "status_code": 500,
+                "error_code": "INTERNAL_ERROR",
+                "message": "Failed to delete directory",
+                "details": {"error": str(e)},
+            },
+        )
+
+
+@router.put("/directories/{old_directory_path}/rename", response_model=None)
+async def rename_rag_directory(
+    old_directory_path: str,
+    new_directory_path: str = Query(..., description="New directory path"),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Rename a RAG directory by updating all documents in that directory.
+    """
+    try:
+        if not old_directory_path or old_directory_path.strip() == "":
+            raise BadRequestError(
+                message="Old directory path cannot be empty",
+                details={"old_directory_path": old_directory_path},
+            )
+
+        if not new_directory_path or new_directory_path.strip() == "":
+            raise BadRequestError(
+                message="New directory path cannot be empty",
+                details={"new_directory_path": new_directory_path},
+            )
+
+        # Normalize the directory paths
+        old_normalized = old_directory_path.strip().replace("\\", "/")
+        new_normalized = new_directory_path.strip().replace("\\", "/")
+
+        if old_normalized == new_normalized:
+            raise BadRequestError(
+                message="New directory path must be different from old path",
+                details={
+                    "old_directory_path": old_normalized,
+                    "new_directory_path": new_normalized,
+                },
+            )
+
+        # Check if new directory already exists
+        existing_directories = await vector_store.list_directories()
+        if any(dir_info["path"] == new_normalized for dir_info in existing_directories):
+            raise BadRequestError(
+                message="Target directory already exists",
+                details={"new_directory_path": new_normalized},
+            )
+
+        # Get all documents in the old directory
+        from backend.models.rag_document import RAGDocument
+
+        documents = await db.execute(
+            select(RAGDocument).where(RAGDocument.directory_path == old_normalized)
+        )
+        documents = documents.scalars().all()
+
+        # Update documents to new directory
+        renamed_count = 0
+        for document in documents:
+            document.directory_path = new_normalized
+            renamed_count += 1
+
+        await db.commit()
+
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "message": f"Directory renamed from '{old_normalized}' to '{new_normalized}'. {renamed_count} documents updated.",
+                "old_directory_path": old_normalized,
+                "new_directory_path": new_normalized,
+                "renamed_documents_count": renamed_count,
+            },
+        )
+    except BadRequestError:
+        raise
+    except Exception as e:
+        logger.error(f"Error renaming directory: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={
+                "status_code": 500,
+                "error_code": "INTERNAL_ERROR",
+                "message": "Failed to rename directory",
+                "details": {"error": str(e)},
+            },
+        )
+
+
+@router.get("/directories/{directory_path}/stats", response_model=None)
+async def get_directory_stats(
+    directory_path: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get statistics for a specific directory.
+    """
+    try:
+        if not directory_path or directory_path.strip() == "":
+            raise BadRequestError(
+                message="Directory path cannot be empty",
+                details={"directory_path": directory_path},
+            )
+
+        # Normalize the directory path
+        normalized_path = directory_path.strip().replace("\\", "/")
+
+        # Get documents in this directory
+        from backend.models.rag_document import RAGDocument
+
+        documents = await db.execute(
+            select(RAGDocument).where(RAGDocument.directory_path == normalized_path)
+        )
+        documents = documents.scalars().all()
+
+        # Calculate statistics
+        total_documents = len(documents)
+        total_chunks = sum(doc.chunks_count for doc in documents)
+        total_tags = len(set(tag for doc in documents for tag in doc.tags))
+
+        # Get unique file types
+        file_extensions = set()
+        for doc in documents:
+            if "." in doc.filename:
+                ext = doc.filename.split(".")[-1].lower()
+                file_extensions.add(ext)
+
+        # Get recent activity (documents uploaded in last 30 days)
+        thirty_days_ago = datetime.now() - timedelta(days=30)
+        recent_documents = [
+            doc
+            for doc in documents
+            if doc.uploaded_at
+            and datetime.fromisoformat(doc.uploaded_at.replace("Z", "+00:00"))
+            > thirty_days_ago
+        ]
+
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "directory_path": normalized_path,
+                "stats": {
+                    "total_documents": total_documents,
+                    "total_chunks": total_chunks,
+                    "total_tags": total_tags,
+                    "file_types": list(file_extensions),
+                    "recent_activity": len(recent_documents),
+                    "average_chunks_per_document": total_documents > 0
+                    and round(total_chunks / total_documents, 2)
+                    or 0,
+                },
+            },
+        )
+    except BadRequestError:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting directory stats: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={
+                "status_code": 500,
+                "error_code": "INTERNAL_ERROR",
+                "message": "Failed to get directory statistics",
                 "details": {"error": str(e)},
             },
         )

@@ -326,6 +326,8 @@ export default function RAGUpload({ onUpload }: RAGUploadProps) {
         selectedDirectory={selectedDirectory}
         onDirectorySelect={handleDirectorySelect}
         onDirectoryCreated={loadDocuments}
+        onDirectoryDeleted={loadDocuments}
+        onDirectoryRenamed={loadDocuments}
       />
       <div className="text-center">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">RAG Knowledge Base</h1>
