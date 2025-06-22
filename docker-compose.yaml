@@ -217,27 +217,28 @@ services:
         max-file: "3"
         tag: "{{.Name}}/{{.ID}}"
 
-  # Loki - Log aggregation system (optional)
+  # Loki for log aggregation (optional)
   loki:
     image: grafana/loki:2.9.6
     container_name: foodsave-loki
+    user: "0:0"  # Uruchom jako root, aby mieć pełne uprawnienia
     ports:
       - "3100:3100"
     volumes:
       - ./monitoring/loki-config.yaml:/etc/loki/local-config.yaml
-      - ./monitoring/loki-data:/loki
+      - loki_data:/loki
     command: -config.file=/etc/loki/local-config.yaml
     networks:
       - foodsave-network
-    restart: unless-stopped
     profiles:
       - logging
+    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "wget -q --spider http://localhost:3100/ready || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 10s
+      start_period: 30s
     logging:
       driver: "json-file"
       options:
@@ -245,7 +246,7 @@ services:
         max-file: "3"
         tag: "{{.Name}}/{{.ID}}"
 
-  # Promtail - Log collector (optional)
+  # Promtail for log collection (optional)
   promtail:
     image: grafana/promtail:2.9.6
     container_name: foodsave-promtail
@@ -269,23 +270,22 @@ services:
         max-file: "3"
         tag: "{{.Name}}/{{.ID}}"
 
+# Wolumeny dla trwałego przechowywania danych
 volumes:
   ollama_data:
-    driver: local
+    name: foodsave-ollama-data
   postgres_data:
-    driver: local
+    name: foodsave-postgres-data
   redis_data:
-    driver: local
-  prometheus_data:
-    driver: local
-  grafana_data:
-    driver: local
+    name: foodsave-redis-data
   frontend_node_modules:
-    driver: local
+    name: foodsave-frontend-node-modules
+  prometheus_data:
+    name: foodsave-prometheus-data
+  grafana_data:
+    name: foodsave-grafana-data
+  loki_data:
+    name: foodsave-loki-data
 
 networks:
   foodsave-network:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 172.20.0.0/16
