@@ -13,8 +13,8 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from src.backend.agents.intent_detector import SimpleIntentDetector
-from src.backend.agents.interfaces import MemoryContext
+from backend.agents.intent_detector import SimpleIntentDetector
+from backend.agents.interfaces import MemoryContext
 
 
 class TestIntentDetectorNew:

@@ -13,12 +13,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from src.backend.agents.agent_factory import AgentFactory
-from src.backend.agents.general_conversation_agent import GeneralConversationAgent
-from src.backend.agents.intent_detector import SimpleIntentDetector
-from src.backend.agents.interfaces import AgentResponse, MemoryContext
-from src.backend.agents.orchestrator import Orchestrator
-from src.backend.core.hybrid_llm_client import HybridLLMClient
+from backend.agents.agent_factory import AgentFactory
+from backend.agents.general_conversation_agent import GeneralConversationAgent
+from backend.agents.intent_detector import SimpleIntentDetector
+from backend.agents.interfaces import AgentResponse, MemoryContext
+from backend.agents.orchestrator import Orchestrator
+from backend.core.hybrid_llm_client import HybridLLMClient
 
 
 class TestIntegrationNewFeatures:
@@ -42,7 +42,7 @@ class TestIntegrationNewFeatures:
                 return None
 
             async def detect_intent(self, query, context):
-                from src.backend.agents.orchestration_components import IntentData
+                from backend.agents.orchestration_components import IntentData
 
                 return IntentData(type="general_conversation", confidence=0.8)
 

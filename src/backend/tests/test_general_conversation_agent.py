@@ -9,8 +9,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from src.backend.agents.general_conversation_agent import GeneralConversationAgent
-from src.backend.agents.interfaces import AgentResponse
+from backend.agents.general_conversation_agent import GeneralConversationAgent
+from backend.agents.interfaces import AgentResponse
 
 
 class TestGeneralConversationAgent:

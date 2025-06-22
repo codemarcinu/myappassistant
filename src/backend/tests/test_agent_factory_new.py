@@ -10,16 +10,16 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from src.backend.agents.agent_factory import AgentFactory
-from src.backend.agents.analytics_agent import AnalyticsAgent
-from src.backend.agents.categorization_agent import CategorizationAgent
-from src.backend.agents.chef_agent import ChefAgent
-from src.backend.agents.general_conversation_agent import GeneralConversationAgent
-from src.backend.agents.meal_planner_agent import MealPlannerAgent
-from src.backend.agents.ocr_agent import OCRAgent
-from src.backend.agents.rag_agent import RAGAgent
-from src.backend.agents.search_agent import SearchAgent
-from src.backend.agents.weather_agent import WeatherAgent
+from backend.agents.agent_factory import AgentFactory
+from backend.agents.analytics_agent import AnalyticsAgent
+from backend.agents.categorization_agent import CategorizationAgent
+from backend.agents.chef_agent import ChefAgent
+from backend.agents.general_conversation_agent import GeneralConversationAgent
+from backend.agents.meal_planner_agent import MealPlannerAgent
+from backend.agents.ocr_agent import OCRAgent
+from backend.agents.rag_agent import RAGAgent
+from backend.agents.search_agent import SearchAgent
+from backend.agents.weather_agent import WeatherAgent
 
 
 class TestAgentFactoryNew:

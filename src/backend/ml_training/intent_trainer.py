@@ -101,8 +101,8 @@ class IntentTrainer:
 
 
 # Przykład użycia:
-# from src.backend.agents.ml_intent_detector import BERTIntentDetector
-# from src.backend.ml_training.intent_trainer import IntentTrainer
+# from backend.agents.ml_intent_detector import BERTIntentDetector
+# from backend.ml_training.intent_trainer import IntentTrainer
 
 # if __name__ == "__main__":
 #     trainer = IntentTrainer(BERTIntentDetector().tokenizer)
