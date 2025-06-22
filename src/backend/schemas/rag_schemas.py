@@ -23,6 +23,7 @@ class RAGDocumentInfo(BaseModel):
     filename: str
     description: Optional[str] = None
     tags: List[str] = Field(default_factory=list)
+    directory_path: str = "default"
     chunks_count: int = 0
     uploaded_at: Optional[datetime] = None
 
@@ -54,10 +55,20 @@ class RAGDocumentMetadata(BaseModel):
     filename: str
     description: Optional[str] = None
     tags: List[str] = Field(default_factory=list)
+    directory_path: str = "default"
     source: str = "upload"
     content_type: Optional[str] = None
     file_size: Optional[int] = None
     created_at: datetime = Field(default_factory=datetime.now)
+
+
+class RAGDirectoryInfo(BaseModel):
+    """Model for RAG directory information"""
+
+    path: str
+    name: str
+    document_count: int = 0
+    created_at: Optional[datetime] = None
 
 
 class RAGChunkInfo(BaseModel):
