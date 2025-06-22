@@ -4,9 +4,10 @@ import { Message } from '@/types/chat';
 
 interface MessageItemProps {
   message: Message;
+  isStreaming?: boolean;
 }
 
-export function MessageItem({ message }: MessageItemProps) {
+export function MessageItem({ message, isStreaming = false }: MessageItemProps) {
   const isUser = message.role === 'user';
 
   return (
@@ -20,6 +21,9 @@ export function MessageItem({ message }: MessageItemProps) {
         <Card className={`p-3 mx-2 ${isUser ? 'bg-blue-100' : 'bg-gray-100'}`}>
           <div className="prose prose-sm max-w-none">
             <ReactMarkdown>{message.content}</ReactMarkdown>
+            {isStreaming && (
+              <span className="inline-block w-2 h-4 bg-gray-500 ml-1 animate-pulse"></span>
+            )}
           </div>
           {message.data && (
             <div className="mt-2 text-xs p-2 bg-white rounded">

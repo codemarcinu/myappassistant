@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, AsyncGenerator
 
 from .base_agent import BaseAgent
 from .interfaces import (
@@ -46,8 +46,9 @@ class AgentRouter(IAgentRouter):
         user_command: str = "",
         use_perplexity: bool = False,
         use_bielik: bool = True,
-    ) -> AgentResponse:
-        """Route intent to appropriate agent and return response"""
+        stream: bool = False,
+    ) -> AgentResponse | AsyncGenerator[Dict[str, Any], None]:
+        """Route intent to appropriate agent and return response or stream of responses"""
         try:
             # Map intent type to agent type
             agent_type = self._map_intent_to_agent_type(intent.type)
@@ -72,16 +73,31 @@ class AgentRouter(IAgentRouter):
             input_data = self._prepare_agent_input(
                 agent_type, user_command, intent, context
             )
-            input_data["use_perplexity"] = (
-                use_perplexity  # Przekazujemy flagę do agenta
-            )
-            input_data["use_bielik"] = use_bielik  # Przekazujemy flagę modelu do agenta
-
-            # Process with agent
-            logger.info(f"Routing intent '{intent.type}' to agent {agent_type.value}")
-            response = await agent.process(input_data)
-
-            return response
+            input_data["use_perplexity"] = use_perplexity
+            input_data["use_bielik"] = use_bielik
+            
+            # Add streaming flag if supported
+            if stream and hasattr(agent, "process_stream"):
+                input_data["stream"] = True
+                logger.info(f"Routing intent '{intent.type}' to agent {agent_type.value} with streaming")
+                
+                # Use streaming process if available
+                if hasattr(agent, "process_stream"):
+                    return await agent.process_stream(input_data)
+                else:
+                    # Fallback to regular process if streaming not supported
+                    logger.warning(f"Agent {agent_type.value} does not support streaming, falling back to regular process")
+                    response = await agent.process(input_data)
+                    
+                    # Return a single-item async generator
+                    async def single_response_generator():
+                        yield {"text": response.text or "", "data": response.data or {}, "success": response.success}
+                    
+                    return single_response_generator()
+            else:
+                # Process with agent normally
+                logger.info(f"Routing intent '{intent.type}' to agent {agent_type.value}")
+                return await agent.process(input_data)
 
         except NameError as e:
             if "gen" in str(e):

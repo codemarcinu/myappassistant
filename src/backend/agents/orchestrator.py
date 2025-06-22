@@ -1,7 +1,7 @@
 import logging
 import uuid
 from datetime import datetime
-from typing import Dict, Optional
+from typing import Dict, Optional, Callable, AsyncGenerator
 
 import pybreaker
 
@@ -179,6 +179,8 @@ class Orchestrator:
         agent_states: Optional[Dict[str, bool]] = None,
         use_perplexity: bool = False,
         use_bielik: bool = True,
+        stream: bool = False,
+        stream_callback: Optional[Callable[[Dict], None]] = None,
     ) -> AgentResponse:
         """Process user command through the agent system"""
         try:
@@ -198,12 +200,26 @@ class Orchestrator:
                     text="Proszę podać pytanie lub polecenie.",
                 )
 
-            # 1. Create or retrieve memory context
+            # 1. Get user profile and context
+            if self.profile_manager is None:
+                logger.error("Profile manager is None")
+                return self._format_error_response(
+                    OrchestratorError("Profile manager not initialized")
+                )
+
+            user_profile = await self.profile_manager.get_or_create_profile(session_id)
+
+            if self.memory_manager is None:
+                logger.error("Memory manager is None")
+                return self._format_error_response(
+                    OrchestratorError("Memory manager not initialized")
+                )
+
             context = await self.memory_manager.get_context(session_id)
 
-            # 2. Log user activity
+            # 2. Log activity
             await self.profile_manager.log_activity(
-                session_id, InteractionType.QUERY, user_command
+                session_id, InteractionType.CHAT, user_command[:100]
             )
 
             # 3. Detect intent
@@ -213,52 +229,7 @@ class Orchestrator:
                     OrchestratorError("Intent detector not initialized")
                 )
 
-            intent = await self.intent_detector.detect_intent(user_command, context)
-            logger.debug(
-                f"Detected intent: {intent.type} (confidence: {intent.confidence})"
-            )
-
-            # Nowa logika: Modyfikacja intencji na podstawie agent_states
-            if agent_states:
-                logger.info(f"Applying agent states: {agent_states}")
-
-                # Priorytet dla trybu zakupów
-                if (
-                    agent_states.get("shopping")
-                    and intent.type != "shopping_conversation"
-                ):
-                    intent.type = "shopping_conversation"
-                    logger.info(
-                        "Overriding intent to 'shopping_conversation' due to active toggle."
-                    )
-
-                # Priorytet dla trybu gotowania
-                elif agent_states.get("cooking") and intent.type != "food_conversation":
-                    intent.type = "food_conversation"
-                    logger.info(
-                        "Overriding intent to 'food_conversation' due to active toggle."
-                    )
-
-                # Sprawdzenie, czy wykryta intencja jest dozwolona
-                is_shopping_intent = "shopping" in intent.type
-                is_cooking_intent = "food" in intent.type
-
-                if (is_shopping_intent and not agent_states.get("shopping")) or (
-                    is_cooking_intent and not agent_states.get("cooking")
-                ):
-
-                    if is_shopping_intent:
-                        required_mode = "Tryb Zakupów"
-                    else:
-                        required_mode = "Tryb Kuchenny"
-
-                    error_message = (
-                        f"Aby kontynuować, włącz {required_mode} w ustawieniach czatu."
-                    )
-                    logger.warning(
-                        f"Intent '{intent.type}' blocked by agent_states. Message: {error_message}"
-                    )
-                    return AgentResponse(success=True, text=error_message)
+            intent_data = await self.intent_detector.detect_intent(user_command, context)
 
             # 4. Route to agent with circuit breaker
             try:
@@ -268,65 +239,80 @@ class Orchestrator:
                         OrchestratorError("Agent router not initialized")
                     )
 
-                try:
-                    # Add a specific try-except block to catch the NameError
+                # If streaming is requested, use the streaming approach
+                if stream and stream_callback:
+                    # Create a response object to track the complete response
+                    response = AgentResponse(
+                        success=True,
+                        text="",
+                        data={},
+                        request_id=str(uuid.uuid4()),
+                    )
+                    
+                    # Route to agent with streaming
                     agent_response = await self.agent_router.route_to_agent(
-                        intent,
+                        intent_data,
                         context,
                         user_command,
-                        use_perplexity,
-                        use_bielik,
+                        use_perplexity=use_perplexity,
+                        use_bielik=use_bielik,
+                        stream=True,
                     )
-                except NameError as e:
-                    if "gen" in str(e):
-                        import traceback
-
-                        logger.error(
-                            f"NameError 'gen' caught with traceback: {traceback.format_exc()}"
-                        )
-                        return AgentResponse(
-                            success=False,
-                            error="Internal system error: Variable reference issue",
-                            text="Przepraszam, wystąpił błąd wewnętrzny systemu. Zespół techniczny został powiadomiony.",
-                            severity="ERROR",
-                        )
+                    
+                    # If the agent response is a generator, process it
+                    if hasattr(agent_response, "__aiter__"):
+                        async for chunk in agent_response:
+                            # Update the response with the chunk
+                            if isinstance(chunk, dict) and "text" in chunk:
+                                response.text += chunk["text"]
+                                
+                                # If there's data in the chunk, merge it
+                                if "data" in chunk and isinstance(chunk["data"], dict):
+                                    response.data.update(chunk["data"])
+                                
+                                # Call the callback with the chunk
+                                stream_callback(chunk)
                     else:
-                        raise
+                        # If not a generator, treat as regular response
+                        response = agent_response
+                        if stream_callback:
+                            stream_callback({"text": response.text or "", "data": response.data or {}})
+                else:
+                    # Non-streaming approach
+                    response = await self.circuit_breaker.call_async(
+                        self.agent_router.route_to_agent,
+                        intent_data,
+                        context,
+                        user_command,
+                        use_perplexity=use_perplexity,
+                        use_bielik=use_bielik,
+                    )
 
-                # 5. Update context
-                await self.memory_manager.update_context(
-                    context,
-                    {
-                        "user_command": user_command,
-                        "agent_response": agent_response.data,
-                    },
+                # 5. Update context with response
+                await self.memory_manager.add_to_history(
+                    session_id,
+                    user_command,
+                    response.text or "",
+                    intent_data.type,
                 )
 
-                return agent_response
+                return response
 
             except pybreaker.CircuitBreakerError as e:
                 logger.error(f"Circuit breaker tripped: {e}")
-                return self._format_error_response(
+                error_response = self._format_error_response(
                     OrchestratorError("Service temporarily unavailable")
                 )
+                if stream_callback:
+                    stream_callback({"text": error_response.error or "", "success": False})
+                return error_response
 
-        except NameError as e:
-            if "gen" in str(e):
-                logger.error(
-                    f"NameError in orchestrator: {str(e)}. This is likely due to a reference to an undefined variable 'gen'."
-                )
-                return AgentResponse(
-                    success=False,
-                    error="Internal system error: Variable reference issue",
-                    text="Przepraszam, wystąpił błąd wewnętrzny systemu. Zespół techniczny został powiadomiony.",
-                    severity="ERROR",
-                )
-            else:
-                logger.error(f"NameError in orchestrator: {str(e)}")
-                return self._format_error_response(e)
         except Exception as e:
-            logger.error(f"Error processing command: {e}")
-            return self._format_error_response(e)
+            logger.error(f"Error processing command: {e}", exc_info=True)
+            error_response = self._format_error_response(e)
+            if stream_callback:
+                stream_callback({"text": error_response.error or "", "success": False})
+            return error_response
 
     def register_agent(self, agent_type: AgentType, agent: "BaseAgent") -> None:
         """Register an agent implementation"""

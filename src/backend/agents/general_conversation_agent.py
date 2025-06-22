@@ -9,7 +9,7 @@ Agent obsługujący swobodne konwersacje na dowolny temat z wykorzystaniem:
 
 import asyncio
 import logging
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Tuple, List, AsyncGenerator, Optional
 
 import numpy as np
 
@@ -23,6 +23,7 @@ from ..core.rag_integration import RAGDatabaseIntegration
 from ..core.vector_store import vector_store
 from .base_agent import BaseAgent
 from .interfaces import AgentResponse
+from backend.integrations.web_search import web_search
 
 logger = logging.getLogger(__name__)
 
@@ -321,3 +322,210 @@ class GeneralConversationAgent(BaseAgent):
                 return "gemma3:2b"  # Mniejszy model dla prostych zapytań
             else:
                 return "gemma3:12b"  # Większy model dla złożonych
+
+    async def process_stream(self, input_data: Dict[str, Any]) -> AsyncGenerator[Dict[str, Any], None]:
+        """Process general conversation input with streaming response"""
+        try:
+            query = input_data.get("query", "")
+            context = input_data.get("context", [])
+            use_perplexity = input_data.get("use_perplexity", False)
+            use_bielik = input_data.get("use_bielik", True)
+
+            # Determine if this is a simple query
+            is_simple_query = self._is_simple_query(query)
+            
+            # For simple queries, use a smaller model
+            if is_simple_query:
+                force_complexity = ModelComplexity.SIMPLE
+                logger.info(f"Using SIMPLE model for query: {query}")
+            else:
+                force_complexity = None
+                logger.info(f"Using standard model selection for query: {query}")
+
+            # Run RAG and internet search in parallel
+            rag_task = asyncio.create_task(self._get_rag_results(query))
+            internet_task = asyncio.create_task(self._get_internet_results(query))
+            
+            # First yield a message that we're gathering information
+            yield {
+                "text": "Zbieram informacje...",
+                "data": {"status": "gathering_info"},
+                "success": True
+            }
+            
+            # Wait for both tasks to complete
+            rag_results, internet_results = await asyncio.gather(rag_task, internet_task)
+            
+            # Yield a message that we're processing the information
+            yield {
+                "text": "\nAnalizuję zebrane dane...",
+                "data": {"status": "processing_info"},
+                "success": True
+            }
+            
+            # Combine context from both sources
+            combined_context = self._combine_context(rag_results, internet_results)
+            
+            # Format the context for the LLM
+            formatted_context = self._format_context_for_llm(combined_context)
+            
+            # Prepare messages for the LLM
+            messages = self._prepare_messages(query, context, formatted_context)
+            
+            # Generate streaming response using the LLM
+            stream_response = await hybrid_llm_client.chat(
+                messages=messages,
+                stream=True,
+                use_perplexity=use_perplexity,
+                use_bielik=use_bielik,
+                force_complexity=force_complexity
+            )
+            
+            # Clear the initial messages
+            yield {
+                "text": "",
+                "data": {"status": "responding", "clear_previous": True},
+                "success": True
+            }
+
+            # Stream the response chunks
+            full_text = ""
+            async for chunk in stream_response:
+                if isinstance(chunk, dict) and "message" in chunk and "content" in chunk["message"]:
+                    content = chunk["message"]["content"]
+                    full_text += content
+                    yield {
+                        "text": content,
+                        "data": {"status": "streaming"},
+                        "success": True
+                    }
+
+            # Final chunk with complete data
+            yield {
+                "text": "",  # No additional text
+                "data": {
+                    "status": "complete",
+                    "context_used": combined_context[:2]  # Include first 2 context items for transparency
+                },
+                "success": True
+            }
+
+        except Exception as e:
+            logger.error(f"Error in GeneralConversationAgent streaming: {str(e)}")
+            yield {
+                "text": f"Przepraszam, wystąpił błąd: {str(e)}",
+                "data": {"status": "error"},
+                "success": False
+            }
+
+    def _is_simple_query(self, query: str) -> bool:
+        """Determine if a query is simple based on length and complexity"""
+        # Simple heuristic: short queries are likely simple
+        if len(query) < 20:
+            return True
+            
+        # Check for common simple phrases
+        simple_phrases = [
+            "dziękuję", "dzięki", "rozumiem", "ok", "dobrze", 
+            "tak", "nie", "może", "cześć", "hej", "witaj",
+            "do widzenia", "pa", "żegnaj"
+        ]
+        
+        query_lower = query.lower()
+        for phrase in simple_phrases:
+            if phrase in query_lower:
+                return True
+                
+        return False
+
+    @cached_async(ttl=3600)  # Cache RAG results for 1 hour
+    async def _get_rag_results(self, query: str) -> List[Dict[str, str]]:
+        """Get results from RAG system with caching"""
+        try:
+            # Placeholder for actual RAG implementation
+            # In a real system, this would query a vector database
+            logger.info(f"Getting RAG results for: {query}")
+            await asyncio.sleep(0.1)  # Simulate some processing time
+            return []  # Return empty list as placeholder
+        except Exception as e:
+            logger.error(f"Error getting RAG results: {str(e)}")
+            return []
+
+    @cached_async(ttl=1800)  # Cache internet results for 30 minutes
+    async def _get_internet_results(self, query: str) -> List[Dict[str, str]]:
+        """Get results from internet search with caching"""
+        try:
+            logger.info(f"Getting internet results for: {query}")
+            results = await web_search(query)
+            return results[:3] if results else []  # Limit to top 3 results
+        except Exception as e:
+            logger.error(f"Error getting internet results: {str(e)}")
+            return []
+
+    def _combine_context(
+        self, rag_results: List[Dict[str, str]], internet_results: List[Dict[str, str]]
+    ) -> List[Dict[str, str]]:
+        """Combine context from RAG and internet search"""
+        # Simple combination strategy: RAG results first, then internet
+        combined = []
+        
+        # Add RAG results if available
+        if rag_results:
+            combined.extend(rag_results)
+            
+        # Add internet results if available
+        if internet_results:
+            combined.extend(internet_results)
+            
+        return combined
+
+    def _format_context_for_llm(self, context: List[Dict[str, str]]) -> str:
+        """Format context for LLM input"""
+        if not context:
+            return ""
+            
+        formatted = "Oto informacje, które mogą być pomocne:\n\n"
+        
+        for i, item in enumerate(context, 1):
+            title = item.get("title", f"Źródło {i}")
+            content = item.get("content", "")
+            url = item.get("url", "")
+            
+            formatted += f"--- {title} ---\n"
+            formatted += f"{content}\n"
+            if url:
+                formatted += f"Źródło: {url}\n"
+            formatted += "\n"
+            
+        return formatted
+
+    def _prepare_messages(
+        self, query: str, conversation_history: List[Dict], context: str
+    ) -> List[Dict[str, str]]:
+        """Prepare messages for LLM with context and conversation history"""
+        messages = []
+        
+        # System message with instructions
+        system_message = (
+            "Jesteś asystentem AI FoodSave, pomocnym i przyjaznym. "
+            "Odpowiadaj zwięźle, ale kompletnie. "
+            "Jeśli nie znasz odpowiedzi, przyznaj to zamiast wymyślać informacje."
+        )
+        
+        if context:
+            system_message += (
+                "\n\nPoniżej znajdują się informacje kontekstowe, które mogą być pomocne "
+                "w odpowiedzi na pytanie użytkownika. Wykorzystaj je, jeśli są przydatne:\n\n" + context
+            )
+            
+        messages.append({"role": "system", "content": system_message})
+        
+        # Add conversation history
+        for entry in conversation_history:
+            if isinstance(entry, dict) and "role" in entry and "content" in entry:
+                messages.append({"role": entry["role"], "content": entry["content"]})
+                
+        # Add current query
+        messages.append({"role": "user", "content": query})
+        
+        return messages

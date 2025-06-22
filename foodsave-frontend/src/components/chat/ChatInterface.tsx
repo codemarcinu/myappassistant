@@ -21,6 +21,7 @@ export function ChatInterface() {
     toggleShoppingMode,
     isCookingMode,
     toggleCookingMode,
+    streamingMessage,
   } = useChat();
 
   return (
@@ -36,7 +37,11 @@ export function ChatInterface() {
       </div>
 
       <div className="flex-grow overflow-y-auto mb-4 pr-2">
-        <MessageList messages={messages} isLoading={isLoading} />
+        <MessageList 
+          messages={messages} 
+          isLoading={isLoading} 
+          streamingMessage={streamingMessage} 
+        />
       </div>
 
       <MessageInput

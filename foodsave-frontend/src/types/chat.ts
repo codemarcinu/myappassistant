@@ -31,6 +31,7 @@ export interface ChatContextType {
 export interface MessageItemProps {
   message: Message;
   isLoading?: boolean;
+  isStreaming?: boolean;
 }
 
 export interface MessageInputProps {
@@ -50,4 +51,5 @@ export interface MessageInputProps {
 export interface MessageListProps {
   messages: Message[];
   isLoading?: boolean;
+  streamingMessage?: Message | null;
 }

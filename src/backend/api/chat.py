@@ -34,6 +34,8 @@ class MemoryChatRequest(BaseModel):
     message: str
     session_id: str  # Kluczowe do śledzenia i odróżniania konwersacji
     usePerplexity: bool = False  # Nowe pole
+    useBielik: bool = True  # Domyślnie używamy Bielika
+    agent_states: Dict[str, bool] = {}  # Stany agentów
 
 
 class MemoryChatResponse(BaseModel):
@@ -137,28 +139,43 @@ async def memory_chat_generator(request: MemoryChatRequest, db: AsyncSession):
                 ) + "\n"
             return
 
-        # Process with orchestrator
+        # Process with orchestrator using streaming
         async with timeout_context(60.0):  # 60 second timeout for memory chat
+            # Create a list to collect chunks
+            chunks = []
+            
+            # Define the callback function
+            def handle_chunk(chunk):
+                chunks.append(chunk)
+            
+            # Process the command with streaming
             response = await orchestrator.process_command(
-                user_command=request.message, session_id=request.session_id
+                user_command=request.message,
+                session_id=request.session_id,
+                agent_states=request.agent_states,
+                use_perplexity=request.usePerplexity,
+                use_bielik=request.useBielik,
+                stream=True,
+                stream_callback=handle_chunk
             )
-
-            if response.success:
-                yield json.dumps(
-                    {
-                        "text": response.text or response.message,
-                        "success": True,
-                        "session_id": request.session_id,
-                    }
-                ) + "\n"
+            
+            # If no chunks were collected, use the response
+            if not chunks and response:
+                yield json.dumps({
+                    "text": response.text or "",
+                    "success": response.success,
+                    "session_id": request.session_id,
+                    "data": response.data
+                }) + "\n"
             else:
-                yield json.dumps(
-                    {
-                        "text": response.error or "An error occurred",
-                        "success": False,
+                # Stream all collected chunks
+                for chunk in chunks:
+                    yield json.dumps({
+                        "text": chunk.get("text", ""),
+                        "success": chunk.get("success", True),
                         "session_id": request.session_id,
-                    }
-                ) + "\n"
+                        "data": chunk.get("data")
+                    }) + "\n"
 
     except Exception as e:
         logger.error(f"Error in memory_chat_generator: {str(e)}", exc_info=True)

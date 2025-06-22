@@ -14,6 +14,7 @@ export function useChat(context: 'general' | 'shopping' | 'cooking' = 'general')
   const [useBielik, setUseBielik] = useState(true); // Domyślnie używamy Bielika
   const [isShoppingMode, setIsShoppingMode] = useState(false);
   const [isCookingMode, setIsCookingMode] = useState(false);
+  const [streamingMessage, setStreamingMessage] = useState<Message | null>(null);
 
   useEffect(() => {
     // Initialize session on component mount
@@ -43,6 +44,19 @@ export function useChat(context: 'general' | 'shopping' | 'cooking' = 'general')
       };
       setMessages(prev => [...prev, userMessage]);
 
+      // Create a new empty assistant message for streaming
+      const assistantMessageId = uuidv4();
+      const assistantMessage: Message = {
+        id: assistantMessageId,
+        role: 'assistant',
+        content: '',
+        usePerplexity: usePerplexity || false,
+        useBielik: useBielik !== undefined ? useBielik : true,
+      };
+      
+      // Set as the current streaming message
+      setStreamingMessage(assistantMessage);
+
       // Send message to the API
       const response = await ApiService.sendChatMessage({
         message: content,
@@ -57,24 +71,44 @@ export function useChat(context: 'general' | 'shopping' | 'cooking' = 'general')
         useBielik: useBielik !== undefined ? useBielik : true,
       }, (chunk) => {
         // Handle streaming response
-        console.log('Received chunk:', chunk);
+        if (chunk && chunk.text) {
+          setStreamingMessage(prev => {
+            if (!prev) return null;
+            return {
+              ...prev,
+              content: prev.content + chunk.text,
+              data: chunk.data || prev.data,
+            };
+          });
+        }
       });
 
-      if (response && response.error) {
-        throw new Error(response.error);
-      }
+      // After streaming is complete, add the final message to the list
+      setMessages(prev => {
+        // First check if the streaming message is already in the list
+        if (prev.some(msg => msg.id === assistantMessageId)) {
+          return prev;
+        }
+        
+        // If we have a streaming message, use that as the final message
+        if (streamingMessage && streamingMessage.content) {
+          return [...prev, streamingMessage];
+        }
+        
+        // Fallback to the response from the API if no streaming content
+        const finalMessage: Message = {
+          id: assistantMessageId,
+          role: 'assistant',
+          content: response?.response || 'Przepraszam, wystąpił błąd w przetwarzaniu.',
+          data: response?.data || null,
+          usePerplexity: usePerplexity || false,
+          useBielik: useBielik !== undefined ? useBielik : true,
+        };
+        return [...prev, finalMessage];
+      });
 
-      // Add assistant response to the chat
-      const assistantMessage: Message = {
-        id: uuidv4(),
-        role: 'assistant',
-        content: response.response || 'Przepraszam, wystąpił błąd w przetwarzaniu.',
-        data: response.data,
-        usePerplexity: usePerplexity || false,
-        useBielik: useBielik !== undefined ? useBielik : true,
-      };
-
-      setMessages(prev => [...prev, assistantMessage]);
+      // Clear the streaming message
+      setStreamingMessage(null);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Wystąpił nieznany błąd';
       setError(errorMessage);
@@ -86,10 +120,11 @@ export function useChat(context: 'general' | 'shopping' | 'cooking' = 'general')
         isError: true,
       };
       setMessages(prev => [...prev, errorResponse]);
+      setStreamingMessage(null);
     } finally {
       setIsLoading(false);
     }
-  }, [sessionId, isShoppingMode, isCookingMode]);
+  }, [sessionId, isShoppingMode, isCookingMode, streamingMessage]);
 
   // Function to clear chat history
   const clearChat = () => {
@@ -102,6 +137,7 @@ export function useChat(context: 'general' | 'shopping' | 'cooking' = 'general')
         content: 'Cześć! Jestem Twoim asystentem FoodSave. W czym mogę dziś pomóc?'
       }
     ]);
+    setStreamingMessage(null);
   };
 
   // Function to toggle Perplexity
@@ -136,5 +172,6 @@ export function useChat(context: 'general' | 'shopping' | 'cooking' = 'general')
     toggleShoppingMode,
     isCookingMode,
     toggleCookingMode,
+    streamingMessage,
   };
 }
