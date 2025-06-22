@@ -7,11 +7,13 @@ Agent obsługujący swobodne konwersacje na dowolny temat z wykorzystaniem:
 - Bielika jako głównego modelu językowego
 """
 
+import asyncio
 import logging
 from typing import Any, Dict, Tuple
 
 import numpy as np
 
+from ..core.cache_manager import cached_async, internet_cache, rag_cache
 from ..core.decorators import handle_exceptions
 from ..core.hybrid_llm_client import ModelComplexity, hybrid_llm_client
 from ..core.mmlw_embedding_client import mmlw_client
@@ -36,7 +38,7 @@ class GeneralConversationAgent(BaseAgent):
 
     @handle_exceptions(max_retries=2)
     async def process(self, input_data: Dict[str, Any]) -> AgentResponse:
-        """Process user query with RAG and internet search"""
+        """Process user query with RAG and internet search in parallel"""
         try:
             query = input_data.get("query", "")
             session_id = input_data.get("session_id", "")
@@ -49,27 +51,21 @@ class GeneralConversationAgent(BaseAgent):
 
             # Debug prints
             logger.debug("Input data: {}".format(input_data))
-            logger.debug("Starting GeneralConversationAgent.process")
+            logger.debug("Starting GeneralConversationAgent.process with parallel processing")
 
-            # 1. Zawsze próbuj pobrać kontekst z RAG
-            logger.debug("Getting RAG context")
-            rag_context, rag_confidence = await self._get_rag_context(query)
+            # Uruchom równolegle pobieranie kontekstu z RAG i internetu
+            rag_task = asyncio.create_task(self._get_rag_context(query))
+            internet_task = asyncio.create_task(self._get_internet_context(query, use_perplexity))
+            
+            # Czekaj na zakończenie obu zadań
+            rag_result, internet_context = await asyncio.gather(rag_task, internet_task)
+            rag_context, rag_confidence = rag_result
+            
             logger.info(f"RAG context confidence: {rag_confidence}")
+            logger.info(f"Internet search completed: {bool(internet_context)}")
 
-            # 2. Decyzja o przeszukaniu internetu
-            internet_context = ""
-            # Jeśli pewność RAG jest niska, szukaj w internecie
-            if rag_confidence < 0.75:  # Próg pewności
-                logger.info(
-                    f"RAG confidence is low ({rag_confidence}), searching internet."
-                )
-                logger.debug("Getting internet context")
-                internet_context = await self._get_internet_context(
-                    query, use_perplexity
-                )
-
-            # 3. Wygeneruj odpowiedź z wykorzystaniem wszystkich źródeł
-            logger.debug("Generating response")
+            # Wygeneruj odpowiedź z wykorzystaniem wszystkich źródeł
+            logger.debug("Generating response with combined context")
             response = await self._generate_response(
                 query, rag_context, internet_context, use_perplexity, use_bielik
             )
@@ -97,6 +93,7 @@ class GeneralConversationAgent(BaseAgent):
                 text="Przepraszam, wystąpił błąd podczas przetwarzania Twojego zapytania.",
             )
 
+    @cached_async(rag_cache)
     async def _get_rag_context(self, query: str) -> Tuple[str, float]:
         """Pobiera kontekst z RAG i ocenia jego pewność."""
         try:
@@ -152,6 +149,7 @@ class GeneralConversationAgent(BaseAgent):
             logger.warning(f"Error getting RAG context: {str(e)}")
             return "", 0.0
 
+    @cached_async(internet_cache)
     async def _get_internet_context(self, query: str, use_perplexity: bool) -> str:
         """Pobiera informacje z internetu"""
         try:
@@ -234,17 +232,18 @@ class GeneralConversationAgent(BaseAgent):
 
         # Generuj odpowiedź używając odpowiedniego modelu
         try:
-            # Wybierz model na podstawie flagi use_bielik
-            model_name = (
-                "SpeakLeash/bielik-11b-v2.3-instruct:Q5_K_M"
-                if use_bielik
-                else "gemma3:12b"
-            )
+            # Określ złożoność zapytania
+            complexity = self._determine_query_complexity(query, rag_context, internet_context)
+            logger.info(f"Determined query complexity: {complexity}")
+            
+            # Wybierz model na podstawie złożoności i flagi use_bielik
+            model_name = self._select_model(complexity, use_bielik)
+            logger.info(f"Selected model: {model_name}")
 
             response = await hybrid_llm_client.chat(
                 messages=messages,
                 model=model_name,
-                force_complexity=ModelComplexity.STANDARD,
+                force_complexity=complexity,
                 stream=False,
             )
 
@@ -256,3 +255,69 @@ class GeneralConversationAgent(BaseAgent):
         except Exception as e:
             logger.error(f"Error generating response: {str(e)}")
             return "Przepraszam, wystąpił błąd podczas generowania odpowiedzi."
+            
+    def _determine_query_complexity(
+        self, query: str, rag_context: str, internet_context: str
+    ) -> ModelComplexity:
+        """
+        Określa złożoność zapytania na podstawie jego długości, zawartości i dostępnych kontekstów
+        
+        Returns:
+            ModelComplexity.SIMPLE: Dla prostych zapytań (powitania, podziękowania)
+            ModelComplexity.STANDARD: Dla typowych zapytań informacyjnych
+            ModelComplexity.COMPLEX: Dla złożonych zapytań wymagających analizy lub twórczości
+        """
+        # Sprawdź czy to proste powitanie lub podziękowanie
+        simple_phrases = [
+            "cześć", "hej", "witaj", "dzień dobry", "dobry wieczór", "dobranoc",
+            "dziękuję", "dzięki", "super", "świetnie", "ok", "dobrze",
+            "rozumiem", "jasne", "tak", "nie", "może"
+        ]
+        
+        query_lower = query.lower()
+        
+        # Jeśli to krótkie zapytanie i zawiera prostą frazę
+        if len(query.split()) <= 3 and any(phrase in query_lower for phrase in simple_phrases):
+            return ModelComplexity.SIMPLE
+            
+        # Jeśli mamy dużo kontekstu, to zapytanie jest złożone
+        combined_context = (rag_context or "") + (internet_context or "")
+        if len(combined_context) > 1000:
+            return ModelComplexity.COMPLEX
+            
+        # Słowa kluczowe sugerujące złożone zapytanie
+        complex_keywords = [
+            "porównaj", "przeanalizuj", "wyjaśnij", "zinterpretuj", "oceń",
+            "podsumuj", "zreferuj", "przedstaw argumenty", "uzasadnij",
+            "zaprojektuj", "stwórz", "napisz", "wymyśl", "zaproponuj"
+        ]
+        
+        if any(keyword in query_lower for keyword in complex_keywords):
+            return ModelComplexity.COMPLEX
+            
+        # Domyślnie używamy standardowej złożoności
+        return ModelComplexity.STANDARD
+        
+    def _select_model(self, complexity: ModelComplexity, use_bielik: bool) -> str:
+        """
+        Wybiera model na podstawie złożoności zapytania i preferencji użytkownika
+        
+        Args:
+            complexity: Złożoność zapytania
+            use_bielik: Czy używać modelu Bielik
+            
+        Returns:
+            Nazwa modelu do użycia
+        """
+        if use_bielik:
+            # Dla modelu Bielik
+            if complexity == ModelComplexity.SIMPLE:
+                return "SpeakLeash/bielik-7b-v2.3-instruct:Q5_K_M"  # Mniejszy model dla prostych zapytań
+            else:
+                return "SpeakLeash/bielik-11b-v2.3-instruct:Q5_K_M"  # Większy model dla złożonych
+        else:
+            # Dla modeli Gemma
+            if complexity == ModelComplexity.SIMPLE:
+                return "gemma3:2b"  # Mniejszy model dla prostych zapytań
+            else:
+                return "gemma3:12b"  # Większy model dla złożonych
