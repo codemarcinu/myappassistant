@@ -30,20 +30,18 @@ export function WeatherSection() {
 
       setWeatherData(data as WeatherData[]);
     } catch (err) {
+      // Check for all possible cancellation/abort error types
+      const isCanceled =
+        (err instanceof ApiError && (err.code === 'ABORTED' || err.message === 'canceled')) ||
+        (err instanceof Error && (err.name === 'AbortError' || err.message === 'canceled' || err.message.includes('canceled')));
+
+      if (isCanceled) {
+        logger.info('Weather request was canceled - this is normal during component unmount');
+        return;
+      }
+
+      // Log as error only for non-cancellation errors
       logger.error('Weather fetch error:', err);
-
-      // Check if it's an abort error
-      if (err instanceof ApiError && err.code === 'ABORTED') {
-        logger.info('Weather request was aborted - this is normal during component unmount');
-        return;
-      }
-
-      if (err instanceof Error && err.name === 'AbortError') {
-        logger.info('Weather request was aborted - this is normal during component unmount');
-        return;
-      }
-
-      // Set error for other types of errors
       setError('Nie udało się pobrać danych pogodowych.');
     } finally {
       setIsLoading(false);
