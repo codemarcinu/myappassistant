@@ -16,6 +16,7 @@ Welcome to the FoodSave AI documentation hub! This directory contains comprehens
 - **[API Reference](API_REFERENCE.md)** - Complete API documentation
 - **[Agents Guide](AGENTS_GUIDE.md)** - AI agents and orchestration
 - **[Database Guide](DATABASE_GUIDE.md)** - Database design and management
+- **[Implementation Summary](IMPLEMENTATION_SUMMARY.md)** - Project implementation details
 
 ### 🧪 Development & Testing
 - **[Testing Guide](TESTING_GUIDE.md)** - Testing strategies and best practices
@@ -43,6 +44,7 @@ docs/
 ├── MODEL_OPTIMIZATION_GUIDE.md         # AI model optimization
 ├── RAG_SYSTEM_GUIDE.md                 # RAG system documentation
 ├── BACKUP_SYSTEM_GUIDE.md              # Backup procedures
+├── IMPLEMENTATION_SUMMARY.md           # Project implementation details
 ├── MDC_SETUP_SUMMARY.md                # MDC setup (archived)
 ├── frontend-implementation-plan.md     # Frontend plan (archived)
 └── frontend-implementation-checklist.md # Frontend checklist (archived)
@@ -108,6 +110,7 @@ docs/
 **🔧 Setup & Installation**
 - [Deployment Guide](DEPLOYMENT_GUIDE.md) - Complete setup instructions
 - [Contributing Guide](CONTRIBUTING_GUIDE.md) - Development environment
+- [Implementation Summary](IMPLEMENTATION_SUMMARY.md) - Project setup details
 
 **🔍 Understanding the System**
 - [Architecture Documentation](ARCHITECTURE_DOCUMENTATION.md) - System overview

@@ -1,138 +1,158 @@
-# FoodSave AI - Docker Development Environment
+# FoodSave AI - Docker Environment
 
-Ten dokument zawiera instrukcje dotyczące uruchamiania środowiska deweloperskiego FoodSave AI przy użyciu Docker Compose.
+This document contains instructions for running the FoodSave AI environment using Docker.
 
-## Wymagania
+## Requirements
 
 - Docker Engine 19.03.0+
 - Docker Compose V2
-- Co najmniej 8GB RAM
-- Co najmniej 20GB wolnego miejsca na dysku
-- (Opcjonalnie) Karta graficzna NVIDIA z zainstalowanym NVIDIA Container Toolkit dla akceleracji GPU
+- At least 8GB RAM
+- At least 20GB free disk space
+- (Optional) NVIDIA GPU with installed NVIDIA Container Toolkit for GPU acceleration
 
-## Struktura środowiska
+## Environment Structure
 
-Środowisko deweloperskie składa się z następujących usług:
+The environment consists of the following services:
 
-1. **Backend** - aplikacja FastAPI napisana w Pythonie
-2. **Frontend** - aplikacja Next.js napisana w TypeScript
-3. **Ollama** - lokalne modele językowe
-4. **PostgreSQL** - baza danych
+1. **Backend** - FastAPI application written in Python
+2. **Frontend** - Next.js application written in TypeScript
+3. **Ollama** - Local language models
+4. **PostgreSQL** - Database
+5. **Redis** - Caching (optional)
+6. **Prometheus** - Metrics collection (optional)
+7. **Grafana** - Monitoring dashboard (optional)
+8. **Loki** - Log aggregation (optional)
+9. **Promtail** - Log collection (optional)
 
-## Skrypty pomocnicze
+## Management Script
 
-W projekcie dostępne są trzy skrypty pomocnicze do zarządzania środowiskiem:
+A single management script `foodsave.sh` is provided to manage the environment. This script replaces the previous separate scripts and provides a unified interface for all operations.
 
-### Uruchamianie środowiska
-
-```bash
-./run_dev_docker.sh
-```
-
-Ten skrypt:
-- Sprawdza czy Docker jest uruchomiony
-- Tworzy niezbędne katalogi dla logów
-- Sprawdza istnienie pliku `.env`
-- Usuwa istniejące kontenery o tych samych nazwach
-- Zatrzymuje istniejące usługi Docker Compose
-- Pobiera najnowsze obrazy
-- Buduje i uruchamia kontenery
-
-### Sprawdzanie statusu
+### Basic Usage
 
 ```bash
-./status_dev_docker.sh
+# Make the script executable
+chmod +x foodsave.sh
+
+# Show help
+./foodsave.sh help
 ```
 
-Ten skrypt:
-- Wyświetla listę uruchomionych kontenerów
-- Sprawdza stan zdrowia każdej usługi
-- Pokazuje adresy URL i porty dla dostępu do usług
-
-### Zatrzymywanie środowiska
+### Starting the Environment
 
 ```bash
-./stop_dev_docker.sh
+# Start core services only (Backend, Frontend, Ollama, PostgreSQL)
+./foodsave.sh start
+
+# Start with monitoring services (adds Prometheus and Grafana)
+./foodsave.sh start monitoring
+
+# Start with caching services (adds Redis)
+./foodsave.sh start cache
+
+# Start with logging services (adds Loki and Promtail)
+./foodsave.sh start logging
+
+# Start with all services
+./foodsave.sh start all
 ```
 
-Ten skrypt:
-- Zatrzymuje usługi Docker Compose
-- Usuwa osierocone kontenery
-- Sprawdza i usuwa pozostałe kontenery
+### Checking Status
 
-## Dostęp do usług
+```bash
+./foodsave.sh status
+```
 
-Po uruchomieniu środowiska, usługi są dostępne pod następującymi adresami:
+This will display:
+- List of running containers
+- Health status of each service
+- URLs and ports for accessing services
+
+### Viewing Logs
+
+```bash
+# View logs from all services
+./foodsave.sh logs
+
+# View logs from a specific service
+./foodsave.sh logs backend
+./foodsave.sh logs frontend
+./foodsave.sh logs ollama
+```
+
+### Stopping the Environment
+
+```bash
+./foodsave.sh stop
+```
+
+## Service Access
+
+After starting the environment, services are available at:
 
 - **Frontend**: http://localhost:3000
 - **Backend API**: http://localhost:8000
 - **API Docs**: http://localhost:8000/docs
 - **Ollama**: http://localhost:11434
-- **PostgreSQL**: localhost:5433 (użytkownik: foodsave, hasło: foodsave_dev_password)
+- **PostgreSQL**: localhost:5433 (user: foodsave, password: foodsave_dev_password)
+- **Prometheus**: http://localhost:9090 (when using monitoring profile)
+- **Grafana**: http://localhost:3001 (when using monitoring profile)
+- **Redis**: localhost:6379 (when using cache profile)
+- **Loki**: http://localhost:3100 (when using logging profile)
 
-## Przeglądanie logów
+## Environment Variables
 
-Aby wyświetlić logi wszystkich usług:
+Environment variables are configured in the `.env` file. If this file doesn't exist, it will be created automatically from `env.dev.example` when starting the environment.
 
-```bash
-docker compose -f docker-compose.dev.yaml logs -f
-```
+Key environment variables:
 
-Aby wyświetlić logi konkretnej usługi:
+- `DATABASE_URL` - Database connection URL
+- `OLLAMA_URL` - URL to the Ollama service
+- `OLLAMA_MODEL` - Ollama model to use
+- `NEXT_PUBLIC_API_URL` - Backend URL used by the frontend
 
-```bash
-docker compose -f docker-compose.dev.yaml logs -f backend
-docker compose -f docker-compose.dev.yaml logs -f frontend
-docker compose -f docker-compose.dev.yaml logs -f ollama
-docker compose -f docker-compose.dev.yaml logs -f postgres
-```
+## Troubleshooting
 
-## Rozwiązywanie problemów
+### Container Name Conflicts
 
-### Problem z konfliktami nazw kontenerów
+If you encounter container name conflicts, the `foodsave.sh start` command automatically removes existing containers with the same names before starting new ones.
 
-Jeśli pojawi się błąd o konflikcie nazw kontenerów, użyj skryptu `run_dev_docker.sh`, który automatycznie usuwa istniejące kontenery przed uruchomieniem nowych.
+### Database Connection Issues
 
-### Problem z dostępem do bazy danych
+If the backend can't connect to the database, check:
+1. PostgreSQL is running (`./foodsave.sh status`)
+2. The DATABASE_URL environment variable is correctly configured in the `.env` file
 
-Jeśli backend nie może połączyć się z bazą danych, sprawdź czy:
-1. PostgreSQL jest uruchomiony (`./status_dev_docker.sh`)
-2. Zmienna środowiskowa DATABASE_URL jest poprawnie skonfigurowana w pliku `.env`
+### Ollama Connection Issues
 
-### Problem z dostępem do Ollama
+If the backend can't connect to Ollama, check:
+1. Ollama is running (`./foodsave.sh status`)
+2. The OLLAMA_URL environment variable is correctly configured
 
-Jeśli backend nie może połączyć się z Ollama, sprawdź czy:
-1. Ollama jest uruchomiony (`./status_dev_docker.sh`)
-2. Zmienne środowiskowe OLLAMA_URL i OLLAMA_BASE_URL są poprawnie skonfigurowane
+### Volume Issues
 
-### Problem z wolumenami
-
-Jeśli występują problemy z wolumenami, można je usunąć i utworzyć od nowa:
+If you experience issues with volumes, you can remove them and recreate them:
 
 ```bash
-docker compose -f docker-compose.dev.yaml down -v
-./run_dev_docker.sh
+./foodsave.sh stop
+docker volume rm foodsave-ai_postgres_data foodsave-ai_ollama_data
+./foodsave.sh start
 ```
 
-## Konfiguracja zmiennych środowiskowych
+## Advanced Configuration
 
-Zmienne środowiskowe są konfigurowane w pliku `.env`. Jeśli plik nie istnieje, zostanie utworzony automatycznie na podstawie `env.dev.example` podczas uruchamiania skryptu `run_dev_docker.sh`.
+Advanced configuration options can be found in the `docker-compose.yaml` file.
 
-Najważniejsze zmienne środowiskowe:
+You can customize the Dockerfiles used for building images by setting these environment variables:
+- `BACKEND_DOCKERFILE` - Path to the backend Dockerfile (default: Dockerfile)
+- `FRONTEND_DOCKERFILE` - Path to the frontend Dockerfile (default: Dockerfile)
 
-- `DATABASE_URL` - URL do bazy danych
-- `OLLAMA_URL` - URL do serwisu Ollama
-- `OLLAMA_MODEL` - nazwa modelu Ollama do użycia
-- `NEXT_PUBLIC_API_URL` - URL do backendu, używany przez frontend
+## Available Profiles
 
-## Wskazówki
+The Docker Compose configuration includes several profiles that can be activated:
 
-1. **Pierwsze uruchomienie** może zająć więcej czasu ze względu na pobieranie obrazów i budowanie kontenerów.
-2. **Modele Ollama** są pobierane przy pierwszym użyciu, co może zająć dużo czasu w zależności od rozmiaru modelu.
-3. **Akceleracja GPU** jest włączona dla Ollama, jeśli dostępna jest karta NVIDIA z zainstalowanym NVIDIA Container Toolkit.
-4. **Dane PostgreSQL** są przechowywane w wolumenie Docker, więc dane nie są tracone po zatrzymaniu kontenerów.
+1. **monitoring** - Includes Prometheus and Grafana for metrics collection and visualization
+2. **with-cache** - Includes Redis for caching
+3. **logging** - Includes Loki and Promtail for centralized logging
 
-## Zaawansowana konfiguracja
-
-Zaawansowane opcje konfiguracji można znaleźć w pliku `docker-compose.dev.yaml`.
-
+You can combine these profiles using the `foodsave.sh start all` command.

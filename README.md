@@ -37,7 +37,7 @@ cd foodsave-ai
 cp env.dev.example .env
 
 # 3. Build and run all services in detached mode
-docker-compose -f docker-compose.dev.yml up --build -d
+docker compose up --build -d
 ```
 
 **Application will be available at:**
@@ -48,7 +48,7 @@ docker-compose -f docker-compose.dev.yml up --build -d
 
 **To stop the application:**
 ```bash
-docker-compose -f docker-compose.dev.yml down
+docker compose down
 ```
 
 ---
@@ -179,18 +179,18 @@ This method ensures that all services (backend, frontend, databases, monitoring)
     ```
 
 3.  **Build and Run:**
-    This command will build the necessary Docker images and start all services defined in `docker-compose.dev.yml`.
+    This command will build the necessary Docker images and start all services.
     ```bash
-    docker-compose -f docker-compose.dev.yml up --build -d
+    docker compose up --build -d
     ```
-    > **Note on PostgreSQL Port:** If you have a local PostgreSQL instance running, you might encounter a port conflict on `5432`. We've already changed the configuration in `docker-compose.dev.yml` to use port **5433** for the container, so this issue should be resolved.
+    > **Note on PostgreSQL Port:** If you have a local PostgreSQL instance running, you might encounter a port conflict on `5432`. The configuration uses port **5433** for the container to avoid conflicts.
 
 4.  **Verify Services:**
     Check if all containers are running.
     ```bash
     docker ps
     ```
-    You should see `foodsave-backend-dev`, `foodsave-frontend-dev`, `foodsave-ollama-dev`, and others running.
+    You should see `foodsave-backend`, `foodsave-frontend`, `foodsave-ollama`, and others running.
 
 ### Method 2: Manual Local Setup
 
@@ -242,7 +242,7 @@ Use this method if you prefer to run the services directly on your machine witho
 
 - **Docker (Recommended):**
   ```bash
-  docker-compose -f docker-compose.dev.yml up -d
+  docker compose up -d
   ```
 
 - **Local Machine:**
@@ -261,7 +261,7 @@ Use this method if you prefer to run the services directly on your machine witho
 
 - **Docker:**
   ```bash
-  docker-compose -f docker-compose.dev.yml down
+  docker compose down
   ```
 
 - **Local Machine:**
@@ -318,7 +318,7 @@ The project is equipped with a monitoring stack available in the Docker setup.
 - **API performance**: Response times, throughput
 - **Agent status**: Health checks for all agents
 - **Database**: Connection pool, query performance
-- **Ollama logs**: Run `docker logs foodsave-ollama-dev`
+- **Ollama logs**: Run `docker logs foodsave-ollama`
 - **Combined logs**: Check Grafana's Loki data source.
 
 ## 🔧 Troubleshooting
