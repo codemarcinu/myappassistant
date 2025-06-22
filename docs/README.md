@@ -23,6 +23,7 @@ Welcome to the FoodSave AI documentation hub! This directory contains comprehens
 - **[Model Optimization Guide](MODEL_OPTIMIZATION_GUIDE.md)** - AI model optimization
 - **[RAG System Guide](RAG_SYSTEM_GUIDE.md)** - Retrieval-Augmented Generation
 - **[Backup System Guide](BACKUP_SYSTEM_GUIDE.md)** - Backup and recovery procedures
+- **[Monitoring & Telemetry Guide](MONITORING_TELEMETRY_GUIDE.md)** - System monitoring and observability
 
 ### 📚 Archived Documentation
 - **[MDC Setup Summary](MDC_SETUP_SUMMARY.md)** - Model Development Cycle setup
@@ -44,6 +45,7 @@ docs/
 ├── MODEL_OPTIMIZATION_GUIDE.md         # AI model optimization
 ├── RAG_SYSTEM_GUIDE.md                 # RAG system documentation
 ├── BACKUP_SYSTEM_GUIDE.md              # Backup procedures
+├── MONITORING_TELEMETRY_GUIDE.md       # Monitoring and telemetry
 ├── IMPLEMENTATION_SUMMARY.md           # Project implementation details
 ├── MDC_SETUP_SUMMARY.md                # MDC setup (archived)
 ├── frontend-implementation-plan.md     # Frontend plan (archived)
@@ -95,6 +97,7 @@ docs/
 - [Deployment Guide](DEPLOYMENT_GUIDE.md)
 - [Backup System Guide](BACKUP_SYSTEM_GUIDE.md)
 - [Model Optimization Guide](MODEL_OPTIMIZATION_GUIDE.md)
+- [Monitoring & Telemetry Guide](MONITORING_TELEMETRY_GUIDE.md)
 
 **🤖 AI/ML Engineers**
 - [Agents Guide](AGENTS_GUIDE.md)
@@ -124,6 +127,7 @@ docs/
 **🚀 Deployment & Operations**
 - [Deployment Guide](DEPLOYMENT_GUIDE.md) - Production deployment
 - [Backup System Guide](BACKUP_SYSTEM_GUIDE.md) - Backup procedures
+- [Monitoring & Telemetry Guide](MONITORING_TELEMETRY_GUIDE.md) - System monitoring
 
 ## Contributing to Documentation
 

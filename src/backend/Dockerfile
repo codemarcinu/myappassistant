@@ -34,6 +34,17 @@ RUN pip install --retries 5 --timeout 600 \
     PyMuPDF==1.24.1 \
     ollama==0.1.0
 
+# Install OpenTelemetry packages for monitoring and observability
+RUN pip install --retries 3 --timeout 300 \
+    opentelemetry-api==1.21.0 \
+    opentelemetry-sdk==1.21.0 \
+    opentelemetry-instrumentation-fastapi==0.42b0 \
+    opentelemetry-instrumentation-sqlalchemy==0.42b0 \
+    opentelemetry-instrumentation-httpx==0.42b0 \
+    opentelemetry-exporter-jaeger==1.21.0 \
+    prometheus-client==0.19.0 \
+    prometheus-fastapi-instrumentator==6.1.0
+
 # Install sentence-transformers (which includes a GPU-enabled pytorch)
 RUN pip install --retries 5 --timeout 600 sentence-transformers==2.2.2
 
