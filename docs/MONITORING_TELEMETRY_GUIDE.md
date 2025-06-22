@@ -18,108 +18,120 @@ OpenTelemetry służy jako podstawa systemu telemetrii, zapewniając:
 - `opentelemetry-api` - API dla instrumentacji kodu
 - `opentelemetry-sdk` - Implementacja SDK
 - `opentelemetry-instrumentation-fastapi` - Automatyczna instrumentacja FastAPI
-- `opentelemetry-instrumentation-sqlalchemy` - Śledzenie zapytań bazodanowych
-- `opentelemetry-instrumentation-httpx` - Monitorowanie zapytań HTTP
-- `opentelemetry-exporter-jaeger` - Eksport śladów do Jaeger
+- `opentelemetry-instrumentation-sqlalchemy` - Instrumentacja dla SQLAlchemy
+- `opentelemetry-instrumentation-httpx` - Instrumentacja dla HTTPX
+- `opentelemetry-exporter-jaeger` - Eksporter do Jaeger
+- `prometheus-client` - Klient Prometheus
+- `prometheus-fastapi-instrumentator` - Instrumentacja FastAPI dla Prometheus
 
 ### 2. **Prometheus**
 
-System zbierania i przechowywania metryk:
-- Scraping metryk z endpointów HTTP
-- Przechowywanie szeregów czasowych
-- Alerting na podstawie reguł
-- Integracja z Grafana
+Prometheus zbiera metryki z aplikacji i infrastruktury:
+- Liczba zapytań
+- Czas odpowiedzi
+- Użycie zasobów (CPU, pamięć)
+- Metryki niestandardowe
 
-### 3. **Loki**
+### 3. **Grafana**
 
-Agregacja i przeszukiwanie logów:
-- Zbieranie logów z kontenerów
-- Indeksowanie i przeszukiwanie
-- Korelacja z metrykami i śladami
-- Wizualizacja w Grafana
-
-### 4. **Grafana**
-
-Wizualizacja i dashboardy:
+Grafana wizualizuje zebrane metryki:
 - Interaktywne dashboardy
-- Łączenie danych z różnych źródeł
-- Alerty i powiadomienia
-- Udostępnianie i eksport raportów
+- Alerty
+- Analizy trendów
 
-## Implementacja w Kodzie
+### 4. **Loki**
 
-### Konfiguracja OpenTelemetry
+Loki agreguje i przeszukuje logi:
+- Centralizacja logów
+- Korelacja z metrykami
+- Etykietowanie i filtrowanie
 
-```python
-# src/backend/core/telemetry.py
-def setup_telemetry(
-    service_name: str = "foodsave-ai-backend",
-    enable_jaeger: bool = True,
-    enable_prometheus: bool = True,
-    enable_console: bool = False,
-) -> None:
-    """Setup OpenTelemetry dla distributed tracing i metrics"""
-    global tracer
+## Konfiguracja Systemu
 
-    # Resource configuration
-    resource = Resource.create({
-        "service.name": service_name,
-        "service.version": settings.APP_VERSION,
-        "deployment.environment": settings.ENVIRONMENT,
-    })
+### Konfiguracja OpenTelemetry w Backend
 
-    # Trace provider setup
-    trace_provider = TracerProvider(resource=resource)
+Backend wykorzystuje OpenTelemetry do śledzenia zapytań i metryk wydajności. Pakiety zostały dodane do `requirements.txt` i są automatycznie instalowane podczas budowania obrazu Docker.
 
-    # Jaeger exporter
-    if enable_jaeger:
-        jaeger_endpoint = os.getenv("JAEGER_ENDPOINT", "http://localhost:14268/api/traces")
-        jaeger_exporter = JaegerExporter(collector_endpoint=jaeger_endpoint)
-        trace_provider.add_span_processor(BatchSpanProcessor(jaeger_exporter))
+### Niestandardowy Obraz Ollama
 
-    # Set global trace provider
-    trace.set_tracer_provider(trace_provider)
-    tracer = trace.get_tracer(__name__)
+Dla zapewnienia poprawnych health checków, używamy niestandardowego obrazu Ollama z zainstalowanym curl:
 
-    # Metrics setup
-    if enable_prometheus:
-        setup_prometheus_metrics()
+```dockerfile
+FROM ollama/ollama:latest
+
+# Instalacja curl
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+
+# Kontynuuj z oryginalną konfiguracją
+CMD ["serve"]
 ```
 
-### Instrumentacja FastAPI
+Health check w docker-compose.yaml używa curl do sprawdzenia, czy API Ollama jest dostępne:
 
-```python
-# src/backend/app_factory.py
-from backend.core.telemetry import setup_telemetry, instrument_httpx, instrument_sqlalchemy
-
-def create_app():
-    app = FastAPI()
-
-    # Setup telemetry
-    setup_telemetry()
-
-    # Instrument HTTPX client
-    instrument_httpx()
-
-    # Instrument SQLAlchemy (after engine creation)
-    instrument_sqlalchemy(engine)
+```yaml
+healthcheck:
+  test: ["CMD-SHELL", "curl -f http://localhost:11434/api/version || exit 1"]
+  interval: 30s
+  timeout: 10s
+  retries: 3
+  start_period: 120s
 ```
 
-### Śledzenie Funkcji
+### Konfiguracja Prometheus
 
-```python
-# Przykład użycia dekoratora
-from backend.core.telemetry import traced_function, traced_async_function
+Prometheus jest skonfigurowany do zbierania metryk z backendu FastAPI oraz innych komponentów systemu. Konfiguracja znajduje się w pliku `monitoring/prometheus.yml`.
 
-@traced_function(name="process_shopping_list")
-def process_shopping_list(items):
-    # Kod funkcji
-    pass
+### Konfiguracja Grafana
 
-@traced_async_function(name="fetch_product_data")
-async def fetch_product_data(product_id):
-    # Kod asynchronicznej funkcji
-    pass
+Grafana jest skonfigurowana do wyświetlania metryk z Prometheus i logów z Loki. Dashboardy są dostępne w katalogu `monitoring/grafana/dashboards`.
+
+## Uruchomienie Systemu Monitoringu
+
+System monitoringu można uruchomić za pomocą profilu `monitoring` w docker-compose:
+
+```bash
+docker compose up -d --profile monitoring
+```
+
+Dostęp do interfejsów:
+- Prometheus: http://localhost:9090
+- Grafana: http://localhost:3001 (domyślne dane logowania: admin/admin)
+
+## Rozwiązywanie Problemów
+
+### Problemy z Health Checkami
+
+Jeśli kontenery są oznaczone jako "unhealthy", sprawdź:
+1. Czy usługi są dostępne na oczekiwanych portach
+2. Czy narzędzia używane w health checkach (np. curl) są dostępne w kontenerach
+3. Czy parametry health checków (timeout, retries) są odpowiednio skonfigurowane
+
+### Problemy z Metrykami
+
+Jeśli metryki nie są widoczne w Prometheus/Grafana:
+1. Sprawdź, czy instrumentacja OpenTelemetry jest poprawnie skonfigurowana
+2. Sprawdź, czy Prometheus ma dostęp do endpointów z metrykami
+3. Zweryfikuj konfigurację data source w Grafana
+
+## Dobre Praktyki
+
+1. Używaj znaczących nazw dla metryk i logów
+2. Dodawaj odpowiednie etykiety do metryk dla lepszej filtracji
+3. Koreluj logi z metrykami za pomocą identyfikatorów trace
+4. Regularnie przeglądaj dashboardy w poszukiwaniu anomalii
+
+## Przydatne Polecenia
+
+```bash
+# Sprawdzenie logów serwisów monitoringu
+docker compose logs prometheus
+docker compose logs grafana
+
+# Sprawdzenie statusu health checków
+docker ps
+
+# Restart usług monitoringu
+docker compose restart prometheus grafana
 ```
 
 ## Uruchamianie Systemu Monitoringu

@@ -1,0 +1,7 @@
+FROM ollama/ollama:latest
+
+# Instalacja curl
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+
+# Kontynuuj z oryginalną konfiguracją
+CMD ["serve"]
