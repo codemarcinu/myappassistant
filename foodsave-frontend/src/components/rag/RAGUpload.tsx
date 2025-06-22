@@ -27,6 +27,8 @@ export default function RAGUpload({ onUpload }: RAGUploadProps) {
   const [query, setQuery] = useState('');
   const [queryResult, setQueryResult] = useState<string>('');
   const [querying, setQuerying] = useState(false);
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [showSearchResults, setShowSearchResults] = useState(false);
   const [description, setDescription] = useState('');
   const [tags, setTags] = useState('');
   const [selectedDirectory, setSelectedDirectory] = useState<string | null>(null);
@@ -102,10 +104,12 @@ export default function RAGUpload({ onUpload }: RAGUploadProps) {
     if (!query.trim()) return;
 
     setQuerying(true);
+    setShowSearchResults(false);
     try {
       const requestBody: any = {
         question: query,
-        max_results: 5,
+        max_results: 10,
+        include_sources: true,
       };
 
       if (selectedDirectory) {
@@ -122,12 +126,16 @@ export default function RAGUpload({ onUpload }: RAGUploadProps) {
 
       if (response.ok) {
         const result = await response.json();
-        setQueryResult(result.answer);
+        setQueryResult(result.answer || 'No answer found');
+        setSearchResults(result.sources || []);
+        setShowSearchResults(true);
       } else {
         setQueryResult('Error querying RAG system');
+        setSearchResults([]);
       }
     } catch (error) {
       setQueryResult('Error querying RAG system');
+      setSearchResults([]);
     } finally {
       setQuerying(false);
     }
@@ -399,10 +407,17 @@ export default function RAGUpload({ onUpload }: RAGUploadProps) {
 
       {/* Query Section */}
       <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-xl font-semibold mb-4 flex items-center">
-          <Search className="w-5 h-5 mr-2" />
-          Query Knowledge Base
-        </h2>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-semibold flex items-center">
+            <Search className="w-5 h-5 mr-2" />
+            Query Knowledge Base
+          </h2>
+          {selectedDirectory && (
+            <div className="text-sm text-blue-600 bg-blue-50 px-3 py-1 rounded-full">
+              📁 Searching in: {selectedDirectory}
+            </div>
+          )}
+        </div>
 
         <div className="flex gap-2">
           <input
@@ -410,7 +425,11 @@ export default function RAGUpload({ onUpload }: RAGUploadProps) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Ask a question about your documents..."
+            placeholder={
+              selectedDirectory
+                ? `Ask a question about documents in ${selectedDirectory}...`
+                : "Ask a question about your documents..."
+            }
             onKeyPress={(e) => e.key === 'Enter' && handleQuery()}
           />
           <button
@@ -428,9 +447,41 @@ export default function RAGUpload({ onUpload }: RAGUploadProps) {
         </div>
 
         {queryResult && (
-          <div className="mt-4 p-4 bg-gray-50 rounded-md">
-            <h3 className="font-medium text-gray-900 mb-2">Answer:</h3>
-            <p className="text-gray-700">{queryResult}</p>
+          <div className="mt-4 space-y-4">
+            <div className="p-4 bg-gray-50 rounded-md">
+              <h3 className="font-medium text-gray-900 mb-2">Answer:</h3>
+              <p className="text-gray-700">{queryResult}</p>
+            </div>
+
+            {showSearchResults && searchResults.length > 0 && (
+              <div className="p-4 bg-blue-50 rounded-md">
+                <h3 className="font-medium text-gray-900 mb-3">Sources ({searchResults.length}):</h3>
+                <div className="space-y-3">
+                  {searchResults.map((source, index) => (
+                    <div key={index} className="p-3 bg-white rounded border">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-medium text-sm text-gray-900">
+                          {source.filename || 'Unknown document'}
+                        </span>
+                        {source.metadata?.directory_path && (
+                          <span className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded">
+                            📁 {source.metadata.directory_path}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-gray-700 leading-relaxed">
+                        {source.content || source.text || 'No content available'}
+                      </p>
+                      {source.score && (
+                        <div className="mt-2 text-xs text-gray-500">
+                          Relevance: {Math.round(source.score * 100)}%
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
