@@ -490,6 +490,14 @@ class ApiServiceClass {
   public async getWeather(locations: string[], signal?: AbortSignal) {
     return this.get('/api/v2/weather/weather/', { locations }, signal);
   }
+
+  public async analyzeReceipt(ocrText: string) {
+    return this.post('/api/v2/receipts/analyze', { ocr_text: ocrText });
+  }
+
+  public async saveReceiptData(receiptData: any) {
+    return this.post('/api/v2/receipts/save', receiptData);
+  }
 }
 
 // Create a singleton instance
