@@ -2,6 +2,7 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
 
 from backend.agents.ocr_agent import OCRAgent, OCRAgentInput
+from backend.agents.receipt_analysis_agent import ReceiptAnalysisAgent
 from backend.api.v2.exceptions import (
     APIErrorCodes,
     BadRequestError,
@@ -100,6 +101,51 @@ async def upload_receipt(file: UploadFile = File(...)):
                 "status_code": 500,
                 "error_code": "INTERNAL_SERVER_ERROR",
                 "message": "Unexpected error processing receipt",
+                "details": {"error": str(e)},
+            },
+        )
+
+
+@router.post("/analyze", response_model=None)
+async def analyze_receipt(ocr_text: str = File(...)):
+    """Analyze OCR text from receipt and extract structured data.
+
+    Returns:
+        JSONResponse: Structured receipt data
+    """
+    try:
+        # Process OCR text with ReceiptAnalysisAgent
+        analysis_agent = ReceiptAnalysisAgent()
+        analysis_result = await analysis_agent.process({"ocr_text": ocr_text})
+
+        if not analysis_result.success:
+            raise UnprocessableEntityError(
+                message="Failed to analyze receipt data",
+                details={
+                    "error": analysis_result.error,
+                    "error_code": APIErrorCodes.RECEIPT_ANALYSIS_ERROR,
+                },
+            )
+
+        # Return structured receipt data
+        return JSONResponse(
+            status_code=200,
+            content={
+                "status_code": 200,
+                "message": "Receipt analyzed successfully",
+                "data": analysis_result.data,
+            },
+        )
+
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={
+                "status_code": 500,
+                "error_code": "INTERNAL_SERVER_ERROR",
+                "message": "Unexpected error analyzing receipt",
                 "details": {"error": str(e)},
             },
         )
