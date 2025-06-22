@@ -1,601 +1,162 @@
-# FoodSave AI - Contributing Guide
+# Przewodnik dla współtwórców projektu FoodSave AI
 
-## Overview
+## Wprowadzenie
 
-Thank you for your interest in contributing to FoodSave AI! This guide will help you understand how to contribute effectively to our project.
+Dziękujemy za zainteresowanie projektem FoodSave AI! Ten dokument zawiera wskazówki dotyczące procesu rozwoju, standardów kodowania i procedur współpracy. Przestrzeganie tych wytycznych pomoże utrzymać wysoką jakość kodu i ułatwi współpracę.
 
-## Table of Contents
+## Struktura projektu
 
-1. [Getting Started](#getting-started)
-2. [Development Setup](#development-setup)
-3. [Code Standards](#code-standards)
-4. [Testing Guidelines](#testing-guidelines)
-5. [Pull Request Process](#pull-request-process)
-6. [Issue Reporting](#issue-reporting)
-7. [Documentation](#documentation)
-8. [Community Guidelines](#community-guidelines)
+Projekt FoodSave AI składa się z dwóch głównych części:
 
-## Getting Started
+1. **Backend (FastAPI)** - Znajduje się w katalogu `src/backend`
+2. **Frontend (Next.js)** - Znajduje się w katalogu `foodsave-frontend`
 
-### Prerequisites
+## Przygotowanie środowiska deweloperskiego
 
-- Python 3.11+
+### Wymagania wstępne
+
+- Python 3.10+
 - Node.js 18+
-- Git
-- Docker (optional but recommended)
-- Basic understanding of AI/ML concepts
+- Docker i Docker Compose
+- Poetry (zarządzanie zależnościami Python)
+- npm lub yarn (zarządzanie zależnościami JavaScript)
 
-### First Steps
+### Konfiguracja środowiska
 
-1. **Fork the Repository**
+1. Sklonuj repozytorium:
    ```bash
-   # Fork on GitHub, then clone your fork
-   git clone https://github.com/your-username/my_ai_assistant.git
-   cd my_ai_assistant
+   git clone https://github.com/yourusername/foodsave-ai.git
+   cd foodsave-ai
    ```
 
-2. **Set Up Development Environment**
+2. Skonfiguruj backend:
    ```bash
-   # Backend setup
    cd src/backend
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   pip install -r requirements.txt
+   poetry install
+   ```
 
-   # Frontend setup
-   cd ../../foodsave-frontend
+3. Skonfiguruj frontend:
+   ```bash
+   cd foodsave-frontend
    npm install
    ```
 
-3. **Run the Application**
+4. Uruchom środowisko deweloperskie:
    ```bash
-   # Start backend
-   cd src/backend
-   uvicorn main:app --reload --port 8000
-
-   # Start frontend (in another terminal)
-   cd foodsave-frontend
-   npm run dev
+   docker-compose -f docker-compose.dev.yaml up
    ```
 
-## Development Setup
+## Konwencje kodowania
 
-### Environment Configuration
+### Python (Backend)
 
-1. **Copy Environment File**
-   ```bash
-   cp env.dev.example .env
-   ```
+- Używaj **PEP 8** jako podstawowego stylu kodowania
+- Maksymalna długość linii: 88 znaków (zgodnie z Black)
+- Używaj typowania statycznego (type hints)
+- Dokumentuj klasy i funkcje za pomocą docstringów w formacie Google
+- Używaj pytest do testów
 
-2. **Configure Required Variables**
-   ```bash
-   # Edit .env file with your settings
-   DATABASE_URL=postgresql://user:password@localhost:5432/foodsave
-   OLLAMA_BASE_URL=http://localhost:11434
-   SECRET_KEY=your_development_secret_key
-   ```
+### TypeScript/JavaScript (Frontend)
 
-### Database Setup
+- Używaj ESLint i Prettier do formatowania kodu
+- Używaj TypeScript zamiast JavaScript, gdy to możliwe
+- Preferuj komponenty funkcyjne i hooki React
+- Używaj testów jednostkowych z Jest i React Testing Library
 
-```bash
-# Create database
-createdb foodsave
+### Konwencje importów
 
-# Run migrations
-cd src/backend
-alembic upgrade head
+- W kodzie backendu używaj bezpośrednich importów z modułu `backend` zamiast `src.backend`
+  ```python
+  # Prawidłowo
+  from backend.agents.tools import ShoppingTool
+  
+  # Nieprawidłowo
+  from src.backend.agents.tools import ShoppingTool
+  ```
 
-# Seed with test data
-python scripts/seed_db.py
-```
+- Importy powinny być pogrupowane w następującej kolejności:
+  1. Importy standardowej biblioteki Python
+  2. Importy zewnętrznych bibliotek
+  3. Importy z projektu FoodSave AI
+  4. Importy lokalne z bieżącego modułu
 
-### AI Model Setup
+- Używaj importów bezwzględnych zamiast względnych, gdy to możliwe
 
-```bash
-# Install Ollama (if not already installed)
-curl -fsSL https://ollama.ai/install.sh | sh
+- Unikaj importów cyklicznych
 
-# Pull required models
-ollama pull llama2:7b
-ollama pull llama2:13b
-```
+- Sprawdzaj poprawność importów za pomocą narzędzi takich jak isort i mypy
 
-## Code Standards
+## Proces rozwoju
 
-### Python Backend
+### Gałęzie i przepływ pracy
 
-#### Code Style
+- `main` - główna gałąź produkcyjna
+- `develop` - gałąź rozwojowa
+- `feature/*` - gałęzie funkcji
+- `bugfix/*` - gałęzie naprawy błędów
+- `release/*` - gałęzie wydań
 
-- Follow PEP 8 style guide
-- Use Black for code formatting
-- Maximum line length: 88 characters
-- Use type hints for all functions
+### Proces Pull Request
 
-```python
-# ✅ Good example
-from typing import Dict, List, Optional
-from pydantic import BaseModel
+1. Utwórz nową gałąź z `develop` dla swojej funkcji lub poprawki
+2. Wprowadź zmiany i przetestuj je lokalnie
+3. Wypchnij zmiany do swojej gałęzi
+4. Utwórz pull request do gałęzi `develop`
+5. Poczekaj na przegląd kodu i testy CI
+6. Po zatwierdzeniu, twoje zmiany zostaną scalone
 
-class UserPreferences(BaseModel):
-    """User preferences for AI recommendations."""
+### Standardy commit
 
-    dietary_restrictions: List[str]
-    cooking_skill_level: str
-    preferred_cuisines: Optional[List[str]] = None
-
-def process_user_query(
-    query: str,
-    user_prefs: UserPreferences
-) -> Dict[str, any]:
-    """
-    Process user query with AI assistance.
-
-    Args:
-        query: User's natural language query
-        user_prefs: User's dietary preferences
-
-    Returns:
-        Processed response with recommendations
-    """
-    # Implementation here
-    pass
-```
-
-#### Project Structure
+Używaj konwencji Conventional Commits:
 
 ```
-src/backend/
-├── agents/           # AI agents and orchestration
-├── api/             # FastAPI endpoints
-├── core/            # Core business logic
-├── domain/          # Domain models and interfaces
-├── infrastructure/  # External service implementations
-├── models/          # Database models
-├── services/        # Business services
-└── tests/           # Test files
+<typ>(<zakres>): <opis>
+
+[opcjonalne ciało]
+
+[opcjonalne stopki]
 ```
 
-#### Naming Conventions
+Gdzie `<typ>` to jeden z:
+- `feat`: nowa funkcja
+- `fix`: naprawa błędu
+- `docs`: zmiany w dokumentacji
+- `style`: formatowanie, brakujące średniki itp.
+- `refactor`: refaktoryzacja kodu
+- `test`: dodawanie testów
+- `chore`: aktualizacje zadań budowania, konfiguracji itp.
 
-- **Files**: snake_case (e.g., `user_service.py`)
-- **Classes**: PascalCase (e.g., `UserService`)
-- **Functions**: snake_case (e.g., `get_user_preferences`)
-- **Constants**: UPPER_SNAKE_CASE (e.g., `MAX_RETRY_ATTEMPTS`)
-- **Variables**: snake_case (e.g., `user_preferences`)
+## Testowanie
 
-### Frontend (Next.js)
+### Backend
 
-#### Code Style
+- Wszystkie nowe funkcje powinny mieć testy jednostkowe
+- Uruchom testy za pomocą `pytest`
+- Sprawdź pokrycie kodu za pomocą `pytest --cov=backend`
 
-- Use TypeScript for all components
-- Follow ESLint and Prettier configurations
-- Use functional components with hooks
-- Implement proper error boundaries
+### Frontend
 
-```typescript
-// ✅ Good example
-import React, { useState, useEffect } from 'react';
-import { UserPreferences } from '@/types/user';
+- Testuj komponenty za pomocą Jest i React Testing Library
+- Uruchom testy za pomocą `npm test`
+- Dodaj testy e2e za pomocą Playwright dla krytycznych ścieżek
 
-interface ChatInterfaceProps {
-  userId: string;
-  onMessageSend: (message: string) => void;
-}
+## Dokumentacja
 
-export const ChatInterface: React.FC<ChatInterfaceProps> = ({
-  userId,
-  onMessageSend,
-}) => {
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+- Aktualizuj dokumentację API, gdy zmieniasz endpointy
+- Aktualizuj dokumentację użytkownika, gdy zmieniasz funkcje widoczne dla użytkownika
+- Dokumentuj złożone algorytmy i decyzje projektowe
 
-  const handleSendMessage = async (content: string) => {
-    setIsLoading(true);
-    try {
-      await onMessageSend(content);
-    } catch (error) {
-      console.error('Failed to send message:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+## Zgłaszanie problemów
 
-  return (
-    <div className="chat-interface">
-      {/* Component implementation */}
-    </div>
-  );
-};
-```
+- Użyj szablonów problemów do zgłaszania błędów lub propozycji funkcji
+- Podaj jak najwięcej szczegółów, w tym kroki do odtworzenia, oczekiwane i rzeczywiste zachowanie
+- Dołącz zrzuty ekranu lub logi, jeśli to możliwe
 
-#### Project Structure
+## Kontakt
 
-```
-foodsave-frontend/
-├── src/
-│   ├── app/          # Next.js app directory
-│   ├── components/   # Reusable components
-│   ├── hooks/        # Custom React hooks
-│   ├── services/     # API services
-│   ├── types/        # TypeScript type definitions
-│   └── utils/        # Utility functions
-├── public/           # Static assets
-└── tests/            # Test files
-```
+Jeśli masz pytania, które nie są objęte tym przewodnikiem, skontaktuj się z zespołem FoodSave AI:
 
-## Testing Guidelines
+- Email: team@foodsave.ai
+- Slack: #foodsave-development
 
-### Backend Testing
-
-#### Unit Tests
-
-```python
-# tests/unit/test_user_service.py
-import pytest
-from unittest.mock import Mock, patch
-from src.backend.services.user_service import UserService
-
-class TestUserService:
-    @pytest.fixture
-    def user_service(self):
-        return UserService()
-
-    @pytest.fixture
-    def mock_user_repo(self):
-        return Mock()
-
-    def test_get_user_preferences_success(self, user_service, mock_user_repo):
-        # Arrange
-        user_id = "test_user_123"
-        expected_prefs = {"dietary_restrictions": ["vegetarian"]}
-        mock_user_repo.get_preferences.return_value = expected_prefs
-
-        # Act
-        result = user_service.get_user_preferences(user_id)
-
-        # Assert
-        assert result == expected_prefs
-        mock_user_repo.get_preferences.assert_called_once_with(user_id)
-```
-
-#### Integration Tests
-
-```python
-# tests/integration/test_api_endpoints.py
-import pytest
-from fastapi.testclient import TestClient
-from src.backend.main import app
-
-client = TestClient(app)
-
-def test_chat_endpoint():
-    response = client.post(
-        "/api/v1/chat",
-        json={"message": "What can I cook with tomatoes?"}
-    )
-    assert response.status_code == 200
-    assert "response" in response.json()
-```
-
-#### Performance Tests
-
-```python
-# tests/performance/test_ai_response_time.py
-import time
-import pytest
-from src.backend.agents.chef_agent import ChefAgent
-
-def test_ai_response_time():
-    agent = ChefAgent()
-    start_time = time.time()
-
-    response = agent.process_query("Suggest a quick dinner recipe")
-
-    end_time = time.time()
-    response_time = end_time - start_time
-
-    assert response_time < 5.0  # Should respond within 5 seconds
-    assert response is not None
-```
-
-### Frontend Testing
-
-#### Component Tests
-
-```typescript
-// tests/components/ChatInterface.test.tsx
-import { render, screen, fireEvent } from '@testing-library/react';
-import { ChatInterface } from '@/components/chat/ChatInterface';
-
-describe('ChatInterface', () => {
-  const mockOnMessageSend = jest.fn();
-
-  beforeEach(() => {
-    mockOnMessageSend.mockClear();
-  });
-
-  it('should send message when form is submitted', () => {
-    render(
-      <ChatInterface
-        userId="test-user"
-        onMessageSend={mockOnMessageSend}
-      />
-    );
-
-    const input = screen.getByPlaceholderText('Type your message...');
-    const sendButton = screen.getByText('Send');
-
-    fireEvent.change(input, { target: { value: 'Hello AI!' } });
-    fireEvent.click(sendButton);
-
-    expect(mockOnMessageSend).toHaveBeenCalledWith('Hello AI!');
-  });
-});
-```
-
-#### E2E Tests
-
-```typescript
-// tests/e2e/chat-flow.spec.ts
-import { test, expect } from '@playwright/test';
-
-test('complete chat flow', async ({ page }) => {
-  await page.goto('/chat');
-
-  // Type a message
-  await page.fill('[data-testid="message-input"]', 'What can I cook?');
-  await page.click('[data-testid="send-button"]');
-
-  // Wait for AI response
-  await expect(page.locator('[data-testid="ai-response"]')).toBeVisible();
-
-  // Verify response contains cooking suggestions
-  const response = await page.textContent('[data-testid="ai-response"]');
-  expect(response).toContain('recipe');
-});
-```
-
-### Test Coverage Requirements
-
-- **Backend**: Minimum 80% code coverage
-- **Frontend**: Minimum 70% code coverage
-- **Critical paths**: 100% coverage required
-
-## Pull Request Process
-
-### Before Submitting
-
-1. **Create a Feature Branch**
-   ```bash
-   git checkout -b feature/your-feature-name
-   ```
-
-2. **Make Your Changes**
-   - Write clear, documented code
-   - Add appropriate tests
-   - Update documentation if needed
-
-3. **Run Tests**
-   ```bash
-   # Backend tests
-   cd src/backend
-   pytest --cov=src --cov-report=html
-
-   # Frontend tests
-   cd foodsave-frontend
-   npm test
-   npm run test:e2e
-   ```
-
-4. **Code Quality Checks**
-   ```bash
-   # Backend
-   black src/
-   flake8 src/
-   mypy src/
-
-   # Frontend
-   npm run lint
-   npm run type-check
-   ```
-
-### Pull Request Template
-
-```markdown
-## Description
-Brief description of changes
-
-## Type of Change
-- [ ] Bug fix
-- [ ] New feature
-- [ ] Breaking change
-- [ ] Documentation update
-
-## Testing
-- [ ] Unit tests pass
-- [ ] Integration tests pass
-- [ ] E2E tests pass
-- [ ] Manual testing completed
-
-## Checklist
-- [ ] Code follows style guidelines
-- [ ] Self-review completed
-- [ ] Documentation updated
-- [ ] No breaking changes introduced
-
-## Screenshots (if applicable)
-Add screenshots for UI changes
-
-## Related Issues
-Closes #123
-```
-
-### Review Process
-
-1. **Automated Checks**
-   - CI/CD pipeline runs tests
-   - Code coverage is checked
-   - Linting and formatting verified
-
-2. **Code Review**
-   - At least one maintainer must approve
-   - Address all review comments
-   - Update PR if requested
-
-3. **Merge**
-   - Squash commits if needed
-   - Use conventional commit messages
-   - Delete feature branch after merge
-
-## Issue Reporting
-
-### Bug Reports
-
-```markdown
-**Bug Description**
-Clear description of the bug
-
-**Steps to Reproduce**
-1. Go to '...'
-2. Click on '...'
-3. See error
-
-**Expected Behavior**
-What should happen
-
-**Actual Behavior**
-What actually happens
-
-**Environment**
-- OS: [e.g., Ubuntu 20.04]
-- Browser: [e.g., Chrome 120]
-- Python: [e.g., 3.11.0]
-- Node.js: [e.g., 18.17.0]
-
-**Additional Context**
-Screenshots, logs, etc.
-```
-
-### Feature Requests
-
-```markdown
-**Feature Description**
-Clear description of the feature
-
-**Use Case**
-Why this feature is needed
-
-**Proposed Solution**
-How you think it should work
-
-**Alternative Solutions**
-Other approaches considered
-
-**Additional Context**
-Any relevant information
-```
-
-## Documentation
-
-### Code Documentation
-
-- Use docstrings for all public functions and classes
-- Include type hints
-- Provide usage examples
-
-```python
-def analyze_food_waste(user_id: str, time_period: str) -> Dict[str, any]:
-    """
-    Analyze user's food waste patterns.
-
-    This function processes user's shopping and consumption data
-    to identify waste patterns and provide recommendations.
-
-    Args:
-        user_id: Unique identifier for the user
-        time_period: Analysis period ('week', 'month', 'year')
-
-    Returns:
-        Dictionary containing:
-        - waste_score: Float between 0-10
-        - recommendations: List of improvement suggestions
-        - patterns: Identified waste patterns
-
-    Raises:
-        UserNotFoundError: If user_id doesn't exist
-        InvalidTimePeriodError: If time_period is invalid
-
-    Example:
-        >>> result = analyze_food_waste("user123", "month")
-        >>> print(result['waste_score'])
-        3.5
-    """
-    pass
-```
-
-### API Documentation
-
-- Use OpenAPI/Swagger for API documentation
-- Include request/response examples
-- Document error codes and messages
-
-### User Documentation
-
-- Write clear, step-by-step guides
-- Include screenshots and videos
-- Provide troubleshooting sections
-
-## Community Guidelines
-
-### Code of Conduct
-
-1. **Be Respectful**
-   - Treat all contributors with respect
-   - Use inclusive language
-   - Be patient with newcomers
-
-2. **Be Helpful**
-   - Answer questions constructively
-   - Provide detailed feedback
-   - Share knowledge and resources
-
-3. **Be Professional**
-   - Keep discussions on-topic
-   - Follow project guidelines
-   - Maintain confidentiality when needed
-
-### Communication Channels
-
-- **GitHub Issues**: Bug reports and feature requests
-- **GitHub Discussions**: General questions and ideas
-- **Pull Requests**: Code contributions and reviews
-- **Documentation**: User guides and technical docs
-
-### Recognition
-
-- Contributors are recognized in the project README
-- Significant contributions are highlighted in release notes
-- Regular contributors may be invited to join the maintainer team
-
-## Getting Help
-
-### Resources
-
-- [Project Documentation](docs/)
-- [API Reference](docs/API_REFERENCE.md)
-- [Architecture Guide](docs/ARCHITECTURE_DOCUMENTATION.md)
-- [Testing Guide](docs/TESTING_GUIDE.md)
-
-### Support
-
-- Create an issue for bugs or feature requests
-- Use GitHub Discussions for questions
-- Join our community chat (if available)
-
----
-
-**Thank you for contributing to FoodSave AI!**
-
-**Last Updated**: December 22, 2024
-**Version**: 1.0
-**Maintainer**: FoodSave AI Team
+Dziękujemy za Twój wkład w projekt FoodSave AI!
