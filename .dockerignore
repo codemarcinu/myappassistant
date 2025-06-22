@@ -1,13 +1,37 @@
-# Git
-.git
-.github
+# Exclude monitoring data directories
+monitoring/grafana-data/
+monitoring/loki-data/
+monitoring/prometheus/
+
+# Exclude logs
+logs/
+
+# Exclude virtual environments
+venv/
+src/backend/venv/
+
+# Exclude version control
+.git/
+.github/
+.gitignore
+
+# Exclude cache files
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+
+# Exclude Docker files
+Dockerfile*
+docker-compose*
+.dockerignore
 
 # Docker
 Dockerfile
 docker-compose.yml
 
 # Python
-__pycache__/
 *.py[cod]
 *$py.class
 venv/
@@ -23,9 +47,6 @@ dist/
 .installed.cfg
 *.egg
 *.local
-.pytest_cache/
-.mypy_cache/
-.tox/
 htmlcov/
 *.cover
 *.log
@@ -51,10 +72,6 @@ data/uploads/*
 !data/uploads/.gitkeep
 data/docs/*
 !data/docs/.gitkeep
-
-# Logs
-logs/
-*.log
 
 # Archives
 archive/
