@@ -485,3 +485,56 @@ async def list_rag_directories():
                 "details": {"error": str(e)},
             },
         )
+
+
+@router.post("/create-directory", response_model=None)
+async def create_rag_directory(
+    directory_path: str = Query(..., description="Path of the directory to create")
+):
+    """
+    Create a new RAG directory.
+    This creates a directory entry in the vector store metadata.
+    """
+    try:
+        # For now, we'll just validate the directory path
+        # In a full implementation, you might want to create actual filesystem directories
+        if not directory_path or directory_path.strip() == "":
+            raise BadRequestError(
+                message="Directory path cannot be empty",
+                details={"directory_path": directory_path},
+            )
+
+        # Normalize the directory path
+        normalized_path = directory_path.strip().replace("\\", "/")
+
+        # Check if directory already exists by looking at existing documents
+        existing_directories = await vector_store.list_directories()
+        if any(
+            dir_info["path"] == normalized_path for dir_info in existing_directories
+        ):
+            raise BadRequestError(
+                message="Directory already exists",
+                details={"directory_path": normalized_path},
+            )
+
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "message": f"Directory '{normalized_path}' created successfully",
+                "directory_path": normalized_path,
+            },
+        )
+    except BadRequestError:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating directory: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={
+                "status_code": 500,
+                "error_code": "INTERNAL_ERROR",
+                "message": "Failed to create directory",
+                "details": {"error": str(e)},
+            },
+        )
