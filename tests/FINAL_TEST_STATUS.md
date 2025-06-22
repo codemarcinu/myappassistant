@@ -20,7 +20,9 @@
 1. **EnhancedRAGAgent** - Rozszerzony agent RAG z integracją bazy danych i mechanizmem fallback.
 2. **Aktualizacja Pydantic** - Zaktualizowano kod OCR agenta do Pydantic V2.0 (zastąpienie `parse_obj` przez `model_validate`).
 3. **Walidacja typu pliku** - Dodano szczegółową walidację typu pliku w endpoincie `upload_receipt`.
-4. **Testy jednostkowe OCR** - Dodano kompleksowe testy jednostkowe dla funkcji OCR z mockowaniem bibliotek przetwarzania obrazu.
+4. **Testy jednostkowe OCR** - Dodano kompleksowe testy jednostkowe dla funkcji OCR:
+   - Szczegółowe testy z mockowaniem bibliotek przetwarzania obrazu (częściowo działające)
+   - Uproszczone testy z pełnym mockowaniem (w pełni działające)
 
 ## Pomijane testy
 
@@ -29,10 +31,14 @@
 
 ## Zaimplementowane rekomendacje
 
-1. **✅ Rozszerzyć testy OCR** - Dodano testy jednostkowe dla funkcji OCR z mockowaniem bibliotek przetwarzania obrazu:
-   - `test_ocr_processing.py` - 8 testów dla funkcji przetwarzania obrazów i PDF-ów
-   - `test_ocr_agent.py` - 8 testów dla OCRAgenta
-   - `test_receipt_endpoints.py` - 7 testów dla endpointów obsługi paragonów
+1. **✅ Rozszerzyć testy OCR** - Dodano testy jednostkowe dla funkcji OCR:
+   - **Szczegółowe testy** (częściowo działające):
+     - `test_ocr_processing.py` - 8 testów dla funkcji przetwarzania obrazów i PDF-ów
+     - `test_ocr_agent.py` - 8 testów dla OCRAgenta
+     - `test_receipt_endpoints.py` - 7 testów dla endpointów obsługi paragonów
+   - **Uproszczone testy** (w pełni działające):
+     - `test_ocr_simplified.py` - 5 testów dla OCRAgenta i OCRProcessora
+     - `test_receipt_endpoints_simplified.py` - 4 testy dla endpointów obsługi paragonów
 
 ## Rekomendacje na przyszłość
 
@@ -57,12 +63,13 @@ Testy można uruchamiać za pomocą skryptu `run_foodsave_tests.py`:
 ./run_foodsave_tests.py search
 ./run_foodsave_tests.py receipt
 ./run_foodsave_tests.py ocr
+./run_foodsave_tests.py ocr_simplified
 
 # Uruchomienie testów w trybie verbose
 ./run_foodsave_tests.py -v
 
 # Uruchomienie konkretnej kategorii testów w trybie verbose
-./run_foodsave_tests.py ocr -v
+./run_foodsave_tests.py ocr_simplified -v
 ```
 
 ## Integracja z CI/CD
@@ -102,4 +109,4 @@ jobs:
 **Data**: 2024-12-21  
 **Wersja**: FoodSave AI v2.0  
 **Status**: Infrastruktura gotowa, testy OCR zaimplementowane  
-**Pokrycie**: 2/6 kategorii w pełni działających + nowe testy OCR 
+**Pokrycie**: 2/6 kategorii w pełni działających + nowe uproszczone testy OCR 

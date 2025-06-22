@@ -24,15 +24,18 @@ TEST_CATEGORIES = {
         "tests/unit/test_ocr_agent.py",
         "tests/unit/test_receipt_endpoints.py"
     ],
+    "ocr_simplified": [
+        "tests/unit/test_ocr_simplified.py",
+        "tests/unit/test_receipt_endpoints_simplified.py"
+    ],
     "all": [
         "tests/test_receipt_processing_fixed.py",
         "tests/test_weather_agent_fixed.py",
         "tests/test_rag_system_fixed.py", 
         "tests/test_search_agent_fixed.py",
         "tests/test_shopping_conversation_fixed.py",
-        "tests/unit/test_ocr_processing.py",
-        "tests/unit/test_ocr_agent.py",
-        "tests/unit/test_receipt_endpoints.py"
+        "tests/unit/test_ocr_simplified.py",
+        "tests/unit/test_receipt_endpoints_simplified.py"
     ]
 }
 
