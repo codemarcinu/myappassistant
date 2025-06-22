@@ -138,6 +138,13 @@ class AgentRouter(IAgentRouter):
         elif agent_type == AgentType.RAG:
             # For RAGAgent, use query as is
             return {**base_data, "query": user_command}
+        elif agent_type == AgentType.CATEGORIZATION:
+            # For CategorizationAgent, extract product name from user command
+            product_name = self._extract_product_name_from_query(user_command)
+            return {
+                **base_data,
+                "product_name": product_name,
+            }
         else:
             # For other agents, use base data
             return base_data
@@ -179,6 +186,39 @@ class AgentRouter(IAgentRouter):
             found_ingredients = ["jajka", "mleko", "mąka"]
 
         return found_ingredients
+
+    def _extract_product_name_from_query(self, query: str) -> str:
+        """Extract product name from user query"""
+        # Simple extraction - look for common product name words
+        query_lower = query.lower()
+        common_product_names = [
+            "mleko",
+            "mąka",
+            "cukier",
+            "sól",
+            "pieprz",
+            "olej",
+            "masło",
+            "cebula",
+            "czosnek",
+            "pomidory",
+            "ziemniaki",
+            "marchew",
+            "kurczak",
+            "wołowina",
+            "wieprzowina",
+            "ryż",
+            "makaron",
+            "ser",
+            "śmietana",
+        ]
+
+        for product_name in common_product_names:
+            if product_name in query_lower:
+                return product_name
+
+        # If no product name found, return the query itself or a default
+        return query.strip() if query.strip() else "Unknown Product"
 
     def _map_intent_to_agent_type(self, intent_type: str) -> AgentType:
         """Map intent type to agent type"""

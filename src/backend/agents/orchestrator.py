@@ -182,6 +182,15 @@ class Orchestrator:
     ) -> AgentResponse:
         """Process user command through the agent system"""
         try:
+            # Special case for health check
+            if user_command == "health_check_internal":
+                return AgentResponse(
+                    success=True,
+                    text="Orchestrator is responsive",
+                    data={"status": "ok", "message": "Orchestrator is responsive"},
+                    request_id=str(uuid.uuid4()),
+                )
+
             if not user_command:
                 return AgentResponse(
                     success=False,
@@ -335,6 +344,7 @@ class Orchestrator:
         """Initialize and register default agents using dynamic imports to avoid circular dependencies"""
         try:
             # Dynamic imports to avoid circular dependencies
+            from .categorization_agent import CategorizationAgent
             from .chef_agent import ChefAgent
             from .general_conversation_agent import GeneralConversationAgent
             from .ocr_agent import OCRAgent
@@ -349,6 +359,7 @@ class Orchestrator:
             self.weather_agent = WeatherAgent()
             self.rag_agent = RAGAgent(name="rag_agent")
             self.general_conversation_agent = GeneralConversationAgent()
+            self.categorization_agent = CategorizationAgent()
 
             # Register core agents
             self.register_agent(AgentType.CHEF, self.chef_agent)
@@ -356,6 +367,7 @@ class Orchestrator:
             self.register_agent(AgentType.OCR, self.ocr_agent)
             self.register_agent(AgentType.WEATHER, self.weather_agent)
             self.register_agent(AgentType.RAG, self.rag_agent)
+            self.register_agent(AgentType.CATEGORIZATION, self.categorization_agent)
             self.register_agent(
                 AgentType.GENERAL_CONVERSATION, self.general_conversation_agent
             )

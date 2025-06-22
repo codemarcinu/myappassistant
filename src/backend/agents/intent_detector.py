@@ -1,6 +1,7 @@
 import json
 import logging
-import subprocess
+
+import httpx
 
 from backend.agents.interfaces import IntentData, MemoryContext
 from backend.core.hybrid_llm_client import hybrid_llm_client
@@ -14,15 +15,13 @@ class SimpleIntentDetector:
         self.ollama_available = self._check_ollama_availability()
 
     def _check_ollama_availability(self) -> bool:
-        """Check if Ollama server is available"""
+        """Check if Ollama server is available via HTTP"""
         try:
-            result = subprocess.run(["ollama", "list"], capture_output=True, timeout=5)
-            return result.returncode == 0
-        except (
-            subprocess.TimeoutExpired,
-            FileNotFoundError,
-            subprocess.SubprocessError,
-        ):
+            # Try to connect to Ollama server via HTTP
+            response = httpx.get("http://ollama:11434/api/tags", timeout=5)
+            return response.status_code == 200
+        except Exception as e:
+            logger.debug(f"Ollama server not available: {e}")
             return False
 
     async def detect_intent(self, text: str, context: MemoryContext) -> IntentData:
@@ -174,6 +173,29 @@ class SimpleIntentDetector:
         if any(keyword in text_lower for keyword in shopping_keywords):
             logger.info(f"Shopping conversation intent detected for text: '{text}'")
             return IntentData(type="shopping_conversation", entities={}, confidence=0.9)
+
+        # Categorization detection - check before food conversation
+        categorization_keywords = [
+            "kategoryzuj",
+            "categorize",
+            "klasyfikuj",
+            "classify",
+            "kategoria",
+            "category",
+            "grupuj",
+            "group",
+            "sortuj",
+            "sort",
+            "organizuj",
+            "organize",
+            "przypisz kategorię",
+            "assign category",
+            "jaką kategorię",
+            "what category",
+        ]
+        if any(keyword in text_lower for keyword in categorization_keywords):
+            logger.info(f"Categorization intent detected for text: '{text}'")
+            return IntentData(type="categorization", entities={}, confidence=0.8)
 
         # Food conversation detection - expanded keywords
         food_keywords = [
