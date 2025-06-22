@@ -77,3 +77,8 @@ monitoring/loki-data/wal/
 monitoring/loki-data/index/
 # Grafana runtime data
 monitoring/grafana-data/
+
+# Ignore monitoring data
+monitoring/loki-data/
+monitoring/grafana-data/
+monitoring/prometheus/

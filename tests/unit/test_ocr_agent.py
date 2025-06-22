@@ -1,325 +1,187 @@
-from unittest.mock import patch
-
 import pytest
+from unittest.mock import AsyncMock, MagicMock, patch
 
-from src.backend.agents.error_types import AgentError
-from src.backend.agents.ocr_agent import OCRAgent
-from src.backend.core.ocr import OCRProcessor
-
-# sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../..", "src"))  # Usuń jeśli niepotrzebne
+from backend.agents.ocr_agent import OCRAgent, OCRAgentInput
+from backend.agents.interfaces import AgentResponse
 
 
 class TestOCRAgent:
-    """Testy dla OCR Agent - agenta przetwarzającego obrazy i dokumenty"""
+    """Unit tests for OCRAgent with mocked OCR processing."""
 
     @pytest.fixture
-    def ocr_agent(self):
-        """Fixture dla OCR Agent"""
-        return OCRAgent()
+    def sample_image_bytes(self):
+        """Sample image bytes for testing."""
+        return b"mock_image_data"
+
+    @pytest.fixture
+    def sample_pdf_bytes(self):
+        """Sample PDF bytes for testing."""
+        return b"mock_pdf_data"
 
     @pytest.mark.asyncio
-    async def test_process_image_success(self, ocr_agent):
-        """Test pomyślnego przetwarzania obrazu"""
-        # Given
-        input_data = {
-            "file_bytes": b"fake_image_data",
-            "file_type": "image",
+    async def test_ocr_agent_process_image(self, sample_image_bytes):
+        """Test OCRAgent.process with image input."""
+        # Create agent and input
+        agent = OCRAgent()
+        input_data = OCRAgentInput(file_bytes=sample_image_bytes, file_type="image")
+        
+        # Mock the process_image_file function
+        expected_text = "Sample receipt text\nMilk 3.99\nBread 4.50\nTotal 8.49"
+        
+        with patch('backend.core.ocr.process_image_file', return_value=expected_text):
+            # Process the image
+            result = await agent.process(input_data)
+            
+            # Verify the result
+            assert isinstance(result, AgentResponse)
+            assert result.success is True
+            assert result.text == expected_text
+            assert result.message == "Pomyślnie wyodrębniono tekst z pliku"
+            assert result.metadata == {"file_type": "image"}
+
+    @pytest.mark.asyncio
+    async def test_ocr_agent_process_pdf(self, sample_pdf_bytes):
+        """Test OCRAgent.process with PDF input."""
+        # Create agent and input
+        agent = OCRAgent()
+        input_data = OCRAgentInput(file_bytes=sample_pdf_bytes, file_type="pdf")
+        
+        # Mock the process_pdf_file function
+        expected_text = "Page 1\nInvoice #12345\nTotal: $123.45\n\nPage 2\nThank you for your business"
+        
+        with patch('backend.core.ocr.process_pdf_file', return_value=expected_text):
+            # Process the PDF
+            result = await agent.process(input_data)
+            
+            # Verify the result
+            assert isinstance(result, AgentResponse)
+            assert result.success is True
+            assert result.text == expected_text
+            assert result.message == "Pomyślnie wyodrębniono tekst z pliku"
+            assert result.metadata == {"file_type": "pdf"}
+
+    @pytest.mark.asyncio
+    async def test_ocr_agent_process_unsupported_file_type(self, sample_image_bytes):
+        """Test OCRAgent.process with unsupported file type."""
+        # Create agent and input with unsupported file type
+        agent = OCRAgent()
+        input_data = OCRAgentInput(file_bytes=sample_image_bytes, file_type="docx")
+        
+        # Process with unsupported file type
+        result = await agent.process(input_data)
+        
+        # Verify the error response
+        assert isinstance(result, AgentResponse)
+        assert result.success is False
+        assert "Nieobsługiwany typ pliku" in result.error
+        assert result.text is None
+
+    @pytest.mark.asyncio
+    async def test_ocr_agent_process_image_failure(self, sample_image_bytes):
+        """Test OCRAgent.process with image processing failure."""
+        # Create agent and input
+        agent = OCRAgent()
+        input_data = OCRAgentInput(file_bytes=sample_image_bytes, file_type="image")
+        
+        # Mock the process_image_file function to return None (failure)
+        with patch('backend.core.ocr.process_image_file', return_value=None):
+            # Process the image
+            result = await agent.process(input_data)
+            
+            # Verify the error response
+            assert isinstance(result, AgentResponse)
+            assert result.success is False
+            assert "Nie udało się rozpoznać tekstu z pliku" in result.error
+            assert result.text is None
+
+    @pytest.mark.asyncio
+    async def test_ocr_agent_process_exception(self, sample_image_bytes):
+        """Test OCRAgent.process with exception during processing."""
+        # Create agent and input
+        agent = OCRAgent()
+        input_data = OCRAgentInput(file_bytes=sample_image_bytes, file_type="image")
+        
+        # Mock the process_image_file function to raise an exception
+        with patch('backend.core.ocr.process_image_file', side_effect=Exception("Test error")):
+            # Process the image
+            result = await agent.process(input_data)
+            
+            # Verify the error response
+            assert isinstance(result, AgentResponse)
+            assert result.success is False
+            assert "Wystąpił błąd podczas przetwarzania pliku" in result.error
+            assert "Test error" in result.error
+            assert result.text is None
+
+    @pytest.mark.asyncio
+    async def test_ocr_agent_process_dict_input(self, sample_image_bytes):
+        """Test OCRAgent.process with dictionary input instead of OCRAgentInput."""
+        # Create agent and dictionary input
+        agent = OCRAgent()
+        input_dict = {
+            "file_bytes": sample_image_bytes,
+            "file_type": "image"
         }
-
-        with patch("src.backend.agents.ocr_agent.process_image_file") as mock_process:
-            mock_process.return_value = "Extracted text from image"
-
-            # When
-            response = await ocr_agent.process(input_data)
-
-            # Then
-            assert response.success is True
-            assert response.text == "Extracted text from image"
-            assert "file_type" in response.metadata
-
-    @pytest.mark.asyncio
-    async def test_process_image_missing_path(self, ocr_agent):
-        """Test przetwarzania bez podania ścieżki obrazu"""
-        # Given
-        input_data = {"file_bytes": b"fake_image_data"}  # Brak file_type
-
-        # When
-        response = await ocr_agent.process(input_data)
-
-        # Then
-        assert response.success is False
-        assert "validation error" in response.error.lower()
+        
+        # Mock the process_image_file function
+        expected_text = "Sample receipt text from dictionary input"
+        
+        with patch('backend.core.ocr.process_image_file', return_value=expected_text):
+            # Process with dictionary input
+            result = await agent.process(input_dict)
+            
+            # Verify the result
+            assert isinstance(result, AgentResponse)
+            assert result.success is True
+            assert result.text == expected_text
+            assert result.message == "Pomyślnie wyodrębniono tekst z pliku"
+            assert result.metadata == {"file_type": "image"}
 
     @pytest.mark.asyncio
-    async def test_process_image_ocr_error(self, ocr_agent):
-        """Test błędu OCR podczas przetwarzania"""
-        # Given
-        input_data = {"file_bytes": b"fake_image_data", "file_type": "image"}
-        with patch("src.backend.agents.ocr_agent.process_image_file") as mock_process:
-            mock_process.side_effect = Exception("OCR error")
-
-            # When
-            response = await ocr_agent.process(input_data)
-
-            # Then
-            assert response.success is False
-            assert "OCR error" in response.error
-
-    @pytest.mark.asyncio
-    async def test_process_image_with_llm_enhancement(self, ocr_agent):
-        """Test wzbogacania danych OCR przez LLM"""
-        # Given
-        input_data = {"file_bytes": b"fake_image_data", "file_type": "image"}
-
-        with patch("src.backend.agents.ocr_agent.process_image_file") as mock_process:
-            mock_process.return_value = "Extracted text"
-
-            # When
-            response = await ocr_agent.process(input_data)
-
-            # Then
-            assert response.success is True
-            assert "text" in response.__dict__
+    async def test_ocr_agent_process_invalid_input(self):
+        """Test OCRAgent.process with invalid input that fails validation."""
+        # Create agent and invalid input (missing required fields)
+        agent = OCRAgent()
+        invalid_input = {"some_field": "some_value"}
+        
+        # Process with invalid input
+        result = await agent.process(invalid_input)
+        
+        # Verify the error response
+        assert isinstance(result, AgentResponse)
+        assert result.success is False
+        assert "Błąd walidacji danych wejściowych" in result.error
 
     @pytest.mark.asyncio
-    async def test_process_pdf_success(self, ocr_agent):
-        """Test pomyślnego przetwarzania pliku PDF"""
-        # Given
-        input_data = {"file_bytes": b"fake_pdf_data", "file_type": "pdf"}
+    async def test_ocr_agent_execute(self, sample_image_bytes):
+        """Test OCRAgent.execute method."""
+        # Create agent
+        agent = OCRAgent()
+        
+        # Create context with file data
+        context = {
+            "file_bytes": sample_image_bytes,
+            "file_type": "image"
+        }
+        
+        # Mock the process method
+        mock_response = AgentResponse(
+            success=True,
+            text="Sample receipt text from execute method",
+            message="Pomyślnie wyodrębniono tekst z pliku",
+            metadata={"file_type": "image"}
+        )
+        
+        with patch.object(agent, 'process', AsyncMock(return_value=mock_response)) as mock_process:
+            # Execute the agent
+            result = await agent.execute("Extract text from receipt", context)
+            
+            # Verify the process method was called with the context
+            mock_process.assert_called_once_with(context)
+            
+            # Verify the result is the same as the mocked response
+            assert result == mock_response
 
-        with patch("src.backend.agents.ocr_agent.process_pdf_file") as mock_process:
-            mock_process.return_value = "Extracted text from PDF"
 
-            # When
-            response = await ocr_agent.process(input_data)
-
-            # Then
-            assert response.success is True
-            assert response.text == "Extracted text from PDF"
-
-    @pytest.mark.asyncio
-    async def test_process_unsupported_type(self, ocr_agent):
-        """Test przetwarzania nieobsługiwanego typu pliku"""
-        # Given
-        input_data = {"file_bytes": b"fake_data", "file_type": "xyz"}
-
-        # When
-        response = await ocr_agent.process(input_data)
-
-        # Then
-        assert response.success is False
-        assert "Nieobsługiwany typ pliku" in response.error
-
-    @pytest.mark.asyncio
-    async def test_process_large_image(self, ocr_agent):
-        """Test przetwarzania dużego obrazu"""
-        # Given
-        # Symulacja dużego obrazu (5MB)
-        large_image = b"0" * (5 * 1024 * 1024)
-        input_data = {"file_bytes": large_image, "file_type": "image"}
-
-        with patch("src.backend.agents.ocr_agent.process_image_file") as mock_process:
-            mock_process.return_value = "Extracted text from large image"
-
-            # When
-            response = await ocr_agent.process(input_data)
-
-            # Then
-            assert response.success is True
-
-    @pytest.mark.asyncio
-    async def test_process_with_multiple_pages(self, ocr_agent):
-        """Test przetwarzania dokumentu wielostronicowego"""
-        # Given
-        input_data = {"file_bytes": b"fake_pdf_data", "file_type": "pdf"}
-
-        with patch("src.backend.agents.ocr_agent.process_pdf_file") as mock_process:
-            mock_process.return_value = "Page 1 content\nPage 2 content"
-
-            # When
-            response = await ocr_agent.process(input_data)
-
-            # Then
-            assert response.success is True
-
-    @pytest.mark.asyncio
-    async def test_process_with_language_hint(self, ocr_agent):
-        """Test przetwarzania z podpowiedzią języka"""
-        # Given
-        input_data = {"file_bytes": b"fake_image_data", "file_type": "image"}
-
-        with patch("src.backend.agents.ocr_agent.process_image_file") as mock_process:
-            mock_process.return_value = "Extracted text"
-
-            # When
-            response = await ocr_agent.process(input_data)
-
-            # Then
-            assert response.success is True
-
-    @pytest.mark.asyncio
-    async def test_process_with_rotation_correction(self, ocr_agent):
-        """Test automatycznej korekty rotacji obrazu"""
-        # Given
-        input_data = {"file_bytes": b"fake_image_data", "file_type": "image"}
-
-        with patch("src.backend.agents.ocr_agent.process_image_file") as mock_process:
-            mock_process.return_value = "Extracted text from rotated image"
-
-            # When
-            response = await ocr_agent.process(input_data)
-
-            # Then
-            assert response.success is True
-
-    @pytest.mark.asyncio
-    async def test_process_with_table_extraction(self, ocr_agent):
-        """Test wyodrębniania tabel z dokumentów"""
-        # Given
-        input_data = {"file_bytes": b"fake_image_data", "file_type": "image"}
-
-        with patch("src.backend.agents.ocr_agent.process_image_file") as mock_process:
-            mock_process.return_value = "Table data extracted"
-
-            # When
-            response = await ocr_agent.process(input_data)
-
-            # Then
-            assert response.success is True
-
-    @pytest.mark.asyncio
-    async def test_process_with_specific_region(self, ocr_agent):
-        """Test przetwarzania określonego regionu obrazu"""
-        # Given
-        input_data = {"file_bytes": b"fake_image_data", "file_type": "image"}
-
-        with patch("src.backend.agents.ocr_agent.process_image_file") as mock_process:
-            mock_process.return_value = "Region specific text"
-
-            # When
-            response = await ocr_agent.process(input_data)
-
-            # Then
-            assert response.success is True
-
-    @pytest.mark.asyncio
-    async def test_process_with_fallback_engine(self, ocr_agent):
-        """Test użycia fallback engine w przypadku błędu"""
-        # Given
-        input_data = {"file_bytes": b"fake_image_data", "file_type": "image"}
-
-        with patch("src.backend.agents.ocr_agent.process_image_file") as mock_process:
-            mock_process.return_value = "Fallback text"
-
-            # When
-            response = await ocr_agent.process(input_data)
-
-            # Then
-            assert response.success is True
-
-    @pytest.mark.asyncio
-    async def test_process_with_quality_metrics(self, ocr_agent):
-        """Test zwracania metryk jakości OCR"""
-        # Given
-        input_data = {"file_bytes": b"fake_image_data", "file_type": "image"}
-
-        with patch("src.backend.agents.ocr_agent.process_image_file") as mock_process:
-            mock_process.return_value = "High quality text"
-
-            # When
-            response = await ocr_agent.process(input_data)
-
-            # Then
-            assert response.success is True
-
-    @pytest.mark.asyncio
-    async def test_process_with_image_enhancement(self, ocr_agent):
-        """Test automatycznego ulepszania obrazu przed OCR"""
-        # Given
-        input_data = {"file_bytes": b"fake_image_data", "file_type": "image"}
-
-        with patch("src.backend.agents.ocr_agent.process_image_file") as mock_process:
-            mock_process.return_value = "Enhanced image text"
-
-            # When
-            response = await ocr_agent.process(input_data)
-
-            # Then
-            assert response.success is True
-
-    @pytest.mark.asyncio
-    async def test_process_with_barcode_detection(self, ocr_agent):
-        """Test wykrywania kodów kreskowych"""
-        # Given
-        input_data = {"file_bytes": b"fake_image_data", "file_type": "image"}
-
-        with patch("src.backend.agents.ocr_agent.process_image_file") as mock_process:
-            mock_process.return_value = "Barcode detected: 123456789"
-
-            # When
-            response = await ocr_agent.process(input_data)
-
-            # Then
-            assert response.success is True
-
-    @pytest.mark.asyncio
-    async def test_process_with_specialized_model(self, ocr_agent):
-        """Test użycia specjalizowanego modelu OCR"""
-        # Given
-        input_data = {"file_bytes": b"fake_image_data", "file_type": "image"}
-
-        with patch("src.backend.agents.ocr_agent.process_image_file") as mock_process:
-            mock_process.return_value = "Specialized model text"
-
-            # When
-            response = await ocr_agent.process(input_data)
-
-            # Then
-            assert response.success is True
-
-    @pytest.mark.asyncio
-    async def test_process_with_streaming_output(self, ocr_agent):
-        """Test przetwarzania z streaming output"""
-        # Given
-        input_data = {"file_bytes": b"fake_image_data", "file_type": "image"}
-
-        with patch("src.backend.agents.ocr_agent.process_image_file") as mock_process:
-            mock_process.return_value = "Streaming text output"
-
-            # When
-            response = await ocr_agent.process(input_data)
-
-            # Then
-            assert response.success is True
-
-    @pytest.mark.asyncio
-    async def test_process_empty_text_result(self, ocr_agent):
-        """Test gdy OCR nie rozpoznaje tekstu"""
-        # Given
-        input_data = {"file_bytes": b"fake_image_data", "file_type": "image"}
-
-        with patch("src.backend.agents.ocr_agent.process_image_file") as mock_process:
-            mock_process.return_value = ""
-
-            # When
-            response = await ocr_agent.process(input_data)
-
-            # Then
-            assert response.success is False
-            assert "Nie udało się rozpoznać tekstu" in response.error
-
-    @pytest.mark.asyncio
-    async def test_process_none_text_result(self, ocr_agent):
-        """Test gdy OCR zwraca None"""
-        # Given
-        input_data = {"file_bytes": b"fake_image_data", "file_type": "image"}
-
-        with patch("src.backend.agents.ocr_agent.process_image_file") as mock_process:
-            mock_process.return_value = None
-
-            # When
-            response = await ocr_agent.process(input_data)
-
-            # Then
-            assert response.success is False
-            assert "Nie udało się rozpoznać tekstu" in response.error
+if __name__ == "__main__":
+    pytest.main(["-v", "test_ocr_agent.py"])
