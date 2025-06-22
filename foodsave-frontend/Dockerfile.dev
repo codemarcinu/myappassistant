@@ -2,7 +2,7 @@
 FROM node:18-alpine
 
 # Instalacja zależności systemowych
-RUN apk add --no-cache libc6-compat
+RUN apk add --no-cache libc6-compat wget
 
 # Ustawienie katalogu roboczego
 WORKDIR /app
@@ -13,6 +13,9 @@ COPY package.json package-lock.json* ./
 # Instalacja zależności
 RUN npm ci
 
+# Instalacja critters (wymagane przez Next.js)
+RUN npm install critters
+
 # Ekspozycja portu
 EXPOSE 3000
 
@@ -20,6 +23,11 @@ EXPOSE 3000
 ENV NODE_ENV=development
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
+ENV NEXT_TELEMETRY_DISABLED=1
+
+# Healthcheck
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD wget -q --spider http://localhost:3000/ || exit 1
 
 # Komenda startowa dla development
 CMD ["npm", "run", "dev"]

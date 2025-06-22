@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # Serwis Ollama dla lokalnych modeli LLM
   ollama:
@@ -20,9 +18,9 @@ services:
     networks:
       - foodsave-network
     environment:
-      - OLLAMA_HOST=0.0.0.0
+      - OLLAMA_HOST=${OLLAMA_HOST:-0.0.0.0}
+      - OLLAMA_KEEP_ALIVE=${OLLAMA_KEEP_ALIVE:-24h}
     command: serve
-    # No healthcheck for now since the container doesn't have wget or curl
     logging:
       driver: "json-file"
       options:
@@ -42,13 +40,23 @@ services:
       - ./:/app  # Mapowanie całego katalogu projektu
       - ./logs/backend:/app/logs
     environment:
-      - PYTHONPATH=/app
-      - ENVIRONMENT=development
-      - LOG_LEVEL=DEBUG
+      - PYTHONPATH=/app:/app/src
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - LOG_LEVEL=${LOG_LEVEL:-DEBUG}
+      - DATABASE_URL=postgresql://foodsave:foodsave_dev_password@postgres:5432/foodsave_dev
+      - OLLAMA_URL=http://ollama:11434
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-gemma3:12b}
+      - DEFAULT_CHAT_MODEL=${DEFAULT_CHAT_MODEL:-gemma3:12b}
+      - DEFAULT_CODE_MODEL=${DEFAULT_CODE_MODEL:-gemma3:12b}
+      - DEFAULT_EMBEDDING_MODEL=${DEFAULT_EMBEDDING_MODEL:-nomic-embed-text}
+      - RAG_VECTOR_STORE_PATH=${RAG_VECTOR_STORE_PATH:-/app/data/vector_store_dev}
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000,http://frontend:3000}
     networks:
       - foodsave-network
     depends_on:
       - ollama
+      - postgres
     command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--log-level=debug"]
     logging:
       driver: "json-file"
@@ -67,10 +75,11 @@ services:
       - "3000:3000"
     volumes:
       - ./foodsave-frontend:/app
-      - /app/node_modules
+      - frontend_node_modules:/app/node_modules
       - ./logs/frontend:/app/logs
     environment:
-      - NODE_ENV=development
+      - NODE_ENV=${NODE_ENV:-development}
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
       - NEXT_TELEMETRY_DISABLED=1
     networks:
       - foodsave-network
@@ -89,8 +98,33 @@ services:
         max-file: "3"
         tag: "{{.Name}}/{{.ID}}"
 
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15
+    container_name: foodsave-postgres-dev
+    ports:
+      - "5433:5432"  # Unikanie konfliktu portów
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-foodsave_dev}
+      - POSTGRES_USER=${POSTGRES_USER:-foodsave}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-foodsave_dev_password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./logs/postgres:/var/log/postgresql
+    networks:
+      - foodsave-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-foodsave}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 volumes:
   ollama_data:
+    driver: local
+  postgres_data:
+    driver: local
+  frontend_node_modules:
     driver: local
 
 networks:
