@@ -9,7 +9,7 @@ Agent obsługujący swobodne konwersacje na dowolny temat z wykorzystaniem:
 
 import asyncio
 import logging
-from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
+from typing import Any, AsyncGenerator, Dict, List, Tuple
 
 import numpy as np
 

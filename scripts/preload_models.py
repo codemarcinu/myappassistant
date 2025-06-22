@@ -50,12 +50,6 @@ def preload_ollama_models():
     try:
         logger.info("Checking for Ollama models to preload...")
 
-        # Lista modeli do pre-pobrania
-        models_to_preload = [
-            "llama2:7b",  # Podstawowy model
-            "llama2:13b",  # Większy model dla złożonych zadań
-        ]
-
         # Sprawdź czy Ollama jest dostępne
         import requests
 

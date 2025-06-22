@@ -1,24 +1,17 @@
 """
 Application Factory
 """
-
-import asyncio
-import logging
-import os
-import sys
-import uuid
 from contextlib import asynccontextmanager
 
 import structlog
-from fastapi import APIRouter, BackgroundTasks, FastAPI, Request
+from fastapi import APIRouter, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi import Limiter
 from slowapi.middleware import SlowAPIMiddleware
 from slowapi.util import get_remote_address
-from starlette.middleware.base import BaseHTTPMiddleware
 
-from backend.api import agents, chat, food, monitoring, pantry, upload
+from backend.api import agents, chat, food, pantry, upload, monitoring
 from backend.api.v1.endpoints import receipts
 from backend.api.v2.endpoints import rag as rag_v2
 from backend.api.v2.endpoints import receipts as receipts_v2
@@ -26,7 +19,6 @@ from backend.api.v2.endpoints import weather as weather_v2
 from backend.api.v2.exceptions import APIErrorDetail, APIException
 from backend.config import settings
 from backend.core.cache_manager import CacheManager
-from backend.core.container import Container
 from backend.core.database import AsyncSessionLocal, Base, engine
 from backend.core.exceptions import (
     BaseCustomException,
@@ -35,15 +27,12 @@ from backend.core.exceptions import (
 )
 from backend.core.middleware import (
     ErrorHandlingMiddleware,
-    PerformanceMonitoringMiddleware,
     RequestLoggingMiddleware,
     SecurityHeadersMiddleware,
 )
 from backend.core.migrations import run_migrations
 from backend.core.seed_data import seed_database
 from backend.core.telemetry import setup_telemetry
-from backend.orchestrator_management.orchestrator_pool import orchestrator_pool
-from backend.orchestrator_management.request_queue import request_queue
 
 logger = structlog.get_logger()
 limiter = Limiter(key_func=get_remote_address)
@@ -159,17 +148,11 @@ def create_app() -> FastAPI:
 
     # Versioned API routers
     api_v1_router = APIRouter()
-    api_v1_router.include_router(
-        receipts.router, prefix="/receipts", tags=["Receipts V1"]
-    )
+    api_v1_router.include_router(receipts.router, prefix="/receipts", tags=["Receipts V1"])
 
     api_v2_router = APIRouter()
-    api_v2_router.include_router(
-        receipts_v2.router, prefix="/receipts", tags=["Receipts V2"]
-    )
-    api_v2_router.include_router(
-        weather_v2.router, prefix="/weather", tags=["Weather V2"]
-    )
+    api_v2_router.include_router(receipts_v2.router, prefix="/receipts", tags=["Receipts V2"])
+    api_v2_router.include_router(weather_v2.router, prefix="/weather", tags=["Weather V2"])
     api_v2_router.include_router(rag_v2.router, prefix="/rag", tags=["RAG V2"])
 
     app.include_router(monitoring.router)

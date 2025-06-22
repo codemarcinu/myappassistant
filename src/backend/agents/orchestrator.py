@@ -1,12 +1,12 @@
 import logging
 import uuid
 from datetime import datetime
-from typing import AsyncGenerator, Callable, Dict, Optional
+from typing import Any, Callable, Dict, Optional
 
 import pybreaker
 
 from backend.core.profile_manager import ProfileManager
-from backend.core.sqlalchemy_compat import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession
 from backend.models.user_profile import InteractionType
 
 from .agent_router import AgentRouter
@@ -26,21 +26,19 @@ class Orchestrator:
 
     def __init__(
         self,
-        db: AsyncSession,
-        profile_manager: ProfileManager,
-        intent_detector,
-        agent_router: AgentRouter = None,
-        memory_manager: MemoryManager = None,
-        response_generator: ResponseGenerator = None,
+        db_session: Optional[AsyncSession] = None,
+        profile_manager: Optional[ProfileManager] = None,
+        intent_detector: Optional[IntentDetector] = None,
+        agent_router: Optional[AgentRouter] = None,
+        memory_manager: Optional[MemoryManager] = None,
+        response_generator: Optional[ResponseGenerator] = None,
     ):
-        self.db = db
+        self.db = db_session
         self.profile_manager = profile_manager
         self.intent_detector = intent_detector
-
-        # Initialize components with defaults if not provided
-        self.agent_router = agent_router or AgentRouter()
-        self.memory_manager = memory_manager or MemoryManager()
-        self.response_generator = response_generator or ResponseGenerator()
+        self.agent_router = agent_router
+        self.memory_manager = memory_manager
+        self.response_generator = response_generator
 
         # Initialize default agents
         self._initialize_default_agents()
@@ -207,7 +205,7 @@ class Orchestrator:
                     OrchestratorError("Profile manager not initialized")
                 )
 
-            user_profile = await self.profile_manager.get_or_create_profile(session_id)
+            # user_profile = await self.profile_manager.get_or_create_profile(session_id)
 
             if self.memory_manager is None:
                 logger.error("Memory manager is None")

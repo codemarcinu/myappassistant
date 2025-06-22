@@ -1,11 +1,26 @@
+import os
+import sys
+
+# Fix import paths before other imports
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
 import asyncio
 import logging
-import os
 import time
 from datetime import datetime
 from typing import Any, AsyncGenerator, Dict, List, Optional, Union
 
-logger = logging.getLogger(__name__)
+import httpx
+import ollama
+import structlog
+from ollama import AsyncClient
+
+from backend.config import settings
+from backend.core.async_patterns import async_retry
+
+logger = structlog.get_logger()
 
 # Configure ollama client to use the correct host
 ollama_host = os.getenv("OLLAMA_HOST", "localhost")

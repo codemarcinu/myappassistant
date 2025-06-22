@@ -246,14 +246,13 @@ class MetricsMiddleware:
 
 
 def record_agent_metrics(
-    agent_type: str, success: bool, duration: float, memory_usage: int = None
+    agent_type: str, success: bool, duration: float, memory_usage: int | None = None
 ):
-    """Record agent metrics"""
+    """Record agent performance metrics"""
     status = "success" if success else "error"
     AGENT_REQUEST_COUNT.labels(agent_type=agent_type, status=status).inc()
     AGENT_PROCESSING_TIME.labels(agent_type=agent_type).observe(duration)
-
-    if memory_usage:
+    if memory_usage is not None:
         AGENT_MEMORY_USAGE.labels(agent_type=agent_type).set(memory_usage)
 
 
@@ -267,24 +266,22 @@ def record_llm_metrics(
     model: str,
     success: bool,
     duration: float,
-    tokens: int = None,
+    tokens: int | None = None,
     token_type: str = "total",
 ):
-    """Record LLM metrics"""
+    """Record LLM performance metrics"""
     status = "success" if success else "error"
     LLM_REQUEST_COUNT.labels(model=model, status=status).inc()
     LLM_REQUEST_DURATION.labels(model=model).observe(duration)
-
-    if tokens:
+    if tokens is not None:
         LLM_TOKENS_USED.labels(model=model, type=token_type).inc(tokens)
 
 
-def record_vector_metrics(index_type: str, duration: float, store_size: int = None):
-    """Record vector store metrics"""
+def record_vector_metrics(index_type: str, duration: float, store_size: int | None = None):
+    """Record vector store performance metrics"""
     VECTOR_SEARCH_COUNT.labels(index_type=index_type).inc()
     VECTOR_SEARCH_DURATION.labels(index_type=index_type).observe(duration)
-
-    if store_size:
+    if store_size is not None:
         VECTOR_STORE_SIZE.labels(index_type=index_type).set(store_size)
 
 
@@ -308,28 +305,24 @@ def record_circuit_breaker_metrics(
 ):
     """Record circuit breaker metrics"""
     state_map = {"closed": 0, "open": 1, "half_open": 2}
-    CIRCUIT_BREAKER_STATE.labels(breaker_name=breaker_name).set(state_map.get(state, 0))
-
+    CIRCUIT_BREAKER_STATE.labels(breaker_name=breaker_name).set(state_map.get(state, -1))
     if failure:
         CIRCUIT_BREAKER_FAILURES.labels(breaker_name=breaker_name).inc()
 
 
-def get_metrics() -> str:
-    """Get Prometheus metrics as string"""
+def get_metrics() -> bytes:
+    """Generate latest metrics for Prometheus endpoint"""
     return generate_latest(registry)
 
 
 def get_metrics_dict() -> Dict[str, Any]:
-    """Get metrics as dictionary for API response"""
-    metrics_text = get_metrics()
+    """Generate latest metrics as a dictionary"""
+    metrics_text = get_metrics().decode("utf-8")
     metrics_dict = {}
-
-    for line in metrics_text.decode("utf-8").split("\n"):
-        if line and not line.startswith("#"):
-            try:
-                name, value = line.split(" ")
-                metrics_dict[name] = float(value)
-            except ValueError:
-                continue
-
+    for line in metrics_text.strip().split('\n'):
+        if not line.startswith("#"):
+            parts = line.split(" ")
+            key = parts[0]
+            value = parts[1]
+            metrics_dict[key] = value
     return metrics_dict

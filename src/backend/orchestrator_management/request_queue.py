@@ -21,9 +21,9 @@ class QueuedRequest:
 
 class RequestQueue:
     def __init__(self, max_queue_size: int = 1000, max_retries: int = 3):
-        self.queue = asyncio.Queue(maxsize=max_queue_size)
+        self.queue: asyncio.Queue[QueuedRequest] = asyncio.Queue(maxsize=max_queue_size)
         self.max_retries = max_retries
-        self.dead_letter_queue = asyncio.Queue()
+        self.dead_letter_queue: asyncio.Queue[QueuedRequest] = asyncio.Queue()
         logger.info(
             f"RequestQueue initialized with max_queue_size={max_queue_size}, max_retries={max_retries}"
         )
@@ -46,7 +46,7 @@ class RequestQueue:
             timestamp=time.time(),
         )
         try:
-            await self.queue.put_nowait(
+            self.queue.put_nowait(
                 request
             )  # put_nowait aby nie blokować, jeśli kolejka pełna
             logger.debug(f"Request '{request_id}' enqueued successfully.")

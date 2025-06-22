@@ -3,7 +3,7 @@ Perplexity API Client for enhanced search capabilities
 """
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, AsyncGenerator
 
 import httpx
 
@@ -49,7 +49,7 @@ class PerplexityClient:
     async def search(
         self,
         query: str,
-        model: str = None,
+        model: str | None = None,
         focus: Optional[str] = None,
         domain_filter: Optional[str] = None,
         max_results: int = 5,
@@ -175,7 +175,7 @@ class PerplexityClient:
             return {"success": False, "error": f"API error: {str(e)}", "results": []}
 
     async def search_with_sources(
-        self, query: str, model: str = None
+        self, query: str, model: str | None = None
     ) -> Dict[str, Any]:
         """
         Search with explicit request for sources
@@ -255,6 +255,58 @@ class PerplexityClient:
     def is_configured(self) -> bool:
         """Check if Perplexity API is properly configured"""
         return self.is_available and self.api_key is not None
+
+    async def stream_search(
+        self,
+        query: str,
+        model: str | None = None,
+    ) -> AsyncGenerator[Dict[str, Any], None]:
+        """
+        Perform a streaming search with Perplexity
+        """
+        if not self.is_available:
+            yield {
+                "success": False,
+                "error": "Perplexity API not available - no API key configured",
+            }
+            return
+
+        model = model or self.default_model
+        if model not in self.available_models:
+            logger.warning(
+                f"Model {model} not available, using default {self.default_model}"
+            )
+            model = self.default_model
+
+        try:
+            messages = [
+                {"role": "system", "content": "You are a helpful search assistant."},
+                {"role": "user", "content": query},
+            ]
+            payload = {
+                "model": model,
+                "messages": messages,
+                "stream": True,
+            }
+            headers = {
+                "accept": "application/json",
+                "content-type": "application/json",
+                "Authorization": f"Bearer {self.api_key}",
+            }
+
+            async with self.http_client.stream(
+                "POST", self.base_url, headers=headers, json=payload
+            ) as response:
+                response.raise_for_status()
+                async for chunk in response.aiter_bytes():
+                    if chunk:
+                        yield {"success": True, "chunk": chunk.decode("utf-8")}
+        except httpx.HTTPStatusError as e:
+            logger.error(f"Perplexity API stream error: {e.response.text}")
+            yield {"success": False, "error": f"HTTP error: {e.response.text}"}
+        except Exception as e:
+            logger.error(f"Perplexity stream error: {str(e)}")
+            yield {"success": False, "error": str(e)}
 
 
 # Global instance

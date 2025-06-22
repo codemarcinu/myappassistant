@@ -1,8 +1,42 @@
-import logging
+import os
+import sys
 
+# Fix import paths before other imports
+project_root = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+)
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+parent_dir = os.path.dirname(project_root)
+if parent_dir not in sys.path:
+    sys.path.insert(0, parent_dir)
+
+
+import asyncio
+import logging
+from typing import Dict
+
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Request,
+    WebSocket,
+    WebSocketDisconnect,
+)
+from fastapi.responses import StreamingResponse
+
+from backend.agents.orchestrator import Orchestrator
+from backend.core.container import Container
+from backend.schemas.chat import ChatRequest, ChatResponse, WebSocketResponse
+
+router = APIRouter()
 logger = logging.getLogger(__name__)
 
-from typing import Any, Dict, cast
+# This import is now after the sys.path modification
+from backend.orchestrator_management.request_queue import request_queue
+
+from typing import Any, cast
 
 from fastapi import APIRouter, BackgroundTasks, Depends
 from fastapi.responses import StreamingResponse
@@ -19,7 +53,6 @@ from backend.core.async_patterns import (
 from backend.core.llm_client import llm_client
 from backend.infrastructure.database.database import get_db
 from backend.orchestrator_management.orchestrator_pool import orchestrator_pool
-from backend.orchestrator_management.request_queue import request_queue
 
 # APIRouter działa jak "mini-aplikacja" FastAPI, grupując endpointy
 router = APIRouter()

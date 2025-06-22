@@ -1,6 +1,6 @@
 from typing import Any, Dict
 
-from backend.core.sqlalchemy_compat import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession
 from backend.core.vector_store import VectorStore
 
 

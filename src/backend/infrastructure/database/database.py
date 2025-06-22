@@ -3,8 +3,9 @@ import logging
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy.orm import DeclarativeBase, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from backend.config import settings
@@ -38,7 +39,8 @@ AsyncSessionLocal = sessionmaker(
 )
 
 # Create base class for SQLAlchemy models
-Base = declarative_base()
+class Base(DeclarativeBase):
+    pass
 
 
 # Enhanced async context manager for database sessions
@@ -124,7 +126,7 @@ async def check_database_health() -> dict:
     try:
         async with get_db_session() as session:
             # Simple query to test connection
-            await session.execute("SELECT 1")
+            await session.execute(text("SELECT 1"))
 
             # Update pool stats
             db_metrics.update_pool_stats(engine.pool)

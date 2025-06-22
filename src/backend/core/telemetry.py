@@ -141,7 +141,7 @@ class SpanContext:
 
 
 # Decorator dla funkcji z tracing
-def traced_function(name: str = None, attributes: Optional[dict] = None):
+def traced_function(name: str | None = None, attributes: Optional[dict] = None):
     """Decorator to add tracing to functions"""
 
     def decorator(func):
@@ -156,7 +156,7 @@ def traced_function(name: str = None, attributes: Optional[dict] = None):
 
 
 # Async decorator
-def traced_async_function(name: str = None, attributes: Optional[dict] = None):
+def traced_async_function(name: str | None = None, attributes: Optional[dict] = None):
     """Decorator to add tracing to async functions"""
 
     def decorator(func):

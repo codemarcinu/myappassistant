@@ -9,6 +9,8 @@ from backend.config import settings
 from backend.core.decorators import handle_exceptions
 from backend.core.hybrid_llm_client import hybrid_llm_client
 from backend.core.perplexity_client import perplexity_client
+from backend.core.llm_client import LLMClient
+from backend.core.vector_store import VectorStore
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +18,7 @@ logger = logging.getLogger(__name__)
 class SearchAgentInput:
     """Input model for SearchAgent"""
 
-    def __init__(self, query: str, model: str = None, max_results: int = 5):
+    def __init__(self, query: str, model: str | None = None, max_results: int = 5):
         self.query = query
         self.model = model or "gemma3:12b"  # Użyj domyślnego modelu
         self.max_results = max_results
@@ -25,8 +27,15 @@ class SearchAgentInput:
 class SearchAgent(BaseAgent):
     """Agent that performs web searches using DuckDuckGo and Perplexity"""
 
-    def __init__(self, name: str = "SearchAgent", **kwargs):
-        super().__init__(name, **kwargs)
+    def __init__(
+        self,
+        vector_store: VectorStore,
+        llm_client: LLMClient,
+        model: str | None = None,
+        embedding_model: str = "nomic-embed-text",
+    ):
+        super().__init__()
+        self.vector_store = vector_store
         self.search_url = "https://api.duckduckgo.com/"
         self.http_client = httpx.AsyncClient(
             timeout=30.0, headers={"User-Agent": settings.USER_AGENT}
