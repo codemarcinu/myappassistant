@@ -10,6 +10,11 @@ from backend.api.v2.exceptions import (
 
 router = APIRouter(prefix="/receipts", tags=["Receipts"])
 
+# Lista dozwolonych typów plików
+ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/jpg", "image/webp"]
+ALLOWED_PDF_TYPES = ["application/pdf"]
+ALLOWED_FILE_TYPES = ALLOWED_IMAGE_TYPES + ALLOWED_PDF_TYPES
+
 
 @router.post("/upload", response_model=None)
 async def upload_receipt(file: UploadFile = File(...)):
@@ -34,16 +39,29 @@ async def upload_receipt(file: UploadFile = File(...)):
                 },
             )
 
-        if file.content_type.startswith("image/"):
-            file_type = "image"
-        elif file.content_type == "application/pdf":
-            file_type = "pdf"
-        else:
+        # Sprawdzenie czy typ pliku jest dozwolony
+        if file.content_type not in ALLOWED_FILE_TYPES:
             raise BadRequestError(
                 message="Unsupported file type",
                 details={
                     "content_type": file.content_type,
-                    "supported_types": ["image/*", "application/pdf"],
+                    "supported_types": ALLOWED_FILE_TYPES,
+                },
+            )
+
+        # Określenie typu pliku dla OCR
+        if file.content_type in ALLOWED_IMAGE_TYPES:
+            file_type = "image"
+        elif file.content_type in ALLOWED_PDF_TYPES:
+            file_type = "pdf"
+        else:
+            # Ten kod nie powinien się wykonać ze względu na wcześniejszą walidację,
+            # ale dodajemy go dla pewności
+            raise BadRequestError(
+                message="Unsupported file type",
+                details={
+                    "content_type": file.content_type,
+                    "supported_types": ALLOWED_FILE_TYPES,
                 },
             )
 
