@@ -172,8 +172,10 @@ class GeneralConversationAgent(BaseAgent):
             else:
                 # Użyj lokalnego wyszukiwania
                 from .search_agent import SearchAgent
+                from backend.core.vector_store import vector_store
+                from backend.core.hybrid_llm_client import hybrid_llm_client
 
-                search_agent = SearchAgent()
+                search_agent = SearchAgent(vector_store=vector_store, llm_client=hybrid_llm_client)
                 search_result = await search_agent.process(
                     {"query": query, "max_results": 3, "use_perplexity": False}
                 )
