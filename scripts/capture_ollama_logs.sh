@@ -1,27 +1,29 @@
 #!/bin/bash
 
-# Script to capture Ollama logs and write them to a file
-# This allows Promtail to read Ollama logs from a file
+# Script to capture Ollama logs for monitoring
+# Author: FoodSave AI Team
+# Date: 2024
 
-LOG_DIR="/var/log/ollama"
-LOG_FILE="$LOG_DIR/ollama.log"
+LOG_DIR="logs/ollama"
+LOG_FILE="${LOG_DIR}/ollama_$(date +%Y%m%d_%H%M%S).log"
 
-# Create log directory if it doesn't exist
-mkdir -p "$LOG_DIR"
+# Ensure log directory exists
+mkdir -p ${LOG_DIR}
 
-# Function to handle cleanup
-cleanup() {
-    echo "$(date '+%Y-%m-%d %H:%M:%S') [INFO] Stopping Ollama log capture" >> "$LOG_FILE"
-    exit 0
-}
+echo "Starting Ollama log capture to ${LOG_FILE}"
+echo "Press Ctrl+C to stop logging"
 
-# Set up signal handlers
-trap cleanup SIGTERM SIGINT
+# Log Ollama container output
+docker logs -f foodsave-ollama 2>&1 | tee -a ${LOG_FILE} &
+DOCKER_PID=$!
 
-# Start Ollama and capture all output
-echo "$(date '+%Y-%m-%d %H:%M:%S') [INFO] Starting Ollama log capture" >> "$LOG_FILE"
-
-# Run ollama serve and capture all output
-exec ollama serve 2>&1 | while IFS= read -r line; do
-    echo "$(date '+%Y-%m-%d %H:%M:%S') $line" >> "$LOG_FILE"
+# Add timestamp to logs
+while read -r line; do
+  echo "$(date +'%Y/%m/%d %H:%M:%S') INFO $line" >> ${LOG_FILE}
 done
+
+# Handle Ctrl+C gracefully
+trap "kill $DOCKER_PID; echo 'Stopping log capture'; exit 0" SIGINT SIGTERM
+
+# Wait indefinitely
+wait $DOCKER_PID

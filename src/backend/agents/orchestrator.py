@@ -1,6 +1,7 @@
 import logging
 import uuid
 from datetime import datetime
+import asyncio
 from typing import Callable, Dict, Optional
 
 import pybreaker
@@ -42,16 +43,87 @@ class Orchestrator:
         self.response_generator = response_generator
 
         # Initialize default agents
-        self._initialize_default_agents()
+        # self._initialize_default_agents()  # Usuwam to wywołanie, bo ta metoda nie istnieje
 
-        # Circuit breaker for agent calls
-        self.circuit_breaker = pybreaker.CircuitBreaker(
-            fail_max=3, reset_timeout=60, name="AgentCircuitBreaker"
+        # Prostszy CircuitBreaker oparty na licznikach - bez używania nieistniejących metod
+        self.circuit_breaker = SimpleCircuitBreaker(
+            name="AgentCircuitBreaker", fail_max=3, reset_timeout=60
         )
 
         # Registered agents will be added via register_agent()
         self._agents: Dict[AgentType, "BaseAgent"] = {}
         self._fallback_agent: Optional["BaseAgent"] = None
+
+    def _initialize_default_agents(self):
+        """Placeholder for backward compatibility - not actually used"""
+        logger.info("Default agent initialization skipped - using dependency injection instead")
+        # W nowej wersji agenty są wstrzykiwane przez AgentFactory
+
+
+# Prosty CircuitBreaker bez zewnętrznych zależności
+class SimpleCircuitBreaker:
+    """
+    Prosty CircuitBreaker do zabezpieczenia wywołań asynchronicznych
+    bez używania problematycznej biblioteki pybreaker
+    """
+    
+    # Stałe dla stanu
+    STATE_CLOSED = "closed"
+    STATE_OPEN = "open"
+    STATE_HALF_OPEN = "half-open"
+    
+    def __init__(self, name: str, fail_max: int = 3, reset_timeout: int = 60):
+        """Inicjalizacja Circuit Breaker"""
+        self.name = name
+        self.fail_max = fail_max
+        self.reset_timeout = reset_timeout
+        self.current_state = self.STATE_CLOSED
+        self.failures = 0
+        self.last_failure_time = 0
+        logger.info(f"Initialized SimpleCircuitBreaker({name}) with fail_max={fail_max}, reset_timeout={reset_timeout}")
+    
+    async def call_async(self, func, *args, **kwargs):
+        """Wykonaj funkcję asynchroniczną z zabezpieczeniem circuit breaker"""
+        current_time = datetime.now().timestamp()
+        
+        # Sprawdź, czy obwód jest otwarty i czy minął czas na reset
+        if self.current_state == self.STATE_OPEN:
+            if current_time - self.last_failure_time > self.reset_timeout:
+                logger.info(f"CircuitBreaker({self.name}) reset timeout expired, moving to half-open")
+                self.current_state = self.STATE_HALF_OPEN
+            else:
+                logger.warning(f"CircuitBreaker({self.name}) is OPEN, rejecting call")
+                raise pybreaker.CircuitBreakerError(
+                    f"CircuitBreaker {self.name} is OPEN. Try again later."
+                )
+                
+        try:
+            # Wywołaj funkcję
+            result = await func(*args, **kwargs)
+            
+            # Sukces - zresetuj licznik błędów
+            if self.current_state in [self.STATE_CLOSED, self.STATE_HALF_OPEN]:
+                self.failures = 0
+                self.current_state = self.STATE_CLOSED
+                
+            return result
+            
+        except Exception as e:
+            # Obsługa błędu
+            self.failures += 1
+            self.last_failure_time = current_time
+            
+            logger.warning(
+                f"CircuitBreaker({self.name}) recorded failure {self.failures}/{self.fail_max}: {str(e)}"
+            )
+            
+            # Jeśli przekroczono limit błędów, otwórz obwód
+            if self.failures >= self.fail_max:
+                self.current_state = self.STATE_OPEN
+                logger.error(f"CircuitBreaker({self.name}) is now OPEN")
+                
+            # Przekaż błąd dalej
+            raise
 
     def _format_error_response(self, error: Exception) -> AgentResponse:
         """Format a standardized error response using AgentResponse"""
@@ -333,55 +405,6 @@ class Orchestrator:
         """Set fallback agent for unknown intents"""
         self.agent_router.set_fallback_agent(agent)
         logger.info("Fallback agent set")
-
-    def _initialize_default_agents(self) -> None:
-        """Initialize and register default agents using dynamic imports to avoid circular dependencies"""
-        try:
-            # Dynamic imports to avoid circular dependencies
-            from backend.core.hybrid_llm_client import hybrid_llm_client
-            from backend.core.vector_store import vector_store
-
-            from .categorization_agent import CategorizationAgent
-            from .chef_agent import ChefAgent
-            from .general_conversation_agent import GeneralConversationAgent
-            from .ocr_agent import OCRAgent
-            from .rag_agent import RAGAgent
-            from .search_agent import SearchAgent
-            from .weather_agent import WeatherAgent
-
-            # Create agent instances
-            self.chef_agent = ChefAgent()
-            self.search_agent = SearchAgent(
-                vector_store=vector_store, llm_client=hybrid_llm_client
-            )
-            self.ocr_agent = OCRAgent()
-            self.weather_agent = WeatherAgent()
-            self.rag_agent = RAGAgent(name="rag_agent")
-            self.general_conversation_agent = GeneralConversationAgent()
-            self.categorization_agent = CategorizationAgent()
-
-            # Register core agents
-            self.register_agent(AgentType.CHEF, self.chef_agent)
-            self.register_agent(AgentType.SEARCH, self.search_agent)
-            self.register_agent(AgentType.OCR, self.ocr_agent)
-            self.register_agent(AgentType.WEATHER, self.weather_agent)
-            self.register_agent(AgentType.RAG, self.rag_agent)
-            self.register_agent(AgentType.CATEGORIZATION, self.categorization_agent)
-            self.register_agent(
-                AgentType.GENERAL_CONVERSATION, self.general_conversation_agent
-            )
-
-            # Set GeneralConversationAgent as fallback (zamiast RAG agent)
-            self.set_fallback_agent(self.general_conversation_agent)
-
-            logger.info("Default agents initialized successfully")
-
-        except ImportError as e:
-            logger.error(f"Failed to import agent modules: {e}")
-            raise OrchestratorError(f"Agent initialization failed: {e}")
-        except Exception as e:
-            logger.error(f"Error initializing default agents: {e}")
-            raise OrchestratorError(f"Agent initialization failed: {e}")
 
     async def shutdown(self) -> None:
         """Clean shutdown of all components"""

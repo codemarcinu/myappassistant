@@ -1,10 +1,9 @@
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from unittest.mock import MagicMock
 
-from backend.agents.interfaces import AgentResponse
 from backend.agents.chef_agent import ChefAgent
+from backend.agents.interfaces import AgentResponse
 
 
 @pytest.mark.asyncio

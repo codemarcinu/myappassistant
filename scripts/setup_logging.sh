@@ -85,7 +85,7 @@ fi
 
 if docker ps | grep -q "foodsave-loki"; then
     echo "✓ Loki is running"
-else 
+else
     echo "✗ Loki failed to start - check logs with: docker logs foodsave-loki"
 fi
 
@@ -108,4 +108,4 @@ echo ""
 echo "Loki API: http://localhost:3100"
 echo "========================================"
 
-exit 0 
+exit 0

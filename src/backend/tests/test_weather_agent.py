@@ -1,7 +1,6 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from unittest.mock import AsyncMock
 
 from backend.agents.interfaces import AgentResponse
 from backend.agents.weather_agent import WeatherAgent, WeatherRequest

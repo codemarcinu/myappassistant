@@ -9,6 +9,25 @@ echo "### Starting Development Environment ###"
 mkdir -p logs/backend
 mkdir -p logs/frontend
 
+# Run logging services first
+echo "Starting logging services..."
+./scripts/setup_logging.sh
+
+# Rest of the script
+echo "Starting development services..."
+docker compose -f docker-compose.dev.yaml up -d
+
+# Give services some time to initialize
+sleep 5
+
+echo "All services started successfully!"
+echo "Frontend available at: http://localhost:3000"
+echo "Backend available at: http://localhost:8000/docs"
+echo "Grafana logs dashboard at: http://localhost:3030"
+echo "Login with:"
+echo "  - Username: admin"
+echo "  - Password: foodsave"
+
 # 1. Backend Setup
 echo "--- Setting up backend ---"
 (

@@ -20,6 +20,7 @@ class InteractionType(str, Enum):
     FEEDBACK = "feedback"
     SETTING_CHANGE = "setting_change"
     FILE_UPLOAD = "file_upload"
+    CHAT = "chat"
 
 
 class Formality(str, Enum):

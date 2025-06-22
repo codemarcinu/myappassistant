@@ -51,7 +51,7 @@ class SimpleIntentDetector:
 
             logger.debug(f"Sending intent detection request for text: {text}")
             response = await hybrid_llm_client.chat(
-                model="gemma3:12b",
+                model="SpeakLeash/bielik-4.5b-v3.0-instruct:Q8_0",
                 messages=messages,
                 stream=False,
                 options={"temperature": 0.0},

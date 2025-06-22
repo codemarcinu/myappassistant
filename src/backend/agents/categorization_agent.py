@@ -24,7 +24,7 @@ class CategorizationAgent(BaseAgent):
         # Sprawdź flagę use_bielik
         use_bielik = context.get("use_bielik", True)
         model = (
-            "SpeakLeash/bielik-11b-v2.3-instruct:Q5_K_M" if use_bielik else "gemma3:12b"
+            "SpeakLeash/bielik-11b-v2.3-instruct:Q5_K_M" if use_bielik else "SpeakLeash/bielik-4.5b-v3.0-instruct:Q8_0"
         )
 
         prompt = get_categorization_prompt(product_name)

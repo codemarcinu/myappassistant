@@ -34,28 +34,28 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
 
     # Redis Configuration
-    REDIS_HOST: str = "localhost"
+    REDIS_HOST: str = "redis"
     REDIS_PORT: int = 6379
     REDIS_DB: int = 0
     REDIS_PASSWORD: str = ""
     REDIS_USE_CACHE: bool = True
 
     # Konfiguracja dla klienta Ollama
-    OLLAMA_URL: str = "http://localhost:11434"
-    OLLAMA_BASE_URL: str = "http://localhost:11434"
+    OLLAMA_URL: str = "http://ollama:11434"
+    OLLAMA_BASE_URL: str = "http://ollama:11434"
 
     # Modele językowe - z fallback na działające modele
-    OLLAMA_MODEL: str = "gemma3:12b"  # Główny model
-    DEFAULT_CODE_MODEL: str = "gemma3:12b"  # Fallback zamiast problematycznego bielik
-    DEFAULT_CHAT_MODEL: str = "gemma3:12b"  # Model do ogólnej konwersacji
+    OLLAMA_MODEL: str = "SpeakLeash/bielik-4.5b-v3.0-instruct:Q8_0"  # Główny model
+    DEFAULT_CODE_MODEL: str = "SpeakLeash/bielik-4.5b-v3.0-instruct:Q8_0"  # Fallback zamiast problematycznego bielik
+    DEFAULT_CHAT_MODEL: str = "SpeakLeash/bielik-4.5b-v3.0-instruct:Q8_0"  # Model do ogólnej konwersacji
     DEFAULT_EMBEDDING_MODEL: str = "nomic-embed-text"  # Model do embeddingów
 
     # Lista dostępnych modeli (w kolejności preferencji)
     AVAILABLE_MODELS: list = [
-        "gemma3:12b",  # Główny model
-        "gemma3:8b",  # Lżejszy model
-        "llama3.2:3b",  # Alternatywny model
-        "mistral:7b",  # Kolejna alternatywa
+        "SpeakLeash/bielik-4.5b-v3.0-instruct:Q8_0",  # Główny model
+        "SpeakLeash/bielik-4.5b-v3.0-instruct:Q8_0",  # Jedyny dostępny model
+        "SpeakLeash/bielik-4.5b-v3.0-instruct:Q8_0",  # Jedyny dostępny model
+        "SpeakLeash/bielik-4.5b-v3.0-instruct:Q8_0",  # Jedyny dostępny model
     ]
 
     # Konfiguracja dla modelu MMLW (opcjonalny, lepszy dla języka polskiego)

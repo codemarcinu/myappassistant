@@ -1,7 +1,6 @@
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from unittest.mock import MagicMock
 
 from backend.agents.adapters.fallback_manager import (
     FallbackManager,

@@ -147,8 +147,8 @@ async def memory_chat_generator(request: MemoryChatRequest, db: AsyncSession):
                 "use_perplexity": request.usePerplexity,
                 "use_bielik": request.useBielik,
                 "agent_states": request.agent_states,
-                "chat_event": "request_received"
-            }
+                "chat_event": "request_received",
+            },
         )
 
         # Get a healthy orchestrator from the pool
@@ -221,8 +221,10 @@ async def memory_chat_generator(request: MemoryChatRequest, db: AsyncSession):
                         "response_length": len(response_text),
                         "success": response.success,
                         "chat_event": "response_completed",
-                        "processing_time_ms": int((asyncio.get_event_loop().time() - start_time) * 1000)
-                    }
+                        "processing_time_ms": int(
+                            (asyncio.get_event_loop().time() - start_time) * 1000
+                        ),
+                    },
                 )
                 yield json.dumps(
                     {
@@ -234,7 +236,9 @@ async def memory_chat_generator(request: MemoryChatRequest, db: AsyncSession):
                 ) + "\n"
             else:
                 # Stream all collected chunks
-                total_response_length = sum(len(chunk.get("text", "")) for chunk in chunks)
+                total_response_length = sum(
+                    len(chunk.get("text", "")) for chunk in chunks
+                )
                 logger.info(
                     "Chat streaming response completed",
                     extra={
@@ -243,8 +247,10 @@ async def memory_chat_generator(request: MemoryChatRequest, db: AsyncSession):
                         "total_response_length": total_response_length,
                         "success": all(chunk.get("success", True) for chunk in chunks),
                         "chat_event": "streaming_completed",
-                        "processing_time_ms": int((asyncio.get_event_loop().time() - start_time) * 1000)
-                    }
+                        "processing_time_ms": int(
+                            (asyncio.get_event_loop().time() - start_time) * 1000
+                        ),
+                    },
                 )
                 for chunk in chunks:
                     yield json.dumps(
@@ -259,15 +265,15 @@ async def memory_chat_generator(request: MemoryChatRequest, db: AsyncSession):
     except Exception as e:
         error_time = int((asyncio.get_event_loop().time() - start_time) * 1000)
         logger.error(
-            f"Error in memory_chat_generator: {str(e)}", 
+            f"Error in memory_chat_generator: {str(e)}",
             exc_info=True,
             extra={
                 "session_id": request.session_id,
                 "error_type": type(e).__name__,
                 "error_message": str(e),
                 "chat_event": "error",
-                "processing_time_ms": error_time
-            }
+                "processing_time_ms": error_time,
+            },
         )
         yield json.dumps(
             {"text": f"Wystąpił błąd serwera: {str(e)}", "success": False}

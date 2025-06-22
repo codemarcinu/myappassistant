@@ -33,7 +33,7 @@ scrape_configs:
           job: backend_logs
           service: foodsave-backend
           __path__: /logs/backend/test.log
-          
+
   # Chat test logs - JSON format
   - job_name: chat_test_logs
     static_configs:

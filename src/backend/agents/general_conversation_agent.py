@@ -357,7 +357,7 @@ class GeneralConversationAgent(BaseAgent):
             if complexity == ModelComplexity.SIMPLE:
                 return "gemma3:2b"  # Mniejszy model dla prostych zapytań
             else:
-                return "gemma3:12b"  # Większy model dla złożonych
+                return "SpeakLeash/bielik-4.5b-v3.0-instruct:Q8_0"  # Większy model dla złożonych
 
     async def process_stream(
         self, input_data: Dict[str, Any]

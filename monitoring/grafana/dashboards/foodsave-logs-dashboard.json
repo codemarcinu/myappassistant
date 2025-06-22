@@ -11,12 +11,6 @@
         "hide": true,
         "iconColor": "rgba(0, 211, 255, 1)",
         "name": "Annotations & Alerts",
-        "target": {
-          "limit": 100,
-          "matchAny": false,
-          "tags": [],
-          "type": "dashboard"
-        },
         "type": "dashboard"
       }
     ]
@@ -24,21 +18,305 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 2,
+  "id": null,
   "links": [],
   "liveNow": false,
   "panels": [
     {
       "datasource": {
         "type": "loki",
-        "uid": "loki_foodsave_ds"
+        "uid": "loki_foodsave_logs"
       },
-      "description": "Container logs from Docker",
+      "description": "Log volumes by service over time",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "normal"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unitScale": true
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "legend": {
+          "calcs": ["sum", "max"],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki_foodsave_logs"
+          },
+          "editorMode": "code",
+          "expr": "sum by(job) (count_over_time({job=~\".+\"}[5m]))",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "Log Volume by Service",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki_foodsave_logs"
+      },
+      "description": "Error counts by service",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unitScale": true
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "id": 2,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.5,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "right",
+          "showLegend": true
+        },
+        "orientation": "auto",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki_foodsave_logs"
+          },
+          "editorMode": "code",
+          "expr": "sum by(job) (count_over_time({job=~\".+\"} |~ \"(?i)error|exception|fail\" [1h]))",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "Error Count by Service (Last Hour)",
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki_foodsave_logs"
+      },
       "gridPos": {
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 0
+        "y": 8
+      },
+      "id": 3,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki_foodsave_logs"
+          },
+          "editorMode": "code",
+          "expr": "{job=\"backend\"} | logfmt | level=\"error\" or level=\"ERROR\"",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "Backend Errors",
+      "type": "logs"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki_foodsave_logs"
+      },
+      "description": "",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 16
+      },
+      "id": 4,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki_foodsave_logs"
+          },
+          "editorMode": "code",
+          "expr": "{job=\"backend\"}",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "Backend Logs",
+      "type": "logs"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki_foodsave_logs"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 16
+      },
+      "id": 5,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki_foodsave_logs"
+          },
+          "editorMode": "code",
+          "expr": "{job=\"frontend\"}",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "Frontend Logs",
+      "type": "logs"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki_foodsave_logs"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 24
       },
       "id": 6,
       "options": {
@@ -55,121 +333,10 @@
         {
           "datasource": {
             "type": "loki",
-            "uid": "loki_foodsave_ds"
+            "uid": "loki_foodsave_logs"
           },
           "editorMode": "code",
-          "expr": "{container=~\".*foodsave.*\"} |~ \"$logLevel\"",
-          "queryType": "range",
-          "refId": "A"
-        }
-      ],
-      "title": "All Container Logs",
-      "type": "logs"
-    },
-    {
-      "datasource": {
-        "type": "loki",
-        "uid": "loki_foodsave_ds"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 24,
-        "x": 0,
-        "y": 8
-      },
-      "id": 1,
-      "options": {
-        "dedupStrategy": "none",
-        "enableLogDetails": true,
-        "prettifyLogMessage": false,
-        "showCommonLabels": false,
-        "showLabels": false,
-        "showTime": true,
-        "sortOrder": "Descending",
-        "wrapLogMessage": true
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki_foodsave_ds"
-          },
-          "editorMode": "code",
-          "expr": "{job=\"foodsave-backend\"} |~ \"$logLevel\" OR {container=~\".*backend.*\"} |~ \"$logLevel\"",
-          "queryType": "range",
-          "refId": "A"
-        }
-      ],
-      "title": "Backend Logs",
-      "type": "logs"
-    },
-    {
-      "datasource": {
-        "type": "loki",
-        "uid": "loki_foodsave_ds"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 24,
-        "x": 0,
-        "y": 16
-      },
-      "id": 2,
-      "options": {
-        "dedupStrategy": "none",
-        "enableLogDetails": true,
-        "prettifyLogMessage": false,
-        "showCommonLabels": false,
-        "showLabels": false,
-        "showTime": true,
-        "sortOrder": "Descending",
-        "wrapLogMessage": true
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki_foodsave_ds"
-          },
-          "editorMode": "code",
-          "expr": "{job=\"foodsave-frontend\"} |~ \"$logLevel\" OR {container=~\".*frontend.*\"} |~ \"$logLevel\"",
-          "queryType": "range",
-          "refId": "A"
-        }
-      ],
-      "title": "Frontend Logs",
-      "type": "logs"
-    },
-    {
-      "datasource": {
-        "type": "loki",
-        "uid": "loki_foodsave_ds"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 24,
-        "x": 0,
-        "y": 24
-      },
-      "id": 3,
-      "options": {
-        "dedupStrategy": "none",
-        "enableLogDetails": true,
-        "prettifyLogMessage": false,
-        "showCommonLabels": false,
-        "showLabels": false,
-        "showTime": true,
-        "sortOrder": "Descending",
-        "wrapLogMessage": true
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki_foodsave_ds"
-          },
-          "editorMode": "code",
-          "expr": "{job=\"ollama\"} |~ \"$logLevel\" OR {container=~\".*ollama.*\"} |~ \"$logLevel\"",
+          "expr": "{job=\"ollama\"}",
           "queryType": "range",
           "refId": "A"
         }
@@ -180,21 +347,21 @@
     {
       "datasource": {
         "type": "loki",
-        "uid": "loki_foodsave_ds"
+        "uid": "loki_foodsave_logs"
       },
       "gridPos": {
         "h": 8,
         "w": 12,
-        "x": 0,
-        "y": 32
+        "x": 12,
+        "y": 24
       },
-      "id": 4,
+      "id": 7,
       "options": {
         "dedupStrategy": "none",
         "enableLogDetails": true,
-        "prettifyLogMessage": false,
+        "prettifyLogMessage": true,
         "showCommonLabels": false,
-        "showLabels": false,
+        "showLabels": true,
         "showTime": true,
         "sortOrder": "Descending",
         "wrapLogMessage": true
@@ -203,181 +370,70 @@
         {
           "datasource": {
             "type": "loki",
-            "uid": "loki_foodsave_ds"
+            "uid": "loki_foodsave_logs"
           },
           "editorMode": "code",
-          "expr": "{job=~\".*\"} |~ \"(?i)error\" OR {container=~\".*\"} |~ \"(?i)error\"",
+          "expr": "{job=~\".+\"} |~ \"(?i)error|exception|fail|timeout\"",
           "queryType": "range",
           "refId": "A"
         }
       ],
-      "title": "All Errors",
+      "title": "All Errors (Any Service)",
       "type": "logs"
-    },
-    {
-      "datasource": {
-        "type": "loki",
-        "uid": "loki_foodsave_ds"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 32
-      },
-      "id": 5,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki_foodsave_ds"
-          },
-          "editorMode": "code",
-          "expr": "sum by(container) (count_over_time({container=~\".*\"}[5m]))",
-          "legendFormat": "{{container}}",
-          "queryType": "range",
-          "refId": "A"
-        }
-      ],
-      "title": "Log Volume by Container",
-      "type": "timeseries"
     }
   ],
   "refresh": "10s",
   "schemaVersion": 38,
   "style": "dark",
-  "tags": [],
+  "tags": ["logs", "foodsave"],
   "templating": {
     "list": [
       {
         "current": {
           "selected": false,
-          "text": ".*",
-          "value": ".*"
+          "text": "All",
+          "value": "$__all"
         },
+        "datasource": {
+          "type": "loki",
+          "uid": "loki_foodsave_logs"
+        },
+        "definition": "label_values(job)",
         "hide": 0,
-        "name": "logLevel",
-        "options": [
-          {
-            "selected": true,
-            "text": ".*",
-            "value": ".*"
-          },
-          {
-            "selected": false,
-            "text": "DEBUG",
-            "value": "DEBUG"
-          },
-          {
-            "selected": false,
-            "text": "INFO",
-            "value": "INFO"
-          },
-          {
-            "selected": false,
-            "text": "WARNING",
-            "value": "WARNING"
-          },
-          {
-            "selected": false,
-            "text": "ERROR",
-            "value": "ERROR"
-          },
-          {
-            "selected": false,
-            "text": "CRITICAL",
-            "value": "CRITICAL"
-          }
-        ],
-        "query": ".*,DEBUG,INFO,WARNING,ERROR,CRITICAL",
+        "includeAll": true,
+        "label": "Service",
+        "multi": false,
+        "name": "service",
+        "options": [],
+        "query": "label_values(job)",
+        "refresh": 1,
+        "regex": "",
         "skipUrlSync": false,
-        "type": "custom"
+        "sort": 1,
+        "type": "query"
       },
       {
         "current": {
           "selected": false,
           "text": "All",
-          "value": ".*"
+          "value": "$__all"
         },
         "datasource": {
           "type": "loki",
-          "uid": "loki_foodsave_ds"
+          "uid": "loki_foodsave_logs"
         },
-        "definition": "label_values(container)",
+        "definition": "label_values(level)",
         "hide": 0,
         "includeAll": true,
+        "label": "Log Level",
         "multi": false,
-        "name": "container",
+        "name": "level",
         "options": [],
-        "query": "label_values(container)",
+        "query": "label_values(level)",
         "refresh": 1,
         "regex": "",
         "skipUrlSync": false,
-        "sort": 0,
+        "sort": 1,
         "type": "query"
       }
     ]
@@ -386,7 +442,9 @@
     "from": "now-1h",
     "to": "now"
   },
-  "timepicker": {},
+  "timepicker": {
+    "refresh_intervals": ["10s", "30s", "1m", "5m", "15m", "30m", "1h", "2h"]
+  },
   "timezone": "",
   "title": "FoodSave Logs Dashboard",
   "uid": "foodsave-logs",

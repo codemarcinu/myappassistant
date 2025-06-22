@@ -5,10 +5,10 @@ This module provides caching functionality for expensive operations like RAG sea
 """
 
 import asyncio
+import hashlib
 import json
 import logging
 import pickle
-import hashlib
 import time
 from functools import wraps
 from typing import Any, Dict, Optional, Tuple, TypeVar, Union, cast
@@ -35,13 +35,14 @@ DEFAULT_CACHE_TTL = 3600  # 1 hour in seconds
 RAG_CACHE_TTL = 1800  # 30 minutes
 INTERNET_CACHE_TTL = 600  # 10 minutes
 
+
 class QueryCache:
     """Simple in-memory cache for query results"""
-    
+
     def __init__(self, name: str, ttl: int = DEFAULT_CACHE_TTL, max_size: int = 100):
         """
         Initialize a new query cache
-        
+
         Args:
             name: Name of the cache for logging
             ttl: Time-to-live in seconds for cache entries
@@ -54,22 +55,24 @@ class QueryCache:
         self.hits = 0
         self.misses = 0
         logger.info(f"Initialized {name} cache with TTL={ttl}s, max_size={max_size}")
-        
+
     def _generate_key(self, query: str, **kwargs) -> str:
         """Generate a cache key from the query and additional parameters"""
         # Create a string representation of kwargs sorted by key
-        kwargs_str = "&".join(f"{k}={v}" for k, v in sorted(kwargs.items()) if v is not None)
+        kwargs_str = "&".join(
+            f"{k}={v}" for k, v in sorted(kwargs.items()) if v is not None
+        )
         key_str = f"{query}|{kwargs_str}" if kwargs_str else query
         return hashlib.md5(key_str.encode()).hexdigest()
-        
+
     def get(self, query: str, **kwargs) -> Optional[Any]:
         """
         Get a value from the cache
-        
+
         Args:
             query: The query string
             **kwargs: Additional parameters that affect the result
-            
+
         Returns:
             The cached value or None if not found or expired
         """
@@ -83,35 +86,35 @@ class QueryCache:
             else:
                 # Expired
                 del self.cache[key]
-                
+
         self.misses += 1
         logger.debug(f"{self.name} cache MISS: {query[:30]}...")
         return None
-        
+
     def set(self, query: str, value: Any, **kwargs) -> None:
         """
         Store a value in the cache
-        
+
         Args:
             query: The query string
             value: The value to cache
             **kwargs: Additional parameters that affect the result
         """
         key = self._generate_key(query, **kwargs)
-        
+
         # If cache is full, remove oldest entry
         if len(self.cache) >= self.max_size:
             oldest_key = min(self.cache.items(), key=lambda x: x[1][1])[0]
             del self.cache[oldest_key]
-            
+
         self.cache[key] = (value, time.time())
         logger.debug(f"{self.name} cache SET: {query[:30]}...")
-        
+
     def clear(self) -> None:
         """Clear the cache"""
         self.cache.clear()
         logger.info(f"{self.name} cache cleared")
-        
+
     def get_stats(self) -> Dict[str, Any]:
         """Get cache statistics"""
         total = self.hits + self.misses
@@ -125,6 +128,7 @@ class QueryCache:
             "misses": self.misses,
             "hit_rate": hit_rate,
         }
+
 
 class CacheManager:
     """Redis cache manager with automatic serialization/deserialization"""
@@ -331,16 +335,18 @@ cache_manager = CacheManager()
 rag_cache = QueryCache("RAG", ttl=RAG_CACHE_TTL)
 internet_cache = QueryCache("Internet", ttl=INTERNET_CACHE_TTL)
 
+
 def cached_async(cache_instance: QueryCache):
     """
     Decorator for caching async function results
-    
+
     Args:
         cache_instance: The cache instance to use
-        
+
     Returns:
         Decorated function
     """
+
     def decorator(func):
         @wraps(func)
         async def wrapper(*args, **kwargs):
@@ -350,24 +356,26 @@ def cached_async(cache_instance: QueryCache):
                 query = args[1]
             elif "query" in kwargs:
                 query = kwargs["query"]
-                
+
             if not query:
                 return await func(*args, **kwargs)
-                
+
             # Try to get from cache
             cache_result = cache_instance.get(query, **kwargs)
             if cache_result is not None:
                 return cache_result
-                
+
             # Not in cache, call function
             result = await func(*args, **kwargs)
-            
+
             # Store in cache
             cache_instance.set(query, result, **kwargs)
             return result
-            
+
         return wrapper
+
     return decorator
+
 
 # Cache decorator for functions
 def cache_result(

@@ -17,7 +17,7 @@ class ChefAgentInput(BaseModel):
     dietary_restrictions: Optional[str] = Field(
         None, description="Dietary restrictions"
     )
-    model: Optional[str] = Field("gemma3:12b", description="LLM model to use")
+    model: Optional[str] = Field("SpeakLeash/bielik-4.5b-v3.0-instruct:Q8_0", description="LLM model to use")
 
 
 class RecipeSuggestion(BaseModel):
@@ -54,7 +54,7 @@ class ChefAgent(BaseAgent):
             model = (
                 "SpeakLeash/bielik-11b-v2.3-instruct:Q5_K_M"
                 if use_bielik
-                else "gemma3:12b"
+                else "SpeakLeash/bielik-4.5b-v3.0-instruct:Q8_0"
             )
 
             # Aktualizuj input_data z wybranym modelem
@@ -97,7 +97,7 @@ class ChefAgent(BaseAgent):
         self,
         ingredients: List[str],
         dietary_restrictions: Optional[str] = None,
-        model: str = "gemma3:12b",
+        model: str = "SpeakLeash/bielik-4.5b-v3.0-instruct:Q8_0",
     ) -> AgentResponse:
         """Generate recipe from given ingredients"""
         if not ingredients:
@@ -147,14 +147,14 @@ class ChefAgent(BaseAgent):
         )
 
     async def generate_recipe_idea(
-        self, db: Any, model: str = "gemma3:12b"
+        self, db: Any, model: str = "SpeakLeash/bielik-4.5b-v3.0-instruct:Q8_0"
     ) -> AgentResponse:
         """
         Generates recipe ideas based on available pantry items.
 
         Args:
             db: Database session
-            model: LLM model to use for generating the recipe (default: gemma3:12b)
+            model: LLM model to use for generating the recipe (default: SpeakLeash/bielik-4.5b-v3.0-instruct:Q8_0)
 
         Returns:
             AgentResponse with recipe suggestion or error message

@@ -12,10 +12,7 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 
-from backend.core.exceptions import (
-    BaseCustomException,
-    convert_system_exception,
-)
+from backend.core.exceptions import BaseCustomException, convert_system_exception
 from backend.core.monitoring import async_memory_profiling_context
 
 logger = logging.getLogger(__name__)

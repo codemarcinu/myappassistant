@@ -34,7 +34,7 @@ class MealPlannerAgent(BaseAgent):
             model = (
                 "SpeakLeash/bielik-11b-v2.3-instruct:Q5_K_M"
                 if use_bielik
-                else "gemma3:12b"
+                else "SpeakLeash/bielik-4.5b-v3.0-instruct:Q8_0"
             )
 
             products_list = []

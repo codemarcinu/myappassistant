@@ -9,6 +9,7 @@ services:
       - "11434:11434"
     volumes:
       - ollama_data:/root/.ollama
+      - ./logs/ollama:/var/log/ollama
     deploy:
       resources:
         reservations:
@@ -21,6 +22,12 @@ services:
     environment:
       - OLLAMA_HOST=0.0.0.0
     command: ["ollama", "serve"]
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "{{.Name}}/{{.ID}}"
 
   # Backend FastAPI - Development Mode
   backend:
@@ -33,14 +40,22 @@ services:
     volumes:
       - ./src/backend:/app
       - /app/venv
+      - ./logs/backend:/app/logs
     environment:
       - PYTHONPATH=/app
       - ENVIRONMENT=development
+      - LOG_LEVEL=DEBUG
     networks:
       - foodsave-network
     depends_on:
       - ollama
-    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--log-level=debug"]
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "{{.Name}}/{{.ID}}"
 
   # Frontend Next.js - Development Mode
   frontend:
@@ -53,6 +68,7 @@ services:
     volumes:
       - ./foodsave-frontend:/app
       - /app/node_modules
+      - ./logs/frontend:/app/logs
     environment:
       - NODE_ENV=development
       - NEXT_TELEMETRY_DISABLED=1
@@ -60,6 +76,12 @@ services:
       - foodsave-network
     depends_on:
       - backend
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "{{.Name}}/{{.ID}}"
 
 volumes:
   ollama_data:

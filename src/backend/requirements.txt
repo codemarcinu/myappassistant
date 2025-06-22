@@ -1,0 +1,2 @@
+# Dodaję langdetect do istniejących zależności
+langdetect==1.0.9 

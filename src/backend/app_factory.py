@@ -145,7 +145,7 @@ def create_app() -> FastAPI:
     api_router.include_router(upload.router, prefix="/upload", tags=["Upload"])
     api_router.include_router(food.router, prefix="/food", tags=["Food"])
     api_router.include_router(pantry.router, prefix="/pantry", tags=["Pantry"])
-    api_router.include_router(agents.router, prefix="/agents", tags=["Agents"])
+    api_router.include_router(agents.router, prefix="/agents/agents", tags=["Agents"])
 
     # Versioned API routers
     api_v1_router = APIRouter()

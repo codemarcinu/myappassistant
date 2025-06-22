@@ -50,7 +50,7 @@ class WeatherRequest(BaseModel):
     location: str
     days: int = Field(default=3, ge=1, le=7)
     include_alerts: bool = True
-    model: str = "gemma3:12b"  # Użyj domyślnego modelu
+    model: str = "SpeakLeash/bielik-4.5b-v3.0-instruct:Q8_0"  # Użyj domyślnego modelu
 
 
 class WeatherAlert(BaseModel):
@@ -166,7 +166,7 @@ class WeatherAgent(BaseAgent):
             model = (
                 "SpeakLeash/bielik-11b-v2.3-instruct:Q5_K_M"
                 if use_bielik
-                else "gemma3:12b"
+                else "SpeakLeash/bielik-4.5b-v3.0-instruct:Q8_0"
             )
             include_alerts = input_data.get("include_alerts", True)
 

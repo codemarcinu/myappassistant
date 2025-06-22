@@ -20,7 +20,7 @@ class SearchAgentInput:
 
     def __init__(self, query: str, model: str | None = None, max_results: int = 5):
         self.query = query
-        self.model = model or "gemma3:12b"  # Użyj domyślnego modelu
+        self.model = model or "SpeakLeash/bielik-4.5b-v3.0-instruct:Q8_0"  # Użyj domyślnego modelu
         self.max_results = max_results
 
 

@@ -159,7 +159,7 @@ class AgentRouter(IAgentRouter):
                 **base_data,
                 "ingredients": ingredients,
                 "dietary_restrictions": None,
-                "model": "gemma3:12b",
+                "model": "SpeakLeash/bielik-4.5b-v3.0-instruct:Q8_0",
             }
         elif agent_type == AgentType.RAG:
             # For RAGAgent, use query as is

@@ -87,7 +87,7 @@ class RAGDocumentProcessor:
         vector_store: Optional[VectorStore] = None,
         chunk_size: int = 500,
         chunk_overlap: int = 50,
-        embedding_model: str = "gemma3:12b",
+        embedding_model: str = "SpeakLeash/bielik-4.5b-v3.0-instruct:Q8_0",
         use_local_embeddings: bool = False,
         pinecone_api_key: Optional[str] = None,
         pinecone_index: Optional[str] = None,
