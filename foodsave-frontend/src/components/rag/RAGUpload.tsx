@@ -12,6 +12,9 @@ interface RAGDocument {
   tags: string[];
   chunks_count: number;
   uploaded_at?: string;
+  metadata?: {
+    directory_path?: string | null;
+  };
 }
 
 interface RAGUploadProps {
@@ -26,6 +29,7 @@ export default function RAGUpload({ onUpload }: RAGUploadProps) {
   const [querying, setQuerying] = useState(false);
   const [description, setDescription] = useState('');
   const [tags, setTags] = useState('');
+  const [selectedDirectory, setSelectedDirectory] = useState<string | null>(null);
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     setUploading(true);
@@ -51,6 +55,9 @@ export default function RAGUpload({ onUpload }: RAGUploadProps) {
             tags: tags.split(',').map(tag => tag.trim()).filter(tag => tag),
             chunks_count: 0,
             uploaded_at: new Date().toISOString(),
+            metadata: {
+              directory_path: selectedDirectory || undefined,
+            },
           };
 
           setDocuments(prev => [...prev, newDocument]);
@@ -66,7 +73,7 @@ export default function RAGUpload({ onUpload }: RAGUploadProps) {
       setDescription('');
       setTags('');
     }
-  }, [description, tags, onUpload]);
+  }, [description, tags, onUpload, selectedDirectory]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -85,15 +92,21 @@ export default function RAGUpload({ onUpload }: RAGUploadProps) {
 
     setQuerying(true);
     try {
+      const requestBody: any = {
+        question: query,
+        max_results: 5,
+      };
+
+      if (selectedDirectory) {
+        requestBody.directory_path = selectedDirectory;
+      }
+
       const response = await fetch('/api/v2/rag/query', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          question: query,
-          max_results: 5,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       if (response.ok) {
@@ -135,16 +148,32 @@ export default function RAGUpload({ onUpload }: RAGUploadProps) {
     }
   };
 
+  const filteredDocuments = selectedDirectory
+    ? documents.filter(doc => doc.metadata?.directory_path === selectedDirectory)
+    : documents;
+
+  const handleDirectorySelect = (directory: string | null) => {
+    setSelectedDirectory(directory);
+  };
+
   React.useEffect(() => {
     loadDocuments();
   }, []);
 
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6">
-      <RAGDirectoryList />
+      <RAGDirectoryList
+        selectedDirectory={selectedDirectory}
+        onDirectorySelect={handleDirectorySelect}
+      />
       <div className="text-center">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">RAG Knowledge Base</h1>
-        <p className="text-gray-600">Upload documents to enhance AI responses with your knowledge</p>
+        <p className="text-gray-600">
+          {selectedDirectory
+            ? `Documents in: ${selectedDirectory}`
+            : 'Upload documents to enhance AI responses with your knowledge'
+          }
+        </p>
       </div>
 
       {/* Upload Section */}
@@ -257,10 +286,10 @@ export default function RAGUpload({ onUpload }: RAGUploadProps) {
       <div className="bg-white rounded-lg shadow-md p-6">
         <h2 className="text-xl font-semibold mb-4 flex items-center">
           <File className="w-5 h-5 mr-2" />
-          Uploaded Documents ({documents.length})
+          Uploaded Documents ({filteredDocuments.length})
         </h2>
 
-        {documents.length === 0 ? (
+        {filteredDocuments.length === 0 ? (
           <div className="text-center py-8 text-gray-500">
             <File className="w-12 h-12 mx-auto mb-4 text-gray-300" />
             <p>No documents uploaded yet</p>
@@ -268,7 +297,7 @@ export default function RAGUpload({ onUpload }: RAGUploadProps) {
           </div>
         ) : (
           <div className="space-y-3">
-            {documents.map((doc) => (
+            {filteredDocuments.map((doc) => (
               <div
                 key={doc.document_id}
                 className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
