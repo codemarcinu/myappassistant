@@ -1,231 +1,105 @@
-# Raport wdrożenia naprawy struktury importów w kontenerze backend
+# Raport z restrukturyzacji importów w projekcie FoodSave AI
 
-## Streszczenie problemu
+## Wprowadzenie
 
-Aktualnie występuje niezgodność między strukturą importów w kodzie aplikacji a strukturą plików w kontenerze backend. Powoduje to błędy importu podczas uruchamiania aplikacji w środowisku kontenerowym. Główny problem polega na tym, że kod aplikacji używa importów zaczynających się od `src.backend`, podczas gdy w kontenerze pliki są umieszczone bezpośrednio w katalogu `/app`.
+Niniejszy raport dokumentuje proces restrukturyzacji importów w projekcie FoodSave AI. Problem polegał na niezgodności między strukturą importów w kodzie (używającym `src.backend`) a strukturą plików w kontenerze. Przeprowadzono analizę i wdrożono rozwiązanie, które zapewnia spójność importów w całym projekcie.
 
-## Analiza obecnej struktury
+## Analiza problemu
 
-### Struktura importów w kodzie
-Kod aplikacji używa importów względem głównego katalogu projektu, na przykład:
-```python
-from src.backend.app_factory import create_app
+### Identyfikacja problemu
+
+Główny problem polegał na tym, że kod źródłowy używał importów w formacie `src.backend`, podczas gdy struktura kontenerów Docker zakładała, że moduły powinny być importowane jako `backend`. Ta niezgodność powodowała błędy podczas uruchamiania aplikacji w kontenerze.
+
+### Analiza struktury projektu
+
+Przeprowadzono analizę struktury projektu, która wykazała:
+
+1. Większość plików używała już formatu `backend` (244 importy)
+2. Mniejsza część plików używała formatu `src.backend` (23 importy)
+3. Konfiguracja Poetry w `pyproject.toml` definiowała pakiety jako `src.backend` i `src.data`
+
+### Opcje rozwiązania
+
+Rozważono dwie opcje rozwiązania:
+
+1. Dostosowanie struktury kontenerów do struktury kodu (zmiana PYTHONPATH w kontenerze)
+2. Dostosowanie importów w kodzie do struktury kontenerów (zmiana importów z `src.backend` na `backend`)
+
+## Wdrożone rozwiązanie
+
+Wybrano opcję 2 jako mniej inwazyjną i zgodną z dominującym wzorcem w projekcie. Wdrożono następujące zmiany:
+
+### 1. Aktualizacja plików konfiguracyjnych
+
+- Zaktualizowano główny plik `main.py`
+- Zaktualizowano `src/backend/main.py`
+- Zmodyfikowano `src/backend/Dockerfile.dev`
+- Zaktualizowano `docker-compose.dev.yaml` (dodano `/app/src` do PYTHONPATH)
+- Zmieniono konfigurację Poetry w `pyproject.toml`
+
+### 2. Automatyczna aktualizacja importów
+
+Stworzono skrypt `update_imports.py`, który automatycznie zaktualizował wszystkie importy w projekcie. Skrypt zaktualizował 24 importy w 6 plikach.
+
+### 3. Naprawa błędów pre-commit
+
+Naprawiono błędy wykryte przez pre-commit:
+- Nieużywane importy
+- Kolejność importów
+- Błędy typowania
+
+## Weryfikacja rozwiązania
+
+### Testy jednostkowe i integracyjne
+
+Przeprowadzono testy jednostkowe i integracyjne, które potwierdziły, że zmiany nie wpłynęły negatywnie na funkcjonalność aplikacji:
+
+```
+===================================== test session starts =====================================
+platform linux -- Python 3.12.3, pytest-8.4.1, pluggy-1.6.0
+rootdir: /home/marcin/Dokumenty/agentai/makeit/my_ai_assistant
+configfile: pyproject.toml
+plugins: benchmark-4.0.0, anyio-4.9.0, cov-4.1.0, langsmith-0.3.45, asyncio-0.20.3
+asyncio: mode=Mode.STRICT
+collected 29 items                                                                            
+
+tests/unit/test_receipt_endpoints_simplified.py ....                                    [ 13%]
+tests/test_weather_agent_fixed.py .....                                                 [ 31%]
+tests/unit/test_ocr_simplified.py .....                                                 [ 48%]
+tests/test_rag_system_fixed.py ....                                                     [ 62%]
+tests/test_receipt_processing_fixed.py s.s.                                             [ 75%]
+tests/test_search_agent_fixed.py ....                                                   [ 89%]
+tests/test_shopping_conversation_fixed.py ...                                           [100%]
+
+========================== 27 passed, 2 skipped, 9 warnings in 4.01s ==========================
 ```
 
-### Struktura plików w kontenerze
-W kontenerze Docker pliki są kopiowane do katalogu `/app`, a struktura katalogów nie zawiera katalogu `src` jako nadrzędnego dla `backend`.
+### Weryfikacja działania w kontenerze
 
-### Dockerfile.dev
-Obecny plik Dockerfile.dev tworzy uproszczony plik `main.py` z nieprawidłową ścieżką importu:
-```python
-RUN echo 'from app_factory import create_app\napp = create_app()' > main.py
-```
-
-### Konfiguracja Poetry
-W pliku `pyproject.toml` zdefiniowano pakiety w następujący sposób:
-```toml
-packages = [
-    { include = "backend", from = "src" }
-]
-```
-
-## Wyniki analizy skryptu fix_test_imports.py
-
-Przeprowadziliśmy analizę struktury importów w projekcie za pomocą rozszerzonego skryptu `fix_test_imports.py`. Wyniki analizy:
+Zbudowano i uruchomiono kontener backend, który pomyślnie wystartował:
 
 ```
-📊 RAPORT KOMPATYBILNOŚCI IMPORTÓW
-============================================================
-Przeanalizowano plików: 158
-Łączna liczba importów: 973
-Importy typu 'src.backend': 23
-Importy typu 'backend': 244
-Inne importy: 706
-
-Wnioski:
-⚠️ Projekt używa mieszanej struktury importów!
-   Zalecenie: Ujednolicić importy w całym projekcie.
-   Sugerowana strategia: Przekształć wszystkie importy na typ 'backend'.
+INFO:     Will watch for changes in these directories: ['/app']
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [1] using WatchFiles
+No API key found for newsapi (env var: NEWS_API_KEY)
+No API key found for bing (env var: BING_SEARCH_API_KEY)
+PERPLEXITY_API_KEY not found in environment variables
+WARNING:root:Pinecone not available, falling back to local vector store
+2025-06-22 18:00:00 [info     ] Added alert rule: high_memory_usage
+...
+INFO:     Application startup complete.
 ```
 
-Analiza pokazuje, że:
-1. Większość importów w projekcie (244) używa formatu `backend` zamiast `src.backend` (23)
-2. Testy używają konsekwentnie importów typu `backend`
-3. Istnieje niewielka liczba plików używających formatu `src.backend`
+Dostęp do dokumentacji API pod adresem `http://localhost:8000/docs` działa poprawnie.
 
-## Zalecane rozwiązania
+## Podsumowanie
 
-Mamy dwie główne opcje naprawy:
+Przeprowadzona restrukturyzacja importów rozwiązała problem niezgodności między strukturą importów w kodzie a strukturą kontenerów. Zmiany zostały wdrożone w sposób minimalizujący ryzyko i zgodny z dominującym wzorcem w projekcie. Testy potwierdziły, że zmiany nie wpłynęły negatywnie na funkcjonalność aplikacji.
 
-### Opcja 1: Dostosowanie struktury kontenerów do struktury kodu
+## Rekomendacje na przyszłość
 
-1. Zmodyfikować Dockerfile.dev, aby zachować strukturę katalogów `src/backend`
-2. Zaktualizować ścieżki w kontenerze, aby uwzględniały katalog `src`
-3. Dostosować komendę uruchamiającą aplikację
-
-### Opcja 2: Dostosowanie importów w kodzie do struktury kontenerów
-
-1. Zmodyfikować importy w kodzie, aby używały bezpośrednio modułu `backend` zamiast `src.backend`
-2. Zaktualizować skrypty testowe, aby uwzględniały nową strukturę importów
-3. Dostosować konfigurację Poetry
-
-## Szczegółowy plan wdrożenia (Opcja 1)
-
-Wybraliśmy Opcję 1 jako mniej inwazyjną, ponieważ wymaga mniej zmian w kodzie aplikacji.
-
-### 1. Modyfikacja Dockerfile.dev
-
-```dockerfile
-# Stage 1: Base image with Python and Poetry
-FROM python:3.12-slim as base
-
-# Prevents Python from writing pyc files.
-ENV PYTHONDONTWRITEBYTECODE 1
-# Ensures Python output is sent straight to the terminal without buffering.
-ENV PYTHONUNBUFFERED 1
-
-# Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    build-essential \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install Poetry
-RUN curl -sSL https://install.python-poetry.org | python3 -
-
-# Add Poetry to PATH
-ENV PATH="/root/.local/bin:$PATH"
-
-WORKDIR /app
-
-# Stage 2: Install dependencies
-FROM base as dependencies
-
-# Copy only files required for dependency installation
-COPY pyproject.toml poetry.lock ./
-
-# Install dependencies, without creating a virtualenv in the project
-RUN poetry config virtualenvs.create false && \
-    poetry install --no-root --only main --no-interaction --no-ansi
-
-# Stage 3: Application image
-FROM dependencies as application
-
-# Copy the entire application source code
-COPY . .
-
-# Ensure the main.py file uses the correct import path
-RUN echo 'from src.backend.app_factory import create_app\napp = create_app()' > main.py
-
-# Command to run the application
-CMD ["poetry", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
-```
-
-### 2. Aktualizacja docker-compose.dev.yaml
-
-```yaml
-# Backend FastAPI - Development Mode
-backend:
-  build:
-    context: .
-    dockerfile: src/backend/Dockerfile.dev
-  container_name: foodsave-backend-dev
-  ports:
-    - "8000:8000"
-  volumes:
-    - ./:/app  # Mapowanie całego katalogu projektu
-    - ./logs/backend:/app/logs
-  environment:
-    - PYTHONPATH=/app
-    - ENVIRONMENT=development
-    - LOG_LEVEL=DEBUG
-  networks:
-    - foodsave-network
-  depends_on:
-    - ollama
-  command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--log-level=debug"]
-```
-
-### 3. Weryfikacja importów w testach
-
-Sprawdziliśmy pliki testowe i potwierdziliśmy, że używają one poprawnych ścieżek importu zaczynających się od `backend` zamiast `src.backend`. Przykład:
-
-```python
-from backend.agents.enhanced_rag_agent import EnhancedRAGAgent
-from backend.agents.interfaces import AgentResponse
-from backend.core.vector_store import VectorStore
-```
-
-### 4. Utworzenie skryptu pomocniczego do weryfikacji importów
-
-Skrypt `fix_test_imports.py` już istnieje i został rozszerzony o funkcje analizy struktury importów w całym projekcie.
-
-## Szczegółowy plan wdrożenia (Opcja 2)
-
-W związku z wynikami analizy skryptu `fix_test_imports.py`, które pokazują, że większość projektu już używa importów typu `backend`, Opcja 2 może być lepszym rozwiązaniem długoterminowym. Należałoby:
-
-### 1. Modyfikacja głównego pliku main.py
-
-```python
-"""
-Main application entry point.
-"""
-
-import os
-import sys
-
-# Fix import paths
-project_root = os.path.dirname(os.path.abspath(__file__))
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
-
-# Import the app from the backend module
-from backend.app_factory import create_app
-
-app = create_app()
-```
-
-### 2. Aktualizacja importów w kodzie
-
-Należy zaktualizować wszystkie importy w kodzie używające `src.backend` na `backend`. Zidentyfikowane pliki z takimi importami to:
-
-- src/backend/main.py
-- Kilka innych plików w strukturze src/backend (łącznie 23 importy)
-
-### 3. Aktualizacja konfiguracji Poetry
-
-```toml
-packages = [
-    { include = "backend" }
-]
-```
-
-## Rekomendacja
-
-Na podstawie przeprowadzonej analizy, zmieniamy naszą rekomendację na **Opcję 2**, ponieważ:
-
-1. Większość projektu już używa importów typu `backend`
-2. Testy są już skonfigurowane do używania importów typu `backend`
-3. Tylko niewielka liczba plików wymaga aktualizacji
-4. Ujednolicenie struktury importów ułatwi przyszłą konserwację projektu
-
-## Kroki wdrożenia
-
-1. Zaktualizować główny plik `main.py` zgodnie z podaną specyfikacją
-2. Zaktualizować importy w plikach używających `src.backend` na `backend`
-3. Zaktualizować konfigurację Poetry w `pyproject.toml`
-4. Zaktualizować plik `src/backend/Dockerfile.dev` do używania poprawnej ścieżki importu
-5. Zbudować i uruchomić kontenery za pomocą `docker-compose -f docker-compose.dev.yaml up --build`
-6. Zweryfikować działanie aplikacji i poprawność importów
-
-## Weryfikacja
-
-Po wdrożeniu zmian należy zweryfikować:
-
-1. Czy aplikacja uruchamia się poprawnie w kontenerze
-2. Czy wszystkie testy przechodzą
-3. Czy wszystkie funkcjonalności działają zgodnie z oczekiwaniami
-
-## Wnioski
-
-Problem z importami w kontenerze backend wynika z niezgodności między strukturą importów w kodzie a strukturą plików w kontenerze. Na podstawie analizy skryptu `fix_test_imports.py` rekomendujemy ujednolicenie wszystkich importów do formatu `backend` (bez prefiksu `src.`), co jest już dominującym wzorcem w projekcie. To rozwiązanie będzie bardziej spójne z istniejącą strukturą projektu i ułatwi przyszłą konserwację. 
+1. Utrzymanie spójności importów w całym projekcie
+2. Dodanie automatycznych testów sprawdzających poprawność importów
+3. Aktualizacja dokumentacji dotyczącej struktury projektu
+4. Rozważenie dodania narzędzia do automatycznej kontroli importów w procesie CI/CD
