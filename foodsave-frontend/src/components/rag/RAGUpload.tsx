@@ -3,6 +3,7 @@
 import React, { useState, useCallback } from 'react';
 import { Upload, File, Trash2, Search, Plus, AlertCircle, CheckCircle } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
+import RAGDirectoryList from './RAGDirectoryList';
 
 interface RAGDocument {
   document_id: string;
@@ -140,6 +141,7 @@ export default function RAGUpload({ onUpload }: RAGUploadProps) {
 
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6">
+      <RAGDirectoryList />
       <div className="text-center">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">RAG Knowledge Base</h1>
         <p className="text-gray-600">Upload documents to enhance AI responses with your knowledge</p>
