@@ -70,3 +70,10 @@ Thumbs.db
 .next/static-pages/
 .next/static-runtime/
 .next/static-webpack/
+
+# Loki data files
+monitoring/loki-data/chunks/
+monitoring/loki-data/wal/
+monitoring/loki-data/index/
+# Grafana runtime data
+monitoring/grafana-data/
