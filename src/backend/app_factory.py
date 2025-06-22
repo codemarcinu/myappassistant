@@ -149,14 +149,10 @@ def create_app() -> FastAPI:
 
     # Versioned API routers
     api_v1_router = APIRouter()
-    api_v1_router.include_router(
-        receipts.router, prefix="/receipts", tags=["Receipts V1"]
-    )
+    api_v1_router.include_router(receipts.router, tags=["Receipts V1"])
 
     api_v2_router = APIRouter()
-    api_v2_router.include_router(
-        receipts_v2.router, prefix="/receipts", tags=["Receipts V2"]
-    )
+    api_v2_router.include_router(receipts_v2.router, tags=["Receipts V2"])
     api_v2_router.include_router(
         weather_v2.router, prefix="/weather", tags=["Weather V2"]
     )

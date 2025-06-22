@@ -102,6 +102,8 @@ services:
         max-size: "10m"
         max-file: "3"
         tag: "{{.Name}}/{{.ID}}"
+    volumes:
+      - ./foodsave-frontend:/app
 
   # Nginx Reverse Proxy (opcjonalny)
   nginx:

@@ -1,3 +1,4 @@
+import os
 from io import BytesIO
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -131,3 +132,95 @@ def test_upload_receipt_internal_error(mock_ocr_agent):
 
     assert response.status_code == 500
     assert response.json()["error_code"] == APIErrorCodes.INTERNAL_ERROR
+
+
+@pytest.mark.integration
+def test_receipt_upload_ocr():
+    fixture_path = "tests/fixtures/test_receipt.jpg"
+    if not os.path.exists(fixture_path):
+        pytest.skip("Brak pliku testowego paragonu.")
+    with open(fixture_path, "rb") as f:
+        response = client.post(
+            "/api/v2/receipts/upload", files={"file": ("receipt.jpg", f, "image/jpeg")}
+        )
+    assert response.status_code == 200
+    data = response.json()
+    assert "data" in data and "text" in data["data"]
+    assert len(data["data"]["text"]) > 0
+
+
+@pytest.mark.integration
+def test_receipt_analyze():
+    ocr_text = """LIDL 2024-06-01\nChleb 4.99\nMleko 3.49\nSUMA 8.48"""
+    response = client.post("/api/v2/receipts/analyze", data={"ocr_text": ocr_text})
+    assert response.status_code == 200
+    data = response.json()
+    assert "data" in data and "items" in data["data"]
+    assert data["data"]["store_name"]
+    assert data["data"]["total"] > 0
+
+
+@pytest.mark.integration
+def test_receipt_save():
+    payload = {
+        "trip_date": "2024-06-01",
+        "store_name": "LIDL",
+        "total_amount": 8.48,
+        "products": [
+            {
+                "name": "Chleb",
+                "quantity": 1,
+                "unit": "szt.",
+                "price": 4.99,
+                "category": "pieczywo",
+            },
+            {
+                "name": "Mleko",
+                "quantity": 1,
+                "unit": "l",
+                "price": 3.49,
+                "category": "nabiał",
+            },
+        ],
+    }
+    response = client.post("/api/v2/receipts/save", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["data"]["products_count"] == 2
+
+
+@pytest.mark.integration
+def test_receipt_full_flow():
+    # 1. Upload OCR
+    fixture_path = "tests/fixtures/test_receipt.jpg"
+    if not os.path.exists(fixture_path):
+        pytest.skip("Brak pliku testowego paragonu.")
+    with open(fixture_path, "rb") as f:
+        upload_resp = client.post(
+            "/api/v2/receipts/upload", files={"file": ("receipt.jpg", f, "image/jpeg")}
+        )
+    assert upload_resp.status_code == 200
+    ocr_text = upload_resp.json()["data"]["text"]
+    # 2. Analiza
+    analyze_resp = client.post("/api/v2/receipts/analyze", data={"ocr_text": ocr_text})
+    assert analyze_resp.status_code == 200
+    data = analyze_resp.json()["data"]
+    # 3. Zapis
+    payload = {
+        "trip_date": data.get("date") or "2024-06-01",
+        "store_name": data.get("store_name") or "LIDL",
+        "total_amount": data.get("total") or 0,
+        "products": [
+            {
+                "name": p["name"],
+                "quantity": p.get("quantity", 1),
+                "unit_price": p.get("price", 0),
+                "category": p.get("category", "inne"),
+            }
+            for p in data.get("items", [])
+        ],
+    }
+    save_resp = client.post("/api/v2/receipts/save", json=payload)
+    assert save_resp.status_code == 200
+    save_data = save_resp.json()["data"]
+    assert save_data["products_count"] == len(payload["products"])

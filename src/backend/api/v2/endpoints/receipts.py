@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -111,7 +111,7 @@ async def upload_receipt(file: UploadFile = File(...)):
 
 
 @router.post("/analyze", response_model=None)
-async def analyze_receipt(ocr_text: str = File(...)):
+async def analyze_receipt(ocr_text: str = Form(...)):
     """Analyze OCR text from receipt and extract structured data.
 
     Returns:
