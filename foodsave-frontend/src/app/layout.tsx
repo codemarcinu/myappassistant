@@ -3,10 +3,18 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import dynamic from 'next/dynamic';
+import logger, { LogLevel } from '../lib/logger';
 
 const Providers = dynamic(() => import('@/components/Providers').then(mod => mod.Providers), { ssr: false });
 
 const inter = Inter({ subsets: ['latin'] });
+
+// Initialize logger with appropriate log level based on environment
+if (process.env.NODE_ENV === 'production') {
+  logger.setLevel(LogLevel.INFO);
+} else {
+  logger.setLevel(LogLevel.DEBUG);
+}
 
 export const metadata: Metadata = {
   title: 'FoodSave AI - Your Smart Kitchen Assistant',

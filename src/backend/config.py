@@ -20,7 +20,9 @@ class Settings(BaseSettings):
 
     # Environment configuration
     ENVIRONMENT: str = "development"
+    DEBUG: bool = True
     LOG_LEVEL: str = "INFO"
+    TELEMETRY_ENABLED: bool = False
 
     # User Agent for HTTP requests
     USER_AGENT: str = "FoodSave-AI/1.0.0 (https://github.com/foodsave-ai)"

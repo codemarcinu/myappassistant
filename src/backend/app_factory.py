@@ -109,8 +109,8 @@ async def lifespan(app: FastAPI):
 def create_app() -> FastAPI:
     """Creates and configures a FastAPI application instance."""
     app = FastAPI(
-        title=settings.PROJECT_NAME,
-        version=settings.VERSION,
+        title=settings.APP_NAME,
+        version=settings.APP_VERSION,
         debug=settings.DEBUG,
         lifespan=lifespan,
     )
@@ -119,13 +119,13 @@ def create_app() -> FastAPI:
     app.add_middleware(SlowAPIMiddleware)
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[str(origin) for origin in settings.BACKEND_CORS_ORIGINS],
+        allow_origins=[str(origin) for origin in settings.CORS_ORIGINS.split(",")],
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )
     app.add_middleware(SecurityHeadersMiddleware)
-    app.add_middleware(RequestLoggingMiddleware, logger=logger)
+    app.add_middleware(RequestLoggingMiddleware)
     app.add_middleware(ErrorHandlingMiddleware)
     # app.add_middleware(PerformanceMonitoringMiddleware) # Can be noisy
 

@@ -9,15 +9,35 @@ clients:
   - url: http://172.20.0.10:3100/loki/api/v1/push
 
 scrape_configs:
-  - job_name: system
-    static_configs:
-      - targets:
-          - localhost
-        labels:
-          job: varlogs
-          __path__: /var/log/*log
+  # Docker container discovery for all containers
+  - job_name: docker
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 5s
+    relabel_configs:
+      - source_labels: ['__meta_docker_container_name']
+        target_label: 'container'
+      - source_labels: ['__meta_docker_container_id']
+        target_label: 'container_id'
+      - source_labels: ['__meta_docker_container_log_stream']
+        target_label: 'stream'
+    pipeline_stages:
+      - docker: {}
+      - json:
+          expressions:
+            level: level
+            message: message
+            timestamp: timestamp
+      - timestamp:
+          source: timestamp
+          format: RFC3339
+      - labels:
+          level:
+      - output:
+          source: message
 
-  - job_name: backend_logs
+  # Keep existing file-based log collection for specific services
+  - job_name: foodsave-backend
     static_configs:
       - targets:
           - localhost
@@ -26,7 +46,7 @@ scrape_configs:
           app: backend
           __path__: /logs/backend/*log
 
-  - job_name: frontend_logs
+  - job_name: foodsave-frontend
     static_configs:
       - targets:
           - localhost
@@ -43,7 +63,7 @@ scrape_configs:
           job: nginx
           __path__: /logs/nginx/*log
 
-  - job_name: ollama_logs
+  - job_name: ollama
     static_configs:
       - targets:
           - localhost

@@ -4,6 +4,7 @@ import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/Card';
 import { Button } from './ui/Button';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
+import logger from '../lib/logger';
 
 interface Props {
   children: ReactNode;
@@ -30,7 +31,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     // Log error to monitoring service
-    console.error('ErrorBoundary caught an error:', error, errorInfo);
+    logger.error('ErrorBoundary caught an error:', { error, errorInfo });
 
     this.setState({ error, errorInfo });
 
@@ -42,7 +43,7 @@ export class ErrorBoundary extends Component<Props, State> {
     // Log to monitoring service in production
     if (process.env.NODE_ENV === 'production') {
       // TODO: Add Sentry logging here
-      console.error('Production error logged:', { error, errorInfo });
+      logger.error('Production error logged:', { error, errorInfo });
     }
   }
 
@@ -54,10 +55,19 @@ export class ErrorBoundary extends Component<Props, State> {
     const { error, errorInfo } = this.state;
     if (error) {
       // TODO: Implement error reporting mechanism
-      console.log('Reporting error:', { error, errorInfo });
+      logger.error('Reporting error:', { error, errorInfo });
       alert('Error has been reported. Thank you for your feedback.');
     }
   };
+
+  // Helper method to report errors to monitoring services
+  private reportError(error: Error, errorInfo: React.ErrorInfo) {
+    // Example: Send to an error tracking service
+    logger.error('Reporting error to monitoring service:', { error, errorInfo });
+
+    // In a real app, you would send this to your error tracking service:
+    // errorTrackingService.captureException(error, { extra: errorInfo });
+  }
 
   render() {
     if (this.state.hasError) {
@@ -115,13 +125,13 @@ export function useErrorHandler() {
   const [error, setError] = React.useState<Error | null>(null);
 
   const handleError = React.useCallback((error: Error) => {
-    console.error('Error caught by useErrorHandler:', error);
+    logger.error('Error caught by useErrorHandler:', error);
     setError(error);
 
     // Log to monitoring service in production
     if (process.env.NODE_ENV === 'production') {
       // TODO: Add Sentry logging here
-      console.error('Production error logged:', error);
+      logger.error('Production error logged:', error);
     }
   }, []);
 

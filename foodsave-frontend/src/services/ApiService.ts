@@ -488,7 +488,7 @@ class ApiServiceClass {
 
   // Get weather data for multiple locations
   public async getWeather(locations: string[], signal?: AbortSignal) {
-    return this.get('/api/v2/weather', { locations }, signal);
+    return this.get('/api/v2/weather/weather', { locations }, signal);
   }
 }
 
@@ -504,7 +504,7 @@ export async function fetchWeatherData(location: string, signal?: AbortSignal) {
 
   try {
     const response = await fetch(
-      `${API_BASE_URL}/api/v2/weather?locations=${encodeURIComponent(location)}`,
+      `${API_BASE_URL}/api/v2/weather/weather?locations=${encodeURIComponent(location)}`,
       { signal: controller.signal }
     );
 

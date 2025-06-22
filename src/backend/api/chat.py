@@ -28,7 +28,6 @@ from fastapi.responses import StreamingResponse
 
 from backend.agents.orchestrator import Orchestrator
 from backend.core.container import Container
-from backend.schemas.chat import ChatRequest, ChatResponse, WebSocketResponse
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -61,6 +60,16 @@ router = APIRouter()
 class ChatRequest(BaseModel):
     prompt: str
     model: str | None = None  # Pole opcjonalne
+
+
+class ChatResponse(BaseModel):
+    response: str
+    model: str
+
+
+class WebSocketResponse(BaseModel):
+    message: str
+    type: str = "message"
 
 
 class MemoryChatRequest(BaseModel):

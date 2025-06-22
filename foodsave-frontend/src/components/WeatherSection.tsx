@@ -2,6 +2,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/Card';
 import { ApiService, ApiError } from '@/services/ApiService';
+import logger from '../lib/logger';
 
 interface WeatherData {
   location: string;
@@ -22,23 +23,23 @@ export function WeatherSection() {
     try {
       // Lokacje, dla których chcemy pobrać pogodę
       const locations = ['Ząbki', 'Warszawa'];
-      console.log('Fetching weather for locations:', locations);
+      logger.info('Fetching weather for locations:', locations);
 
       const data = await ApiService.getWeather(locations, signal);
-      console.log('Weather data received:', data);
+      logger.info('Weather data received:', data);
 
       setWeatherData(data as WeatherData[]);
     } catch (err) {
-      console.error('Weather fetch error:', err);
+      logger.error('Weather fetch error:', err);
 
       // Check if it's an abort error
       if (err instanceof ApiError && err.code === 'ABORTED') {
-        console.log('Weather request was aborted - this is normal during component unmount');
+        logger.info('Weather request was aborted - this is normal during component unmount');
         return;
       }
 
       if (err instanceof Error && err.name === 'AbortError') {
-        console.log('Weather request was aborted - this is normal during component unmount');
+        logger.info('Weather request was aborted - this is normal during component unmount');
         return;
       }
 
@@ -58,7 +59,7 @@ export function WeatherSection() {
         await fetchWeather(controller.signal);
       } catch (error) {
         if (isMounted) {
-          console.error('Weather loading error:', error);
+          logger.error('Weather loading error:', error);
         }
       }
     };
@@ -73,7 +74,7 @@ export function WeatherSection() {
   }, [fetchWeather]);
 
   // DEBUG: Print render state
-  console.log('Render: isLoading', isLoading, 'error', error, 'weatherData', weatherData);
+  logger.debug('Render: isLoading', { isLoading, error, weatherData });
 
   return (
     <Card>

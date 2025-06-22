@@ -253,18 +253,71 @@ def with_circuit_breaker(config: Optional[CircuitBreakerConfig] = None):
 
 
 def with_backpressure(max_concurrent: int = 100):
-    """Decorator to add backpressure to function"""
-    manager = BackpressureManager(max_concurrent=max_concurrent)
+    """Decorator to add backpressure to functions"""
 
     def decorator(func):
         async def wrapper(*args, **kwargs):
-            async with manager.acquire_slot():
-                if asyncio.iscoroutinefunction(func):
-                    return await func(*args, **kwargs)
-                else:
-                    loop = asyncio.get_event_loop()
-                    return await loop.run_in_executor(None, func, *args, **kwargs)
+            async with BackpressureManager(max_concurrent).acquire_slot():
+                return await func(*args, **kwargs)
 
         return wrapper
 
     return decorator
+
+
+async def async_retry(
+    func: Callable,
+    max_retries: int = 3,
+    delay: float = 1.0,
+    backoff_factor: float = 2.0,
+    exceptions: tuple = (Exception,),
+    *args,
+    **kwargs,
+) -> T:
+    """
+    Retry an async function with exponential backoff
+
+    Args:
+        func: Function to retry
+        max_retries: Maximum number of retries
+        delay: Initial delay between retries
+        backoff_factor: Multiplier for delay on each retry
+        exceptions: Tuple of exceptions to catch and retry
+        *args: Arguments to pass to func
+        **kwargs: Keyword arguments to pass to func
+
+    Returns:
+        Result of the function call
+
+    Raises:
+        Last exception if all retries fail
+    """
+    last_exception = None
+    current_delay = delay
+
+    for attempt in range(max_retries + 1):
+        try:
+            if asyncio.iscoroutinefunction(func):
+                return await func(*args, **kwargs)
+            else:
+                # Run sync function in thread pool
+                loop = asyncio.get_event_loop()
+                return await loop.run_in_executor(None, func, *args, **kwargs)
+
+        except exceptions as e:
+            last_exception = e
+            if attempt < max_retries:
+                logger.warning(
+                    f"Attempt {attempt + 1} failed for {func.__name__}: {e}. "
+                    f"Retrying in {current_delay:.2f}s..."
+                )
+                await asyncio.sleep(current_delay)
+                current_delay *= backoff_factor
+            else:
+                logger.error(
+                    f"All {max_retries + 1} attempts failed for {func.__name__}: {e}"
+                )
+                raise last_exception
+
+    # This should never be reached, but just in case
+    raise last_exception

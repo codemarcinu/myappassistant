@@ -12,6 +12,7 @@ from backend.models.user_profile import InteractionType
 from .agent_router import AgentRouter
 from .base_agent import BaseAgent
 from .error_types import ErrorSeverity
+from .intent_detector import SimpleIntentDetector as IntentDetector
 from .interfaces import AgentResponse, AgentType
 from .memory_manager import MemoryManager
 from .orchestration_components import IntentData, MemoryContext

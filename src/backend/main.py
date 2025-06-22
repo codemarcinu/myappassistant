@@ -5,9 +5,14 @@ Main application entry point.
 import logging
 import os
 import sys
+import time
 
 import structlog
 import uvicorn
+from fastapi import FastAPI, Request, Response
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 # Fix import paths
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -19,6 +24,9 @@ if parent_dir not in sys.path:
 
 from backend.app_factory import create_app
 from backend.config import settings
+from backend.logger import logger
+
+# Test log entry removed - logging to file is now working properly
 
 
 def configure_logging(log_level: str = "INFO"):

@@ -1,9 +1,17 @@
 'use client';
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { Suspense } from 'react';
 import { Spinner } from './ui/Spinner';
+import logger from '../lib/logger';
+
+// Add type definition for gtag
+declare global {
+  interface Window {
+    gtag?: (command: string, action: string, params: object) => void;
+  }
+}
 
 // Loading component for lazy-loaded components
 const LoadingFallback = ({ message = 'Loading...' }: { message?: string }) => (
@@ -160,5 +168,26 @@ export const bundleSizeMonitor = {
     }
   },
 };
+
+// Measure component load time
+function withLoadTimeTracking(Component: React.ComponentType<any>, componentName: string) {
+  return function WithLoadTimeTracking(props: any) {
+    useEffect(() => {
+      const loadTime = performance.now() - (window as any).__NEXT_LOAD_TIME_START || 0;
+      logger.debug(`Component ${componentName} loaded in ${loadTime}ms`);
+
+      // Report to analytics
+      if (typeof window !== 'undefined' && window.gtag) {
+        logger.debug('Bundle size metric:', { componentName, loadTime });
+        window.gtag('event', 'component_load', {
+          component_name: componentName,
+          load_time_ms: Math.round(loadTime),
+        });
+      }
+    }, []);
+
+    return <Component {...props} />;
+  };
+}
 
 export default LazyComponentWrapper;
