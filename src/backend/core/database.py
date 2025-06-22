@@ -12,6 +12,7 @@ AsyncSessionLocal = sessionmaker(
 
 # TODO MDC-AUDIT: brak retry mechanizmu i monitoringu poolingu – potencjalne connection leaks przy błędach DB
 
+
 class Base(DeclarativeBase):
     pass
 

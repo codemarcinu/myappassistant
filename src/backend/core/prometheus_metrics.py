@@ -277,7 +277,9 @@ def record_llm_metrics(
         LLM_TOKENS_USED.labels(model=model, type=token_type).inc(tokens)
 
 
-def record_vector_metrics(index_type: str, duration: float, store_size: int | None = None):
+def record_vector_metrics(
+    index_type: str, duration: float, store_size: int | None = None
+):
     """Record vector store performance metrics"""
     VECTOR_SEARCH_COUNT.labels(index_type=index_type).inc()
     VECTOR_SEARCH_DURATION.labels(index_type=index_type).observe(duration)
@@ -305,7 +307,9 @@ def record_circuit_breaker_metrics(
 ):
     """Record circuit breaker metrics"""
     state_map = {"closed": 0, "open": 1, "half_open": 2}
-    CIRCUIT_BREAKER_STATE.labels(breaker_name=breaker_name).set(state_map.get(state, -1))
+    CIRCUIT_BREAKER_STATE.labels(breaker_name=breaker_name).set(
+        state_map.get(state, -1)
+    )
     if failure:
         CIRCUIT_BREAKER_FAILURES.labels(breaker_name=breaker_name).inc()
 
@@ -319,7 +323,7 @@ def get_metrics_dict() -> Dict[str, Any]:
     """Generate latest metrics as a dictionary"""
     metrics_text = get_metrics().decode("utf-8")
     metrics_dict = {}
-    for line in metrics_text.strip().split('\n'):
+    for line in metrics_text.strip().split("\n"):
         if not line.startswith("#"):
             parts = line.split(" ")
             key = parts[0]

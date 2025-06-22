@@ -1,6 +1,7 @@
 from typing import Any, Dict
 
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from backend.core.vector_store import VectorStore
 
 

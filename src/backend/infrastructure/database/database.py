@@ -38,6 +38,7 @@ AsyncSessionLocal = sessionmaker(
     expire_on_commit=False,  # Keep objects loaded after commit
 )
 
+
 # Create base class for SQLAlchemy models
 class Base(DeclarativeBase):
     pass

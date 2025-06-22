@@ -4,9 +4,9 @@ from datetime import datetime
 from typing import Any, Callable, Dict, Optional
 
 import pybreaker
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.profile_manager import ProfileManager
-from sqlalchemy.ext.asyncio import AsyncSession
 from backend.models.user_profile import InteractionType
 
 from .agent_router import AgentRouter

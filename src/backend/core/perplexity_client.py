@@ -3,7 +3,7 @@ Perplexity API Client for enhanced search capabilities
 """
 
 import logging
-from typing import Any, Dict, List, Optional, AsyncGenerator
+from typing import Any, AsyncGenerator, Dict, List, Optional
 
 import httpx
 

@@ -1,6 +1,7 @@
 """
 Application Factory
 """
+
 from contextlib import asynccontextmanager
 
 import structlog
@@ -11,7 +12,7 @@ from slowapi import Limiter
 from slowapi.middleware import SlowAPIMiddleware
 from slowapi.util import get_remote_address
 
-from backend.api import agents, chat, food, pantry, upload, monitoring
+from backend.api import agents, chat, food, monitoring, pantry, upload
 from backend.api.v1.endpoints import receipts
 from backend.api.v2.endpoints import rag as rag_v2
 from backend.api.v2.endpoints import receipts as receipts_v2
@@ -148,11 +149,17 @@ def create_app() -> FastAPI:
 
     # Versioned API routers
     api_v1_router = APIRouter()
-    api_v1_router.include_router(receipts.router, prefix="/receipts", tags=["Receipts V1"])
+    api_v1_router.include_router(
+        receipts.router, prefix="/receipts", tags=["Receipts V1"]
+    )
 
     api_v2_router = APIRouter()
-    api_v2_router.include_router(receipts_v2.router, prefix="/receipts", tags=["Receipts V2"])
-    api_v2_router.include_router(weather_v2.router, prefix="/weather", tags=["Weather V2"])
+    api_v2_router.include_router(
+        receipts_v2.router, prefix="/receipts", tags=["Receipts V2"]
+    )
+    api_v2_router.include_router(
+        weather_v2.router, prefix="/weather", tags=["Weather V2"]
+    )
     api_v2_router.include_router(rag_v2.router, prefix="/rag", tags=["RAG V2"])
 
     app.include_router(monitoring.router)

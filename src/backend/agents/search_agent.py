@@ -8,8 +8,8 @@ from backend.agents.interfaces import AgentResponse
 from backend.config import settings
 from backend.core.decorators import handle_exceptions
 from backend.core.hybrid_llm_client import hybrid_llm_client
-from backend.core.perplexity_client import perplexity_client
 from backend.core.llm_client import LLMClient
+from backend.core.perplexity_client import perplexity_client
 from backend.core.vector_store import VectorStore
 
 logger = logging.getLogger(__name__)

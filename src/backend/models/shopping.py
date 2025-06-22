@@ -1,6 +1,7 @@
 from __future__ import annotations
-from typing import List
+
 from datetime import date, datetime
+from typing import List
 
 from sqlalchemy import (
     Boolean,
@@ -27,7 +28,9 @@ class ShoppingTrip(Base):
     trip_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     store_name: Mapped[str] = mapped_column(String, nullable=False, index=True)
     total_amount: Mapped[float | None] = mapped_column(Float, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
@@ -49,12 +52,16 @@ class Product(Base):
     unit_price: Mapped[float | None] = mapped_column(Float, nullable=True)
     quantity: Mapped[float | None] = mapped_column(Float, nullable=True)
     unit: Mapped[str | None] = mapped_column(String, nullable=True)
-    expiration_date: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)
+    expiration_date: Mapped[date | None] = mapped_column(
+        Date, nullable=True, index=True
+    )
     is_consumed: Mapped[int] = mapped_column(
         Integer, default=0, index=True
     )  # 0 = not consumed, 1 = consumed
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
@@ -65,7 +72,9 @@ class Product(Base):
     )
 
     # Relacja zwrotna do paragonu.
-    trip: Mapped[ShoppingTrip] = relationship("ShoppingTrip", back_populates="products", lazy="joined")
+    trip: Mapped[ShoppingTrip] = relationship(
+        "ShoppingTrip", back_populates="products", lazy="joined"
+    )
 
 
 # Composite indexes for common product queries

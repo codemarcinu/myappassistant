@@ -33,9 +33,6 @@ from backend.schemas.chat import ChatRequest, ChatResponse, WebSocketResponse
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
-# This import is now after the sys.path modification
-from backend.orchestrator_management.request_queue import request_queue
-
 from typing import Any, cast
 
 from fastapi import APIRouter, BackgroundTasks, Depends
@@ -53,6 +50,9 @@ from backend.core.async_patterns import (
 from backend.core.llm_client import llm_client
 from backend.infrastructure.database.database import get_db
 from backend.orchestrator_management.orchestrator_pool import orchestrator_pool
+
+# This import is now after the sys.path modification
+from backend.orchestrator_management.request_queue import request_queue
 
 # APIRouter działa jak "mini-aplikacja" FastAPI, grupując endpointy
 router = APIRouter()
