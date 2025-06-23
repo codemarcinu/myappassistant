@@ -5,11 +5,11 @@ import time
 from typing import Any, Callable, TypeVar
 
 from backend.core.exceptions import (
-    AIModelError,
-    BaseCustomException,
+    ConfigurationError,
     DatabaseError,
-    FileProcessingError,
-    NetworkError,
+    ExternalAPIError,
+    FoodSaveError,
+    ProcessingError,
 )
 
 logger = logging.getLogger(__name__)
@@ -19,7 +19,7 @@ T = TypeVar("T")
 def handle_exceptions(
     max_retries: int = 3,
     retry_delay: float = 1.0,
-    retry_exceptions: tuple = (NetworkError, DatabaseError),
+    retry_exceptions: tuple = (DatabaseError, ExternalAPIError),
 ) -> Callable[[Callable[..., T]], Callable[..., T]]:
     """Decorator to handle exceptions and implement retry logic.
 
@@ -86,19 +86,19 @@ def handle_exceptions(
     return decorator
 
 
-def convert_to_custom_exception(exc: Exception) -> BaseCustomException:
+def convert_to_custom_exception(exc: Exception) -> FoodSaveError:
     """Convert system exceptions to custom exceptions"""
-    if isinstance(exc, BaseCustomException):
+    if isinstance(exc, FoodSaveError):
         return exc
 
     exc_str = str(exc)
     if "database" in exc_str.lower() or "sql" in exc_str.lower():
         return DatabaseError(f"Database error: {exc_str}")
     elif "network" in exc_str.lower() or "connection" in exc_str.lower():
-        return NetworkError(f"Network error: {exc_str}")
+        return ExternalAPIError(f"Network error: {exc_str}")
     elif "file" in exc_str.lower() or "io" in exc_str.lower():
-        return FileProcessingError(f"File processing error: {exc_str}")
+        return ProcessingError(f"File processing error: {exc_str}")
     elif "model" in exc_str.lower() or "ai" in exc_str.lower():
-        return AIModelError(f"AI model error: {exc_str}")
+        return ProcessingError(f"AI model error: {exc_str}")
 
-    return BaseCustomException(f"Unexpected error: {exc_str}")
+    return ProcessingError(f"Unexpected error: {exc_str}")

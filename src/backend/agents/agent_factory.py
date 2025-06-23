@@ -60,6 +60,7 @@ class CookingAgent(BaseAgent):
 class AgentFactory:
     """Factory for creating agent instances with DI support."""
 
+    # ✅ ALWAYS: Proper agent registration with fallback
     AGENT_REGISTRY = {
         "general_conversation": GeneralConversationAgent,
         "shopping_conversation": ShoppingConversationAgent,
@@ -80,6 +81,8 @@ class AgentFactory:
         "OCR": OCRAgent,  # Alias z wielką literą
         "analytics": AnalyticsAgent,
         "Analytics": AnalyticsAgent,  # Alias z wielką literą
+        # ✅ ALWAYS include fallback
+        "default": GeneralConversationAgent,
     }
 
     def __init__(
@@ -182,15 +185,27 @@ class AgentFactory:
             if cache_key in self._agent_cache:
                 return self._agent_cache[cache_key]
 
-        # Sprawdź czy agent_type jest w rejestrze
+        # ✅ ALWAYS: Proper agent registration with fallback
         if agent_type not in self.AGENT_REGISTRY:
             logger.warning(
-                f"Unknown agent type: {agent_type}, using GeneralConversationAgent as fallback"
+                f"Unknown agent type: {agent_type}, using default agent as fallback"
             )
-            agent_type = "general_conversation"
+            agent_type = "default"
 
         # Pobierz klasę agenta z rejestru
         agent_class = self.AGENT_REGISTRY[agent_type]
+
+        # ✅ ALWAYS: Provide default dependencies for agents that require them
+        if agent_type == "search":
+            # SearchAgent requires vector_store and llm_client
+            if "vector_store" not in kwargs:
+                from backend.core.vector_store import VectorStore
+
+                kwargs["vector_store"] = VectorStore()
+            if "llm_client" not in kwargs:
+                from backend.core.hybrid_llm_client import hybrid_llm_client
+
+                kwargs["llm_client"] = hybrid_llm_client
 
         # Utwórz instancję agenta
         agent = agent_class(**kwargs)

@@ -46,7 +46,9 @@ class User(Base):
         secondary=user_roles, back_populates="users"
     )
     user_roles: Mapped[List[UserRole]] = relationship(
-        "backend.auth.models.UserRole", back_populates="user"
+        "backend.auth.models.UserRole",
+        back_populates="user",
+        foreign_keys="backend.auth.models.UserRole.user_id",
     )
 
 
@@ -69,7 +71,9 @@ class Role(Base):
         secondary=user_roles, back_populates="roles"
     )
     user_roles: Mapped[List[UserRole]] = relationship(
-        "backend.auth.models.UserRole", back_populates="role"
+        "backend.auth.models.UserRole",
+        back_populates="role",
+        foreign_keys="backend.auth.models.UserRole.role_id",
     )
 
 
@@ -94,7 +98,7 @@ class UserRole(Base):
 
     # Relationships
     user: Mapped[User] = relationship(
-        "backend.auth.models.User", back_populates="user_roles"
+        "backend.auth.models.User", back_populates="user_roles", foreign_keys=[user_id]
     )
     role: Mapped[Role] = relationship(
         "backend.auth.models.Role", back_populates="user_roles"

@@ -1,21 +1,49 @@
 """
-Memory and Performance Monitoring Module
-Zgodnie z regułami MDC dla zarządzania pamięcią i monitoringu
+✅ REQUIRED: Performance monitoring and metrics collection
+This module provides comprehensive monitoring for FoodSave AI application.
 """
 
 import asyncio
 import gc
+import logging
 import os
 import time
 import tracemalloc
 from contextlib import asynccontextmanager, contextmanager
 from dataclasses import dataclass
-from typing import AsyncGenerator, Dict, List, Tuple
+from datetime import datetime
+from functools import wraps
+from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
 from weakref import WeakSet
 
 import psutil
 import structlog
+
 from backend.core.telemetry import get_tracer
+
+# Prometheus metrics
+try:
+    from prometheus_client import Counter, Gauge, Histogram, Summary
+
+    PROMETHEUS_AVAILABLE = True
+except ImportError:
+    PROMETHEUS_AVAILABLE = False
+
+    # Fallback mock classes
+    class MockMetric:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def inc(self, *args, **kwargs):
+            pass
+
+        def observe(self, *args, **kwargs):
+            pass
+
+        def set(self, *args, **kwargs):
+            pass
+
+    Counter = Histogram = Gauge = Summary = MockMetric
 
 logger = structlog.get_logger(__name__)
 
@@ -32,15 +60,116 @@ class MemorySnapshot:
 
 @dataclass
 class PerformanceMetrics:
-    """Metryki wydajności"""
+    """✅ REQUIRED: Performance metrics collection for FoodSave AI"""
 
-    timestamp: float
-    cpu_percent: float
-    memory_percent: float
-    memory_rss: int  # bytes
-    memory_vms: int  # bytes
-    open_files: int
-    threads: int
+    _instance = None
+    _initialized = False
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
+    def __init__(self):
+        if self._initialized:
+            return
+
+        self._initialized = True
+
+        if PROMETHEUS_AVAILABLE:
+            # Request metrics
+            self.request_count = Counter(
+                "foodsave_requests_total",
+                "Total requests",
+                ["method", "endpoint", "status"],
+            )
+            self.request_duration = Histogram(
+                "foodsave_request_duration_seconds",
+                "Request duration",
+                ["method", "endpoint"],
+            )
+
+            # Agent metrics
+            self.agent_request_count = Counter(
+                "foodsave_agent_requests_total",
+                "Total agent requests",
+                ["agent_type", "status"],
+            )
+            self.agent_response_time = Histogram(
+                "foodsave_agent_response_time_seconds",
+                "Agent response time",
+                ["agent_type"],
+            )
+            self.active_agents = Gauge(
+                "foodsave_active_agents", "Number of active agents", ["agent_type"]
+            )
+
+            # Database metrics
+            self.db_query_count = Counter(
+                "foodsave_db_queries_total",
+                "Total database queries",
+                ["operation", "table"],
+            )
+            self.db_query_duration = Histogram(
+                "foodsave_db_query_duration_seconds",
+                "Database query duration",
+                ["operation", "table"],
+            )
+            self.db_connections = Gauge(
+                "foodsave_db_connections_active", "Active database connections"
+            )
+
+            # External API metrics
+            self.external_api_calls = Counter(
+                "foodsave_external_api_calls_total",
+                "Total external API calls",
+                ["api_name", "endpoint", "status"],
+            )
+            self.external_api_duration = Histogram(
+                "foodsave_external_api_duration_seconds",
+                "External API call duration",
+                ["api_name", "endpoint"],
+            )
+
+            # System metrics
+            self.memory_usage = Gauge(
+                "foodsave_memory_usage_bytes", "Memory usage in bytes"
+            )
+            self.cpu_usage = Gauge("foodsave_cpu_usage_percent", "CPU usage percentage")
+
+            # Error metrics
+            self.error_count = Counter(
+                "foodsave_errors_total", "Total errors", ["error_type", "component"]
+            )
+
+            # Processing metrics
+            self.food_items_processed = Counter(
+                "foodsave_food_items_processed_total",
+                "Total food items processed",
+                ["operation", "status"],
+            )
+            self.processing_duration = Histogram(
+                "foodsave_processing_duration_seconds",
+                "Food processing duration",
+                ["operation"],
+            )
+        else:
+            logger.warning("Prometheus client not available, using mock metrics")
+            self.request_count = Counter()
+            self.request_duration = Histogram()
+            self.agent_request_count = Counter()
+            self.agent_response_time = Histogram()
+            self.active_agents = Gauge()
+            self.db_query_count = Counter()
+            self.db_query_duration = Histogram()
+            self.db_connections = Gauge()
+            self.external_api_calls = Counter()
+            self.external_api_duration = Histogram()
+            self.memory_usage = Gauge()
+            self.cpu_usage = Gauge()
+            self.error_count = Counter()
+            self.food_items_processed = Counter()
+            self.processing_duration = Histogram()
 
 
 class MemoryProfiler:
@@ -241,3 +370,320 @@ def log_memory_usage(context: str = "general") -> None:
     if memory_monitor.monitoring_enabled:
         profiler = get_memory_profiler(context)
         profiler.log_memory_usage(context)
+
+
+# Global metrics instance
+metrics = PerformanceMetrics()
+
+
+def monitor_request(method: str, endpoint: str):
+    """✅ REQUIRED: Monitor HTTP requests with proper metrics"""
+
+    def decorator(func):
+        @wraps(func)
+        async def async_wrapper(*args, **kwargs):
+            start_time = time.time()
+            status = "success"
+
+            try:
+                result = await func(*args, **kwargs)
+                return result
+            except Exception as e:
+                status = "error"
+                metrics.error_count.labels(
+                    error_type=type(e).__name__, component="http_request"
+                ).inc()
+                raise
+            finally:
+                duration = time.time() - start_time
+                metrics.request_count.labels(
+                    method=method, endpoint=endpoint, status=status
+                ).inc()
+                metrics.request_duration.labels(
+                    method=method, endpoint=endpoint
+                ).observe(duration)
+
+        @wraps(func)
+        def sync_wrapper(*args, **kwargs):
+            start_time = time.time()
+            status = "success"
+
+            try:
+                result = func(*args, **kwargs)
+                return result
+            except Exception as e:
+                status = "error"
+                metrics.error_count.labels(
+                    error_type=type(e).__name__, component="http_request"
+                ).inc()
+                raise
+            finally:
+                duration = time.time() - start_time
+                metrics.request_count.labels(
+                    method=method, endpoint=endpoint, status=status
+                ).inc()
+                metrics.request_duration.labels(
+                    method=method, endpoint=endpoint
+                ).observe(duration)
+
+        # Return appropriate wrapper
+        import asyncio
+
+        if asyncio.iscoroutinefunction(func):
+            return async_wrapper
+        else:
+            return sync_wrapper
+
+    return decorator
+
+
+def monitor_agent(agent_type: str):
+    """✅ REQUIRED: Monitor agent performance"""
+
+    def decorator(func):
+        @wraps(func)
+        async def async_wrapper(*args, **kwargs):
+            start_time = time.time()
+            status = "success"
+
+            # Increment active agents
+            metrics.active_agents.labels(agent_type=agent_type).inc()
+
+            try:
+                result = await func(*args, **kwargs)
+                return result
+            except Exception as e:
+                status = "error"
+                metrics.error_count.labels(
+                    error_type=type(e).__name__, component=f"agent_{agent_type}"
+                ).inc()
+                raise
+            finally:
+                duration = time.time() - start_time
+                metrics.agent_request_count.labels(
+                    agent_type=agent_type, status=status
+                ).inc()
+                metrics.agent_response_time.labels(agent_type=agent_type).observe(
+                    duration
+                )
+
+                # Decrement active agents
+                metrics.active_agents.labels(agent_type=agent_type).dec()
+
+        @wraps(func)
+        def sync_wrapper(*args, **kwargs):
+            start_time = time.time()
+            status = "success"
+
+            # Increment active agents
+            metrics.active_agents.labels(agent_type=agent_type).inc()
+
+            try:
+                result = func(*args, **kwargs)
+                return result
+            except Exception as e:
+                status = "error"
+                metrics.error_count.labels(
+                    error_type=type(e).__name__, component=f"agent_{agent_type}"
+                ).inc()
+                raise
+            finally:
+                duration = time.time() - start_time
+                metrics.agent_request_count.labels(
+                    agent_type=agent_type, status=status
+                ).inc()
+                metrics.agent_response_time.labels(agent_type=agent_type).observe(
+                    duration
+                )
+
+                # Decrement active agents
+                metrics.active_agents.labels(agent_type=agent_type).dec()
+
+        # Return appropriate wrapper
+        import asyncio
+
+        if asyncio.iscoroutinefunction(func):
+            return async_wrapper
+        else:
+            return sync_wrapper
+
+    return decorator
+
+
+def monitor_database_operation(operation: str, table: str = "unknown"):
+    """✅ REQUIRED: Monitor database operations"""
+
+    def decorator(func):
+        @wraps(func)
+        async def async_wrapper(*args, **kwargs):
+            start_time = time.time()
+
+            try:
+                result = await func(*args, **kwargs)
+                metrics.db_query_count.labels(operation=operation, table=table).inc()
+                return result
+            except Exception as e:
+                metrics.error_count.labels(
+                    error_type=type(e).__name__, component="database"
+                ).inc()
+                raise
+            finally:
+                duration = time.time() - start_time
+                metrics.db_query_duration.labels(
+                    operation=operation, table=table
+                ).observe(duration)
+
+        @wraps(func)
+        def sync_wrapper(*args, **kwargs):
+            start_time = time.time()
+
+            try:
+                result = func(*args, **kwargs)
+                metrics.db_query_count.labels(operation=operation, table=table).inc()
+                return result
+            except Exception as e:
+                metrics.error_count.labels(
+                    error_type=type(e).__name__, component="database"
+                ).inc()
+                raise
+            finally:
+                duration = time.time() - start_time
+                metrics.db_query_duration.labels(
+                    operation=operation, table=table
+                ).observe(duration)
+
+        # Return appropriate wrapper
+        import asyncio
+
+        if asyncio.iscoroutinefunction(func):
+            return async_wrapper
+        else:
+            return sync_wrapper
+
+    return decorator
+
+
+def monitor_external_api(api_name: str, endpoint: str):
+    """✅ REQUIRED: Monitor external API calls"""
+
+    def decorator(func):
+        @wraps(func)
+        async def async_wrapper(*args, **kwargs):
+            start_time = time.time()
+            status = "success"
+
+            try:
+                result = await func(*args, **kwargs)
+                return result
+            except Exception as e:
+                status = "error"
+                metrics.error_count.labels(
+                    error_type=type(e).__name__, component=f"external_api_{api_name}"
+                ).inc()
+                raise
+            finally:
+                duration = time.time() - start_time
+                metrics.external_api_calls.labels(
+                    api_name=api_name, endpoint=endpoint, status=status
+                ).inc()
+                metrics.external_api_duration.labels(
+                    api_name=api_name, endpoint=endpoint
+                ).observe(duration)
+
+        @wraps(func)
+        def sync_wrapper(*args, **kwargs):
+            start_time = time.time()
+            status = "success"
+
+            try:
+                result = func(*args, **kwargs)
+                return result
+            except Exception as e:
+                status = "error"
+                metrics.error_count.labels(
+                    error_type=type(e).__name__, component=f"external_api_{api_name}"
+                ).inc()
+                raise
+            finally:
+                duration = time.time() - start_time
+                metrics.external_api_calls.labels(
+                    api_name=api_name, endpoint=endpoint, status=status
+                ).inc()
+                metrics.external_api_duration.labels(
+                    api_name=api_name, endpoint=endpoint
+                ).observe(duration)
+
+        # Return appropriate wrapper
+        import asyncio
+
+        if asyncio.iscoroutinefunction(func):
+            return async_wrapper
+        else:
+            return sync_wrapper
+
+    return decorator
+
+
+@asynccontextmanager
+async def monitor_processing(operation: str):
+    """✅ REQUIRED: Monitor food processing operations"""
+    start_time = time.time()
+    status = "success"
+
+    try:
+        yield
+    except Exception as e:
+        status = "error"
+        metrics.error_count.labels(
+            error_type=type(e).__name__, component="food_processing"
+        ).inc()
+        raise
+    finally:
+        duration = time.time() - start_time
+        metrics.processing_duration.labels(operation=operation).observe(duration)
+
+
+def update_system_metrics():
+    """✅ REQUIRED: Update system metrics (memory, CPU)"""
+    try:
+        import psutil
+
+        # Memory usage
+        memory_info = psutil.virtual_memory()
+        metrics.memory_usage.set(memory_info.used)
+
+        # CPU usage
+        cpu_percent = psutil.cpu_percent(interval=1)
+        metrics.cpu_usage.set(cpu_percent)
+
+    except ImportError:
+        logger.warning("psutil not available, skipping system metrics")
+    except Exception as e:
+        logger.error(f"Failed to update system metrics: {e}")
+
+
+def record_food_item_processed(operation: str, status: str = "success"):
+    """Record food item processing"""
+    metrics.food_items_processed.labels(operation=operation, status=status).inc()
+
+
+def record_error(error_type: str, component: str):
+    """Record error occurrence"""
+    metrics.error_count.labels(error_type=error_type, component=component).inc()
+
+
+def get_metrics_summary() -> Dict[str, Any]:
+    """Get summary of current metrics"""
+    return {
+        "timestamp": datetime.now().isoformat(),
+        "prometheus_available": PROMETHEUS_AVAILABLE,
+        "metrics_collected": {
+            "requests": "request_count, request_duration",
+            "agents": "agent_request_count, agent_response_time, active_agents",
+            "database": "db_query_count, db_query_duration, db_connections",
+            "external_apis": "external_api_calls, external_api_duration",
+            "system": "memory_usage, cpu_usage",
+            "errors": "error_count",
+            "processing": "food_items_processed, processing_duration",
+        },
+    }

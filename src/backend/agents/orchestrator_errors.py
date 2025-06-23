@@ -2,7 +2,7 @@ from typing import Any, Dict, Optional
 
 from fastapi import status
 
-from backend.core.exceptions import BaseCustomException
+from backend.core.exceptions import FoodSaveError
 
 
 # Lokalne definicje kodów błędów zamiast importu z api.v2.exceptions
@@ -14,16 +14,10 @@ class APIErrorCodes:
     UNAUTHORIZED = "UNAUTHORIZED"
 
 
-class OrchestratorError(BaseCustomException):
-    """Base class for orchestrator errors."""
+class OrchestratorError(FoodSaveError):
+    """Custom error for orchestrator-related issues"""
 
-    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None, **kwargs: Any) -> None:
-        super().__init__(
-            message=message,
-            error_code=kwargs.get("error_code", APIErrorCodes.INTERNAL_ERROR),
-            details=details,
-            severity=kwargs.get("severity", "high"),
-        )
+    pass
 
 
 class AgentProcessingError(OrchestratorError):
@@ -36,7 +30,9 @@ class AgentProcessingError(OrchestratorError):
 class ServiceUnavailableError(OrchestratorError):
     """Required service is unavailable."""
 
-    def __init__(self, service_name: str, details: Optional[Dict[str, Any]] = None) -> None:
+    def __init__(
+        self, service_name: str, details: Optional[Dict[str, Any]] = None
+    ) -> None:
         super().__init__(
             message=f"Service {service_name} is unavailable",
             error_code=APIErrorCodes.SERVICE_UNAVAILABLE,

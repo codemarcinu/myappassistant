@@ -1,15 +1,18 @@
 """
-Centralny system obsługi błędów dla FoodSave AI
+✅ REQUIRED: Custom exception hierarchy for FoodSave AI application
+This module provides a comprehensive exception system with proper error context and logging.
 """
 
 import logging
-from typing import Any, Dict, Optional
+import traceback
+from datetime import datetime
+from typing import Any, Dict, Optional, Union
 
 logger = logging.getLogger(__name__)
 
 
-class BaseCustomException(Exception):
-    """Bazowa klasa dla wszystkich niestandardowych wyjątków"""
+class FoodSaveError(Exception):
+    """✅ REQUIRED: Base exception for FoodSave application"""
 
     def __init__(
         self,
@@ -17,112 +20,111 @@ class BaseCustomException(Exception):
         error_code: Optional[str] = None,
         details: Optional[Dict[str, Any]] = None,
         severity: str = "medium",
-        status_code: int = 500,
+        **kwargs,
     ) -> None:
-        super().__init__(message)
         self.message = message
-        self.error_code = error_code
+        self.error_code = error_code or "UNKNOWN_ERROR"
         self.details = details or {}
         self.severity = severity
-        self.status_code = status_code
-        self.timestamp = self._get_timestamp()
+        self.timestamp = datetime.now()
+        self.context = kwargs
 
-        # Log the exception
-        self._log_exception()
+        # ✅ ALWAYS: Proper error context and logging
+        logger.error(
+            f"FoodSave error: {message}",
+            extra={
+                "error_code": self.error_code,
+                "severity": self.severity,
+                "details": self.details,
+                "context": self.context,
+                "timestamp": self.timestamp.isoformat(),
+            },
+        )
 
-    def _get_timestamp(self) -> str:
-        """Get current timestamp"""
-        from datetime import datetime
+        super().__init__(self.message)
 
-        return datetime.now().isoformat()
-
-    def _log_exception(self) -> None:
-        """Log the exception with appropriate level"""
-        log_message = f"{self.__class__.__name__}: {self.message}"
-        if self.error_code:
-            log_message += f" (Code: {self.error_code})"
-        if self.details:
-            log_message += f" Details: {self.details}"
-
-        if self.severity == "critical":
-            logger.critical(log_message, exc_info=True)
-        elif self.severity == "high":
-            logger.error(log_message, exc_info=True)
-        elif self.severity == "medium":
-            logger.warning(log_message)
+    @property
+    def status_code(self) -> int:
+        """Return appropriate HTTP status code based on error type"""
+        if isinstance(self, ValidationError):
+            return 400
+        elif isinstance(self, AuthenticationError):
+            return 401
+        elif isinstance(self, DatabaseError):
+            return 500
+        elif isinstance(self, ExternalAPIError):
+            return 502
+        elif isinstance(self, RateLimitError):
+            return 429
+        elif isinstance(self, HealthCheckError):
+            return 503
         else:
-            logger.info(log_message)
+            return 500
 
     def to_dict(self) -> Dict[str, Any]:
-        """Convert exception to dictionary for API responses"""
+        """Convert exception to dictionary for JSON response"""
         return {
-            "error_type": self.__class__.__name__,
-            "message": self.message,
             "error_code": self.error_code,
-            "severity": self.severity,
-            "timestamp": self.timestamp,
+            "message": self.message,
             "details": self.details,
+            "severity": self.severity,
+            "timestamp": self.timestamp.isoformat(),
+            "context": self.context,
         }
 
 
-class ValidationError(BaseCustomException):
-    """Błędy walidacji danych wejściowych"""
+class ProcessingError(FoodSaveError):
+    """✅ REQUIRED: Raised when food processing fails"""
 
     def __init__(
         self,
         message: str,
-        field: Optional[str] = None,
-        value: Optional[Any] = None,
-        **kwargs,
-    ) -> None:
-        details = kwargs.get("details", {})
-        if field:
-            details["field"] = field
-        if value is not None:
-            details["value"] = value
-
-        # Remove details from kwargs to avoid duplicate parameter
-        kwargs.pop("details", None)
-
-        super().__init__(
-            message=message,
-            error_code="VALIDATION_ERROR",
-            details=details,
-            severity="medium",
-            **kwargs,
-        )
-
-
-class AIModelError(BaseCustomException):
-    """Błędy związane z modelami AI"""
-
-    def __init__(
-        self,
-        message: str,
-        model_name: Optional[str] = None,
         operation: Optional[str] = None,
+        food_item_id: Optional[str] = None,
         **kwargs,
     ) -> None:
-        details = kwargs.get("details", {})
-        if model_name:
-            details["model_name"] = model_name
+        details = kwargs.pop("details", {})
         if operation:
             details["operation"] = operation
-
-        # Remove details from kwargs to avoid duplicate parameter
-        kwargs.pop("details", None)
+        if food_item_id:
+            details["food_item_id"] = food_item_id
 
         super().__init__(
             message=message,
-            error_code="AI_MODEL_ERROR",
+            error_code="PROCESSING_ERROR",
             details=details,
             severity="high",
             **kwargs,
         )
 
 
-class DatabaseError(BaseCustomException):
-    """Błędy bazy danych"""
+class AgentError(FoodSaveError):
+    """✅ REQUIRED: Raised when agent operations fail"""
+
+    def __init__(
+        self,
+        message: str,
+        agent_type: Optional[str] = None,
+        agent_id: Optional[str] = None,
+        **kwargs,
+    ) -> None:
+        details = kwargs.pop("details", {})
+        if agent_type:
+            details["agent_type"] = agent_type
+        if agent_id:
+            details["agent_id"] = agent_id
+
+        super().__init__(
+            message=message,
+            error_code="AGENT_ERROR",
+            details=details,
+            severity="high",
+            **kwargs,
+        )
+
+
+class DatabaseError(FoodSaveError):
+    """✅ REQUIRED: Database-related errors"""
 
     def __init__(
         self,
@@ -131,14 +133,11 @@ class DatabaseError(BaseCustomException):
         table: Optional[str] = None,
         **kwargs,
     ) -> None:
-        details = kwargs.get("details", {})
+        details = kwargs.pop("details", {})
         if operation:
             details["operation"] = operation
         if table:
             details["table"] = table
-
-        # Remove details from kwargs to avoid duplicate parameter
-        kwargs.pop("details", None)
 
         super().__init__(
             message=message,
@@ -149,120 +148,46 @@ class DatabaseError(BaseCustomException):
         )
 
 
-class NetworkError(BaseCustomException):
-    """Błędy sieciowe"""
+class ValidationError(FoodSaveError):
+    """Input validation errors"""
 
     def __init__(
         self,
         message: str,
-        url: Optional[str] = None,
-        status_code: Optional[int] = None,
+        field: Optional[str] = None,
+        value: Optional[Any] = None,
         **kwargs,
     ) -> None:
-        details = kwargs.get("details", {})
-        if url:
-            details["url"] = url
-        if status_code:
-            details["status_code"] = status_code
-
-        # Remove details from kwargs to avoid duplicate parameter
-        kwargs.pop("details", None)
+        details = kwargs.pop("details", {})
+        if field:
+            details["field"] = field
+        if value is not None:
+            details["value"] = str(value)
 
         super().__init__(
             message=message,
-            error_code="NETWORK_ERROR",
+            error_code="VALIDATION_ERROR",
             details=details,
             severity="medium",
             **kwargs,
         )
 
 
-class FileProcessingError(BaseCustomException):
-    """Błędy przetwarzania plików"""
+class AuthenticationError(FoodSaveError):
+    """Authentication and authorization errors"""
 
     def __init__(
         self,
         message: str,
-        file_path: Optional[str] = None,
-        file_type: Optional[str] = None,
+        user_id: Optional[str] = None,
+        session_id: Optional[str] = None,
         **kwargs,
     ) -> None:
-        details = kwargs.get("details", {})
-        if file_path:
-            details["file_path"] = file_path
-        if file_type:
-            details["file_type"] = file_type
-
-        # Remove details from kwargs to avoid duplicate parameter
-        kwargs.pop("details", None)
-
-        super().__init__(
-            message=message,
-            error_code="FILE_PROCESSING_ERROR",
-            details=details,
-            severity="medium",
-            **kwargs,
-        )
-
-
-class AgentError(BaseCustomException):
-    """Błędy agentów"""
-
-    def __init__(
-        self,
-        message: str,
-        agent_type: Optional[str] = None,
-        agent_name: Optional[str] = None,
-        **kwargs,
-    ) -> None:
-        details = kwargs.get("details", {})
-        if agent_type:
-            details["agent_type"] = agent_type
-        if agent_name:
-            details["agent_name"] = agent_name
-
-        # Remove details from kwargs to avoid duplicate parameter
-        kwargs.pop("details", None)
-
-        super().__init__(
-            message=message,
-            error_code="AGENT_ERROR",
-            details=details,
-            severity="medium",
-            **kwargs,
-        )
-
-
-class ConfigurationError(BaseCustomException):
-    """Błędy konfiguracji"""
-
-    def __init__(self, message: str, config_key: Optional[str] = None, **kwargs) -> None:
-        details = kwargs.get("details", {})
-        if config_key:
-            details["config_key"] = config_key
-
-        # Remove details from kwargs to avoid duplicate parameter
-        kwargs.pop("details", None)
-
-        super().__init__(
-            message=message,
-            error_code="CONFIGURATION_ERROR",
-            details=details,
-            severity="high",
-            **kwargs,
-        )
-
-
-class AuthenticationError(BaseCustomException):
-    """Błędy uwierzytelniania"""
-
-    def __init__(self, message: str, user_id: Optional[str] = None, **kwargs) -> None:
-        details = kwargs.get("details", {})
+        details = kwargs.pop("details", {})
         if user_id:
             details["user_id"] = user_id
-
-        # Remove details from kwargs to avoid duplicate parameter
-        kwargs.pop("details", None)
+        if session_id:
+            details["session_id"] = session_id
 
         super().__init__(
             message=message,
@@ -273,44 +198,74 @@ class AuthenticationError(BaseCustomException):
         )
 
 
-class AuthorizationError(BaseCustomException):
-    """Błędy autoryzacji"""
+class ExternalAPIError(FoodSaveError):
+    """External API integration errors"""
 
     def __init__(
         self,
         message: str,
-        user_id: Optional[str] = None,
-        required_permission: Optional[str] = None,
+        api_name: Optional[str] = None,
+        endpoint: Optional[str] = None,
+        status_code: Optional[int] = None,
         **kwargs,
     ) -> None:
-        details = kwargs.get("details", {})
-        if user_id:
-            details["user_id"] = user_id
-        if required_permission:
-            details["required_permission"] = required_permission
-
-        # Remove details from kwargs to avoid duplicate parameter
-        kwargs.pop("details", None)
+        details = kwargs.pop("details", {})
+        if api_name:
+            details["api_name"] = api_name
+        if endpoint:
+            details["endpoint"] = endpoint
+        if status_code:
+            details["status_code"] = status_code
 
         super().__init__(
             message=message,
-            error_code="AUTHORIZATION_ERROR",
+            error_code="EXTERNAL_API_ERROR",
+            details=details,
+            severity="medium",
+            **kwargs,
+        )
+
+
+class ConfigurationError(FoodSaveError):
+    """Configuration and setup errors"""
+
+    def __init__(
+        self,
+        message: str,
+        config_key: Optional[str] = None,
+        config_value: Optional[Any] = None,
+        **kwargs,
+    ) -> None:
+        details = kwargs.pop("details", {})
+        if config_key:
+            details["config_key"] = config_key
+        if config_value is not None:
+            details["config_value"] = str(config_value)
+
+        super().__init__(
+            message=message,
+            error_code="CONFIGURATION_ERROR",
             details=details,
             severity="high",
             **kwargs,
         )
 
 
-class RateLimitError(BaseCustomException):
-    """Błędy limitu żądań"""
+class RateLimitError(FoodSaveError):
+    """Rate limiting errors"""
 
-    def __init__(self, message: str, retry_after: Optional[int] = None, **kwargs) -> None:
-        details = kwargs.get("details", {})
+    def __init__(
+        self,
+        message: str,
+        limit_type: Optional[str] = None,
+        retry_after: Optional[int] = None,
+        **kwargs,
+    ) -> None:
+        details = kwargs.pop("details", {})
+        if limit_type:
+            details["limit_type"] = limit_type
         if retry_after:
             details["retry_after"] = retry_after
-
-        # Remove details from kwargs to avoid duplicate parameter
-        kwargs.pop("details", None)
 
         super().__init__(
             message=message,
@@ -321,189 +276,177 @@ class RateLimitError(BaseCustomException):
         )
 
 
-class CircuitBreakerError(BaseCustomException):
-    """Błędy circuit breakera"""
+class HealthCheckError(FoodSaveError):
+    """Health check failures"""
 
-    def __init__(self, message: str, circuit_name: Optional[str] = None, **kwargs) -> None:
-        details = kwargs.get("details", {})
-        if circuit_name:
-            details["circuit_name"] = circuit_name
-
-        # Remove details from kwargs to avoid duplicate parameter
-        kwargs.pop("details", None)
+    def __init__(
+        self,
+        message: str,
+        service: Optional[str] = None,
+        check_type: Optional[str] = None,
+        **kwargs,
+    ) -> None:
+        details = kwargs.pop("details", {})
+        if service:
+            details["service"] = service
+        if check_type:
+            details["check_type"] = check_type
 
         super().__init__(
             message=message,
-            error_code="CIRCUIT_BREAKER_ERROR",
+            error_code="HEALTH_CHECK_ERROR",
+            details=details,
+            severity="high",
+            **kwargs,
+        )
+
+
+class NetworkError(FoodSaveError):
+    """Network and connectivity errors"""
+
+    def __init__(
+        self,
+        message: str,
+        url: Optional[str] = None,
+        status_code: Optional[int] = None,
+        **kwargs,
+    ) -> None:
+        details = kwargs.pop("details", {})
+        if url:
+            details["url"] = url
+        if status_code:
+            details["status_code"] = status_code
+
+        super().__init__(
+            message=message,
+            error_code="NETWORK_ERROR",
             details=details,
             severity="medium",
             **kwargs,
         )
 
 
-# Utility functions for exception handling
-def handle_exceptions(
-    max_retries: int = 3,
-    retry_delay: float = 1.0,
-    exceptions_to_catch: Optional[tuple] = None,
-    fallback_response: Optional[Dict[str, Any]] = None,
+# Error handling utilities
+def handle_exception_with_context(
+    exception: Exception, context: Dict[str, Any], operation: str, **kwargs
+) -> FoodSaveError:
+    """✅ ALWAYS: Proper error context and logging"""
+    # Determine the appropriate exception type
+    if isinstance(exception, FoodSaveError):
+        exception.context.update(context)
+        return exception
+
+    # Create a copy of context without operation to avoid conflicts
+    context_copy = context.copy()
+    context_copy.pop("operation", None)
+    error_message = str(exception).lower()
+    if "database" in error_message or "sql" in error_message:
+        exc = DatabaseError(
+            message=str(exception),
+            operation=operation,
+            details={"original_error": type(exception).__name__},
+            **context_copy,
+            **kwargs,
+        )
+    elif "validation" in error_message:
+        exc = ValidationError(
+            message=str(exception),
+            details={"original_error": type(exception).__name__},
+            **context_copy,
+            **kwargs,
+        )
+    elif "authentication" in error_message or "auth" in error_message:
+        exc = AuthenticationError(
+            message=str(exception),
+            details={"original_error": type(exception).__name__},
+            **context_copy,
+            **kwargs,
+        )
+    else:
+        exc = ProcessingError(
+            message=str(exception),
+            operation=operation,
+            details={
+                "original_error": type(exception).__name__,
+                "stack_trace": traceback.format_exc(),
+            },
+            **context_copy,
+            **kwargs,
+        )
+    # Ensure the full context (including 'operation') is present
+    exc.context.update(context)
+    return exc
+
+
+def log_error_with_context(
+    error: Exception, context: Dict[str, Any], operation: str, **kwargs
 ) -> None:
-    """
-    Decorator do obsługi wyjątków z mechanizmem retry
+    """Log error with full context for debugging"""
 
-    Args:
-        max_retries: Maksymalna liczba prób
-        retry_delay: Opóźnienie między próbami w sekundach
-        exceptions_to_catch: Krotka wyjątków do przechwycenia
-        fallback_response: Odpowiedź fallback w przypadku błędu
-    """
-    import asyncio
-    import functools
-    import time
-
-    def decorator(func) -> None:
-        @functools.wraps(func)
-        async def async_wrapper(*args, **kwargs) -> None:
-            last_exception = None
-
-            for attempt in range(max_retries + 1):
-                try:
-                    return await func(*args, **kwargs)
-                except Exception as e:
-                    last_exception = e
-
-                    # Sprawdź czy to wyjątek, który chcemy przechwycić
-                    if exceptions_to_catch and not isinstance(e, exceptions_to_catch):
-                        raise
-
-                    if attempt < max_retries:
-                        logger.warning(
-                            f"Attempt {attempt + 1} failed for {func.__name__}: {str(e)}. "
-                            f"Retrying in {retry_delay} seconds..."
-                        )
-                        await asyncio.sleep(retry_delay)
-                    else:
-                        logger.error(
-                            f"All {max_retries + 1} attempts failed for {func.__name__}: {str(e)}"
-                        )
-
-            # Jeśli wszystkie próby się nie powiodły
-            if fallback_response:
-                return fallback_response
-
-            # Rzuć ostatni wyjątek
-            if last_exception is None:
-                raise ValueError(
-                    "handle_exceptions decorator used with max_retries < 0"
-                )
-            raise last_exception
-
-        @functools.wraps(func)
-        def sync_wrapper(*args, **kwargs) -> None:
-            last_exception = None
-
-            for attempt in range(max_retries + 1):
-                try:
-                    return func(*args, **kwargs)
-                except Exception as e:
-                    last_exception = e
-
-                    # Sprawdź czy to wyjątek, który chcemy przechwycić
-                    if exceptions_to_catch and not isinstance(e, exceptions_to_catch):
-                        raise
-
-                    if attempt < max_retries:
-                        logger.warning(
-                            f"Attempt {attempt + 1} failed for {func.__name__}: {str(e)}. "
-                            f"Retrying in {retry_delay} seconds..."
-                        )
-                        # MDC-FIXED: Zastąpienie time.sleep przez asyncio.run dla proper async handling
-                        try:
-                            asyncio.run(asyncio.sleep(retry_delay))
-                        except RuntimeError:
-                            # Jeśli już jest event loop, użyj time.sleep jako fallback
-                            time.sleep(retry_delay)
-                    else:
-                        logger.error(
-                            f"All {max_retries + 1} attempts failed for {func.__name__}: {str(e)}"
-                        )
-
-            # Jeśli wszystkie próby się nie powiodły
-            if fallback_response:
-                return fallback_response
-
-            # Rzuć ostatni wyjątek
-            if last_exception is None:
-                raise ValueError(
-                    "handle_exceptions decorator used with max_retries < 0"
-                )
-            raise last_exception
-
-        # Zwróć odpowiedni wrapper w zależności od typu funkcji
-        if asyncio.iscoroutinefunction(func):
-            return async_wrapper
-        else:
-            return sync_wrapper
-
-    return decorator
-
-
-def convert_system_exception(exception: Exception) -> BaseCustomException:
-    """
-    Konwertuje systemowy wyjątek na niestandardowy
-
-    Args:
-        exception: Systemowy wyjątek
-
-    Returns:
-        Odpowiedni niestandardowy wyjątek
-    """
-    exception_type = type(exception)
-
-    # Mapowanie typów wyjątków
-    exception_mapping = {
-        ValueError: ValidationError,
-        TypeError: ValidationError,
-        KeyError: ValidationError,
-        IndexError: ValidationError,
-        FileNotFoundError: FileProcessingError,
-        PermissionError: FileProcessingError,
-        ConnectionError: NetworkError,
-        TimeoutError: NetworkError,
-        OSError: FileProcessingError,
-    }
-
-    # Znajdź odpowiedni typ wyjątku
-    custom_exception_type = exception_mapping.get(exception_type, BaseCustomException)
-
-    # Utwórz niestandardowy wyjątek
-    return custom_exception_type(
-        message=str(exception), details={"original_exception": exception_type.__name__}
+    logger.error(
+        f"Error in {operation}: {str(error)}",
+        extra={
+            "error_type": type(error).__name__,
+            "operation": operation,
+            "context": context,
+            "stack_trace": traceback.format_exc(),
+            **kwargs,
+        },
     )
 
 
-def log_exception_with_context(
-    exception: Exception, context: Optional[Dict[str, Any]] = None, level: str = "error"
-) -> None:
-    """
-    Loguje wyjątek z dodatkowym kontekstem
+# Error response utilities
+def create_error_response(
+    error: FoodSaveError, include_details: bool = False
+) -> Dict[str, Any]:
+    """Create standardized error response"""
 
-    Args:
-        exception: Wyjątek do zalogowania
-        context: Dodatkowy kontekst
-        level: Poziom logowania
-    """
-    context = context or {}
+    response = {
+        "success": False,
+        "error_code": error.error_code,
+        "message": error.message,
+        "timestamp": error.timestamp.isoformat(),
+        "severity": error.severity,
+    }
 
-    log_message = f"Exception: {type(exception).__name__}: {str(exception)}"
-    if context:
-        log_message += f" Context: {context}"
+    if include_details:
+        response["details"] = error.details
+        response["context"] = error.context
 
-    if level == "critical":
-        logger.critical(log_message, exc_info=True)
-    elif level == "error":
-        logger.error(log_message, exc_info=True)
-    elif level == "warning":
-        logger.warning(log_message)
+    return response
+
+
+def convert_system_exception(exception: Exception) -> FoodSaveError:
+    """Convert system exceptions to FoodSave exceptions with proper context"""
+
+    # If it's already a FoodSave error, return it
+    if isinstance(exception, FoodSaveError):
+        return exception
+
+    # Map common system exceptions to FoodSave errors
+    if isinstance(exception, ValueError):
+        return ValidationError(
+            message=str(exception), details={"original_error": "ValueError"}
+        )
+    elif isinstance(exception, KeyError):
+        return ValidationError(
+            message=f"Missing required field: {str(exception)}",
+            details={"original_error": "KeyError"},
+        )
+    elif isinstance(exception, TypeError):
+        return ValidationError(
+            message=str(exception), details={"original_error": "TypeError"}
+        )
+    elif isinstance(exception, AttributeError):
+        return ProcessingError(
+            message=str(exception), details={"original_error": "AttributeError"}
+        )
     else:
-        logger.info(log_message)
+        # Generic processing error for unknown exceptions
+        return ProcessingError(
+            message=str(exception),
+            details={
+                "original_error": type(exception).__name__,
+                "stack_trace": traceback.format_exc(),
+            },
+        )

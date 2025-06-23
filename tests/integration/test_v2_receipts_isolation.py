@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import FastAPI
-from fastapi.testclient import TestClient
+from httpx import AsyncClient
 
 from src.backend.agents.base_agent import BaseAgent
 from src.backend.agents.interfaces import AgentResponse
@@ -12,7 +12,6 @@ from src.backend.api.v2.exceptions import APIErrorCodes
 
 app = FastAPI()
 app.include_router(router)
-client = TestClient(app)
 
 
 class DummyAgent(BaseAgent):
@@ -43,28 +42,34 @@ def mock_ocr_agent_success():
         yield mock_process
 
 
-def test_upload_receipt_success_image(client):
-    test_image = BytesIO(b"fake image data")
-    response = client.post(
-        "/api/v2/receipts/upload",
-        files={"file": ("receipt.jpg", test_image, "image/jpeg")},
-    )
-    assert response.status_code == 200
-    data = response.json()
-    assert data["status_code"] == 200
-    assert data["message"] == "Receipt processed successfully"
-    assert "text" in data["data"]
-    assert "message" in data["data"]
-    assert "BIEDRONKA" in data["data"]["text"]
+@pytest.mark.asyncio
+async def test_upload_receipt_success_image(mock_ocr_agent_success):
+    async with AsyncClient(app=app, base_url="http://test") as ac:
+        test_image = BytesIO(b"fake image data")
+        response = await ac.post(
+            "/receipts/upload",
+            files={"file": ("receipt.jpg", test_image, "image/jpeg")},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status_code"] == 200
+        assert data["message"] == "Receipt processed successfully"
+        assert "text" in data["data"]
+        assert "message" in data["data"]
+        assert "BIEDRONKA" in data["data"]["text"]
 
 
-def test_upload_receipt_missing_content_type(client):
-    response = client.post(
-        "/api/v2/receipts/upload",
-        files={
-            "file": ("receipt.jpg", b"fake data", "")
-        },  # Set content_type to empty string
-    )
-    assert response.status_code == 400  # FastAPI zwraca 400 dla pustego content_type
-    response_json = response.json()
-    # FastAPI zwraca błąd walidacji, nie nasz custom error
+@pytest.mark.asyncio
+async def test_upload_receipt_missing_content_type(mock_ocr_agent_success):
+    async with AsyncClient(app=app, base_url="http://test") as ac:
+        response = await ac.post(
+            "/receipts/upload",
+            files={
+                "file": ("receipt.jpg", b"fake data", "")
+            },  # Set content_type to empty string
+        )
+        assert (
+            response.status_code == 400
+        )  # FastAPI zwraca 400 dla pustego content_type
+        response_json = response.json()
+        # FastAPI zwraca błąd walidacji, nie nasz custom error

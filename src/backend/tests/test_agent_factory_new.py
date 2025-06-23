@@ -1,6 +1,7 @@
 from __future__ import annotations
-from typing import Any, Dict, List, Optional, Union, Callable
-from typing import AsyncGenerator, Coroutine
+
+from typing import Any, AsyncGenerator, Callable, Coroutine, Dict, List, Optional, Union
+
 """
 Tests for updated Agent Factory with new agent types
 
@@ -13,7 +14,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from backend.agents.agent_factory import AgentFactory, ShoppingConversationAgent, FoodConversationAgent, InformationQueryAgent, CookingAgent
+from backend.agents.agent_factory import (
+    AgentFactory,
+    CookingAgent,
+    FoodConversationAgent,
+    InformationQueryAgent,
+    ShoppingConversationAgent,
+)
 from backend.agents.analytics_agent import AnalyticsAgent
 from backend.agents.categorization_agent import CategorizationAgent
 from backend.agents.chef_agent import ChefAgent
@@ -66,11 +73,13 @@ class TestAgentFactoryNew:
     def test_create_search_agent(self, factory) -> None:
         """Test creation of SearchAgent"""
         # Mockujemy całą klasę SearchAgent w rejestrze
-        with patch.dict(factory.AGENT_REGISTRY, {'search': MagicMock()}) as mock_registry:
+        with patch.dict(
+            factory.AGENT_REGISTRY, {"search": MagicMock()}
+        ) as mock_registry:
             mock_agent = MagicMock()
             mock_agent.return_value.name = "SearchAgent"
-            mock_registry['search'] = mock_agent
-            
+            mock_registry["search"] = mock_agent
+
             agent = factory.create_agent("search")
             assert isinstance(agent, MagicMock)
             assert agent.name == "SearchAgent"
@@ -179,12 +188,13 @@ class TestAgentFactoryNew:
         # Mockujemy GeneralConversationAgent w rejestrze aby rzucał błąd
         mock_agent = MagicMock()
         mock_agent.side_effect = Exception("Init error")
-        
-        with patch.dict(factory.AGENT_REGISTRY, {'general_conversation': mock_agent}):
+
+        with patch.dict(factory.AGENT_REGISTRY, {"general_conversation": mock_agent}):
             # Sprawdzamy czy błąd jest przechwytywany przez handle_exceptions
-            # Dekorator konwertuje Exception na BaseCustomException
-            from backend.core.exceptions import BaseCustomException
-            with pytest.raises(BaseCustomException):
+            # Dekorator konwertuje Exception na FoodSaveError
+            from backend.core.exceptions import FoodSaveError
+
+            with pytest.raises(FoodSaveError):
                 factory.create_agent("general_conversation")
 
     def test_agent_factory_concurrent_access(self, factory) -> None:
@@ -192,8 +202,8 @@ class TestAgentFactoryNew:
         # Mockujemy SearchAgent w rejestrze aby uniknąć problemów z argumentami
         mock_search_agent = MagicMock()
         mock_search_agent.return_value.name = "SearchAgent"
-        
-        with patch.dict(factory.AGENT_REGISTRY, {'search': mock_search_agent}):
+
+        with patch.dict(factory.AGENT_REGISTRY, {"search": mock_search_agent}):
             agent1 = factory.create_agent("general_conversation")
             agent2 = factory.create_agent("cooking")
             agent3 = factory.create_agent("search")

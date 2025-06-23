@@ -5,14 +5,14 @@ Middleware dla obsługi błędów i logowania
 import logging
 import time
 import uuid
-from typing import Callable, Any, Optional
+from typing import Any, Callable, Optional
 
 from fastapi import HTTPException, Request, Response
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 
-from backend.core.exceptions import BaseCustomException, convert_system_exception
+from backend.core.exceptions import FoodSaveError, convert_system_exception
 from backend.core.monitoring import async_memory_profiling_context
 
 logger = logging.getLogger(__name__)
@@ -39,7 +39,7 @@ class ErrorHandlingMiddleware(BaseHTTPMiddleware):
                 headers=http_exc.headers,
             )
 
-        except BaseCustomException as custom_exc:
+        except FoodSaveError as custom_exc:
             # Convert custom exceptions to HTTP responses
             return JSONResponse(
                 status_code=500,
@@ -227,7 +227,12 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 class CORSMiddleware(BaseHTTPMiddleware):
     """Middleware do obsługi CORS"""
 
-    def __init__(self, app, allowed_origins: Optional[list] = None, allowed_methods: Optional[list] = None) -> None:
+    def __init__(
+        self,
+        app,
+        allowed_origins: Optional[list] = None,
+        allowed_methods: Optional[list] = None,
+    ) -> None:
         super().__init__(app)
         self.allowed_origins = allowed_origins or ["*"]
         self.allowed_methods = allowed_methods or [

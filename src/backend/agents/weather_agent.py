@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 from datetime import datetime, timedelta
@@ -11,7 +12,7 @@ from backend.agents.interfaces import AgentResponse
 from backend.config import settings
 from backend.core.cache_manager import cache_manager
 from backend.core.decorators import handle_exceptions
-from backend.core.exceptions import ConfigurationError, NetworkError
+from backend.core.exceptions import ConfigurationError, ExternalAPIError
 from backend.core.hybrid_llm_client import hybrid_llm_client
 
 logger = logging.getLogger(__name__)
@@ -263,9 +264,9 @@ class WeatherAgent(BaseAgent):
     async def _extract_location(self, query: str, model: str) -> str:
         """Extract location from user query using LLM"""
         prompt = (
-            f"Przeanalizuj poniższe zapytanie i wyodrębnij nazwę miasta lub lokalizacji:\n\n"
+            f"Przeanalizuj poniższe zapytanie i wyodrębnij nazwę miasta lub lokalizacji.\n\n"
             f"Zapytanie: '{query}'\n\n"
-            f"Zwróć tylko nazwę miasta/lokalizacji, bez dodatkowego tekstu."
+            f"Odpowiedz TYLKO nazwą miasta/lokalizacji, bez żadnych dodatkowych słów, wyjaśnień czy znaków."
         )
 
         try:
@@ -274,7 +275,7 @@ class WeatherAgent(BaseAgent):
                 messages=[
                     {
                         "role": "system",
-                        "content": "Jesteś pomocnym asystentem, który wyodrębnia nazwy miast z zapytań o pogodę.",
+                        "content": "Jesteś pomocnym asystentem, który wyodrębnia nazwy miast z zapytań o pogodę. Odpowiadaj TYLKO nazwą miasta, bez żadnych dodatkowych słów.",
                     },
                     {"role": "user", "content": prompt},
                 ],
@@ -283,6 +284,8 @@ class WeatherAgent(BaseAgent):
 
             if response and response.get("message"):
                 location = response["message"]["content"].strip()
+                # Usuń ewentualne dodatkowe słowa i zostaw tylko nazwę miasta
+                location = location.split("\n")[0].split(".")[0].strip()
                 logger.info(f"Extracted location: {location}")
                 return location
             else:
@@ -384,7 +387,7 @@ class WeatherAgent(BaseAgent):
                 logger.warning(
                     f"WeatherAPI rate limit exceeded (429) for {provider.name}"
                 )
-                raise NetworkError(
+                raise ExternalAPIError(
                     f"Rate limit exceeded for {provider.name}",
                     url=url,
                     status_code=429,
@@ -397,7 +400,7 @@ class WeatherAgent(BaseAgent):
                 logger.error(
                     f"WeatherAPI HTTP error {e.response.status_code} for {provider.name}: {e}"
                 )
-                raise NetworkError(
+                raise ExternalAPIError(
                     f"HTTP error {e.response.status_code} from {provider.name}",
                     url=url,
                     status_code=e.response.status_code,
@@ -405,7 +408,7 @@ class WeatherAgent(BaseAgent):
                 )
         except httpx.RequestError as e:
             logger.error(f"Network error with {provider.name}: {e}")
-            raise NetworkError(
+            raise ExternalAPIError(
                 f"Network error with {provider.name}",
                 url=url,
                 details={"provider": provider.name, "error": str(e)},
@@ -524,7 +527,7 @@ class WeatherAgent(BaseAgent):
                 logger.warning(
                     f"OpenWeatherMap rate limit exceeded (429) for {provider.name}"
                 )
-                raise NetworkError(
+                raise ExternalAPIError(
                     f"Rate limit exceeded for {provider.name}",
                     url=current_url,
                     status_code=429,
@@ -537,7 +540,7 @@ class WeatherAgent(BaseAgent):
                 logger.error(
                     f"OpenWeatherMap HTTP error {e.response.status_code} for {provider.name}: {e}"
                 )
-                raise NetworkError(
+                raise ExternalAPIError(
                     f"HTTP error {e.response.status_code} from {provider.name}",
                     url=current_url,
                     status_code=e.response.status_code,
@@ -545,7 +548,7 @@ class WeatherAgent(BaseAgent):
                 )
         except httpx.RequestError as e:
             logger.error(f"Network error with {provider.name}: {e}")
-            raise NetworkError(
+            raise ExternalAPIError(
                 f"Network error with {provider.name}",
                 url=current_url,
                 details={"provider": provider.name, "error": str(e)},
@@ -639,15 +642,23 @@ class WeatherAgent(BaseAgent):
                 for alert in weather_data.alerts:
                     weather_summary += f"- {alert.headline}\n"
 
-            # For now, return formatted text directly
-            # In a full implementation, you would use the LLM here
+            # Format the weather text
             formatted_text = self._format_weather_text(
                 weather_summary, has_severe_alerts
             )
 
+            # Create a streaming generator
+            async def weather_stream_generator():
+                # Split the text into chunks for streaming
+                chunks = formatted_text.split(" ")
+                for chunk in chunks:
+                    yield chunk + " "
+                    await asyncio.sleep(0.05)  # Small delay for streaming effect
+
             return AgentResponse(
                 success=True,
                 text=formatted_text,
+                text_stream=weather_stream_generator(),
                 data={
                     "location": weather_data.location,
                     "current": current,

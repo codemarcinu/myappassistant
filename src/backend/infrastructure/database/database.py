@@ -89,7 +89,11 @@ db_metrics = DatabaseMetrics()
 
 # Health check function for database
 async def check_database_health() -> dict:
-    """Check database health and connection pool status"""
+    """✅ REQUIRED: Check database health and connection pool status
+
+    Returns:
+        dict: Status details with health information
+    """
     try:
         async with get_db_session() as session:
             # Simple query to test connection
@@ -98,15 +102,21 @@ async def check_database_health() -> dict:
             # Update pool stats
             db_metrics.update_pool_stats(engine.pool)
 
-            return {
+            status_details = {
                 "status": "healthy",
                 "pool_stats": db_metrics.connection_pool_stats,
                 "total_queries": db_metrics.query_count,
+                "last_check": "now",
             }
+
+            return status_details
+
     except Exception as e:
         logger.error(f"Database health check failed: {e}")
-        return {
+        status_details = {
             "status": "unhealthy",
             "error": str(e),
             "pool_stats": db_metrics.connection_pool_stats,
+            "last_check": "now",
         }
+        return status_details
