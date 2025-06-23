@@ -504,7 +504,10 @@ class RAGDocumentProcessor:
 
         # The first part of the loaded content should be the main text
         main_content = loaded_content[0]
-        if not isinstance(main_content, str):
+        if isinstance(main_content, dict):
+            # If it's a dictionary, extract the content
+            main_content = main_content.get("content", "")
+        elif not isinstance(main_content, str):
             raise TypeError(f"Expected string content, but got {type(main_content)}")
 
         # Process document
