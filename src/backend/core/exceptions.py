@@ -17,12 +17,14 @@ class BaseCustomException(Exception):
         error_code: Optional[str] = None,
         details: Optional[Dict[str, Any]] = None,
         severity: str = "medium",
+        status_code: int = 500,
     ) -> None:
         super().__init__(message)
         self.message = message
         self.error_code = error_code
         self.details = details or {}
         self.severity = severity
+        self.status_code = status_code
         self.timestamp = self._get_timestamp()
 
         # Log the exception
@@ -79,6 +81,9 @@ class ValidationError(BaseCustomException):
         if value is not None:
             details["value"] = value
 
+        # Remove details from kwargs to avoid duplicate parameter
+        kwargs.pop("details", None)
+
         super().__init__(
             message=message,
             error_code="VALIDATION_ERROR",
@@ -103,6 +108,9 @@ class AIModelError(BaseCustomException):
             details["model_name"] = model_name
         if operation:
             details["operation"] = operation
+
+        # Remove details from kwargs to avoid duplicate parameter
+        kwargs.pop("details", None)
 
         super().__init__(
             message=message,
@@ -129,6 +137,9 @@ class DatabaseError(BaseCustomException):
         if table:
             details["table"] = table
 
+        # Remove details from kwargs to avoid duplicate parameter
+        kwargs.pop("details", None)
+
         super().__init__(
             message=message,
             error_code="DATABASE_ERROR",
@@ -153,6 +164,9 @@ class NetworkError(BaseCustomException):
             details["url"] = url
         if status_code:
             details["status_code"] = status_code
+
+        # Remove details from kwargs to avoid duplicate parameter
+        kwargs.pop("details", None)
 
         super().__init__(
             message=message,
@@ -179,6 +193,9 @@ class FileProcessingError(BaseCustomException):
         if file_type:
             details["file_type"] = file_type
 
+        # Remove details from kwargs to avoid duplicate parameter
+        kwargs.pop("details", None)
+
         super().__init__(
             message=message,
             error_code="FILE_PROCESSING_ERROR",
@@ -204,6 +221,9 @@ class AgentError(BaseCustomException):
         if agent_name:
             details["agent_name"] = agent_name
 
+        # Remove details from kwargs to avoid duplicate parameter
+        kwargs.pop("details", None)
+
         super().__init__(
             message=message,
             error_code="AGENT_ERROR",
@@ -221,6 +241,9 @@ class ConfigurationError(BaseCustomException):
         if config_key:
             details["config_key"] = config_key
 
+        # Remove details from kwargs to avoid duplicate parameter
+        kwargs.pop("details", None)
+
         super().__init__(
             message=message,
             error_code="CONFIGURATION_ERROR",
@@ -237,6 +260,9 @@ class AuthenticationError(BaseCustomException):
         details = kwargs.get("details", {})
         if user_id:
             details["user_id"] = user_id
+
+        # Remove details from kwargs to avoid duplicate parameter
+        kwargs.pop("details", None)
 
         super().__init__(
             message=message,
@@ -263,6 +289,9 @@ class AuthorizationError(BaseCustomException):
         if required_permission:
             details["required_permission"] = required_permission
 
+        # Remove details from kwargs to avoid duplicate parameter
+        kwargs.pop("details", None)
+
         super().__init__(
             message=message,
             error_code="AUTHORIZATION_ERROR",
@@ -280,6 +309,9 @@ class RateLimitError(BaseCustomException):
         if retry_after:
             details["retry_after"] = retry_after
 
+        # Remove details from kwargs to avoid duplicate parameter
+        kwargs.pop("details", None)
+
         super().__init__(
             message=message,
             error_code="RATE_LIMIT_ERROR",
@@ -296,6 +328,9 @@ class CircuitBreakerError(BaseCustomException):
         details = kwargs.get("details", {})
         if circuit_name:
             details["circuit_name"] = circuit_name
+
+        # Remove details from kwargs to avoid duplicate parameter
+        kwargs.pop("details", None)
 
         super().__init__(
             message=message,

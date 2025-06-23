@@ -44,25 +44,46 @@ class AgentRouter(IAgentRouter):
         self, intent: IntentData, context: MemoryContext, user_command: str = ""
     ) -> AgentResponse:
         """Route intent to appropriate agent and return response."""
+        logger.debug(f"AgentRouter.route_to_agent called with: user_command='{user_command}', intent_type='{intent.type}', intent_entities={intent.entities}")
+        
         try:
             agent_type = self._map_intent_to_agent_type(intent.type)
             agent = self._agents.get(agent_type)
 
             if agent is None:
-                if self._fallback_agent:
-                    logger.warning(f"No agent found for type {agent_type.value}, using fallback")
-                    agent = self._fallback_agent
-                else:
-                    return AgentResponse(success=False, error=f"No agent available for intent type: {intent.type}")
+                # Fallback: always return GeneralConversationAgent if no agent found
+                logger.warning(f"No agent found for type {agent_type.value}, using GeneralConversationAgent as fallback")
+                from .general_conversation_agent import GeneralConversationAgent
+                agent = GeneralConversationAgent()
 
             input_data = self._prepare_agent_input(agent_type, user_command, intent, context)
+            # Ensure 'query' is always set
+            input_data["query"] = user_command
+            
+            logger.debug(f"Prepared input_data for agent: {input_data}")
             
             logger.info(f"Routing intent '{intent.type}' to agent {agent_type.value}")
             return await agent.process(input_data)
 
         except Exception as e:
             logger.error(f"Error routing to agent: {e}", exc_info=True)
-            return AgentResponse(success=False, error=f"Błąd routingu do agenta: {str(e)}")
+            # Even in case of exception, return a fallback response
+            try:
+                from .general_conversation_agent import GeneralConversationAgent
+                fallback_agent = GeneralConversationAgent()
+                input_data = {
+                    "query": user_command,
+                    "intent": intent.type,
+                    "entities": intent.entities,
+                    "confidence": intent.confidence,
+                    "session_id": context.session_id,
+                    "context": context.history[-10:] if context.history else [],
+                }
+                input_data["query"] = user_command
+                return await fallback_agent.process(input_data)
+            except Exception as fallback_error:
+                logger.error(f"Fallback agent also failed: {fallback_error}")
+                return AgentResponse(success=False, error=f"Błąd routingu do agenta: {str(e)}")
 
     def _prepare_agent_input(
         self,

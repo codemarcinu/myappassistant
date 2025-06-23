@@ -47,7 +47,7 @@ async def custom_exception_handler(request: Request, exc: BaseCustomException) -
     log_exception_with_context(exc)
     return JSONResponse(
         status_code=exc.status_code,
-        content={"detail": exc.detail},
+        content={"error": exc.to_dict()},
     )
 
 
@@ -138,6 +138,22 @@ def create_app() -> FastAPI:
     app.add_exception_handler(Exception, generic_exception_handler)
     app.add_exception_handler(404, not_found_handler)
 
+    # Add test endpoint for error handling
+    @app.get("/raise_error")
+    async def raise_error(type: str = "value"):
+        """Test endpoint for error handling scenarios"""
+        if type == "value":
+            raise ValueError("Test ValueError")
+        elif type == "key":
+            raise KeyError("Missing required field")
+        elif type == "custom":
+            raise BaseCustomException("Test custom exception")
+        elif type == "http":
+            from fastapi import HTTPException
+            raise HTTPException(status_code=418, detail="I'm a teapot")
+        else:
+            raise Exception("Unexpected error")
+
     # Setup telemetry if enabled
     if settings.TELEMETRY_ENABLED:
         setup_telemetry(app)
@@ -147,7 +163,7 @@ def create_app() -> FastAPI:
     api_router.include_router(chat.router, prefix="/chat", tags=["Chat"])
     api_router.include_router(food.router, prefix="/food", tags=["Food"])
     api_router.include_router(pantry.router, prefix="/pantry", tags=["Pantry"])
-    api_router.include_router(agents.router, prefix="/agents/agents", tags=["Agents"])
+    api_router.include_router(agents.router, prefix="/agents", tags=["Agents"])
 
     # Versioned API routers
     api_v1_router = APIRouter()

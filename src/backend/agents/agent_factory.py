@@ -66,8 +66,12 @@ class AgentFactory:
             pass
 
         # Register agent classes with the registry
+        general_conversation_cls = self._get_agent_class("GeneralConversationAgent")
         self.agent_registry.register_agent_class(
-            "GeneralConversation", self._get_agent_class("GeneralConversationAgent")
+            "GeneralConversation", general_conversation_cls
+        )
+        self.agent_registry.register_agent_class(
+            "GeneralConversationAgent", general_conversation_cls
         )
         self.agent_registry.register_agent_class(
             "OCR", self._get_agent_class("OCRAgent")
@@ -139,10 +143,11 @@ class AgentFactory:
         # Map agent_type to registered agent class using intent_to_agent_mapping
         mapped_agent_type = self.agent_registry.intent_to_agent_mapping.get(agent_type, "GeneralConversation")
         agent_class = self.agent_registry.get_agent_class(mapped_agent_type)
-        
         if not agent_class:
+            # Fallback: always return GeneralConversationAgent if mapping fails
+            from backend.agents.general_conversation_agent import GeneralConversationAgent
             logger.warning(
-                f"Unknown agent type: {agent_type}, using GeneralConversationAgent"
+                f"Unknown agent type: {agent_type} (mapped: {mapped_agent_type}), using GeneralConversationAgent as fallback"
             )
             return GeneralConversationAgent()
 
@@ -175,6 +180,7 @@ class AgentFactory:
 
         # Map class names to actual module files (relative imports)
         module_map = {
+            "GeneralConversationAgent": "general_conversation_agent",
             "OCRAgent": "ocr_agent",
             "WeatherAgent": "weather_agent",
             "SearchAgent": "search_agent",

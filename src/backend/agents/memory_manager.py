@@ -29,6 +29,8 @@ class MemoryContext:
         "history",
         "active_agents",
         "last_response",
+        "last_command",
+        "request_id",
         "created_at",
         "last_updated",
         "__weakref__",  # Allow weak references
@@ -39,6 +41,8 @@ class MemoryContext:
         self.history = history if history is not None else []
         self.active_agents: Dict[str, BaseAgent] = {}
         self.last_response: Optional[Any] = None
+        self.last_command: Optional[str] = None
+        self.request_id: Optional[str] = None
         self.created_at: datetime = datetime.now()
         self.last_updated: datetime = datetime.now()
 

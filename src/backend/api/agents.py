@@ -141,6 +141,85 @@ async def execute_orchestrator_task(
         return AgentResponse(success=False, error=str(e), session_id=session_id)
 
 
+@router.post("/process_query", response_model=AgentResponse)
+async def process_query(
+    request: OrchestratorRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Endpoint do przetwarzania zapytań użytkownika.
+    """
+    import time
+
+    start_time = time.time()
+    session_id = request.session_id or str(uuid.uuid4())
+
+    logger.info(
+        "Query processing request received",
+        extra={
+            "session_id": session_id,
+            "query_length": len(request.task),
+            "agent_event": "query_received",
+        },
+    )
+
+    try:
+        # Użyj fabryki do utworzenia orchestrator z wymaganymi zależnościami
+        orchestrator = create_orchestrator(db)
+
+        # Use the process_query method
+        agent_response = await orchestrator.process_query(
+            query=request.task,
+            session_id=session_id,
+        )
+
+        # Logowanie zakończenia przetwarzania
+        processing_time = (time.time() - start_time) * 1000  # w ms
+        response_text = agent_response.text or agent_response.message or ""
+
+        logger.info(
+            "Query processing completed",
+            extra={
+                "session_id": session_id,
+                "success": agent_response.success,
+                "response_length": len(response_text),
+                "processing_time_ms": int(processing_time),
+                "agent_event": "query_completed",
+                "has_error": bool(agent_response.error),
+            },
+        )
+
+        # Konwertuj AgentResponse na format oczekiwany przez endpoint
+        return AgentResponse(
+            success=agent_response.success,
+            response=response_text,
+            error=agent_response.error,
+            data=agent_response.data,
+            session_id=session_id,
+            conversation_state=(
+                agent_response.data.get("state")
+                if hasattr(agent_response, "data") and agent_response.data
+                else None
+            ),
+        )
+    except Exception as e:
+        # Logowanie błędu
+        processing_time = (time.time() - start_time) * 1000  # w ms
+        logger.error(
+            f"Query processing error: {str(e)}",
+            exc_info=True,
+            extra={
+                "session_id": session_id,
+                "error_type": type(e).__name__,
+                "error_message": str(e),
+                "processing_time_ms": int(processing_time),
+                "agent_event": "query_error",
+            },
+        )
+        # Also return session_id on error so client can continue
+        return AgentResponse(success=False, error=str(e), session_id=session_id)
+
+
 @router.get("/agents", response_model=List[Dict[str, str]])
 async def list_available_agents() -> None:
     """Zwraca listę wszystkich dostępnych intencji."""

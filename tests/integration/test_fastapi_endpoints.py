@@ -18,7 +18,7 @@ def test_app():
 def test_full_orchestration_flow(test_app):
     # Simulate API request that uses the orchestrator
     response = test_app.post(
-        "/agents/execute",
+        "/api/agents/execute",
         json={"task": "Find a recipe for spaghetti", "session_id": "test_session_123"},
     )
     assert response.status_code == 200
@@ -27,7 +27,7 @@ def test_full_orchestration_flow(test_app):
 
 def test_add_item_to_list_flow(test_app):
     response = test_app.post(
-        "/agents/execute",
+        "/api/agents/execute",
         json={"task": "add milk to shopping list", "session_id": "test_session_123"},
     )
     assert response.status_code == 200
@@ -36,7 +36,7 @@ def test_add_item_to_list_flow(test_app):
 
 def test_invalid_input_query(test_app):
     response = test_app.post(
-        "/agents/execute", json={"task": "", "session_id": "test_session"}
+        "/api/agents/execute", json={"task": "", "session_id": "test_session"}
     )  # Empty task
     assert response.status_code == 200
     assert response.json()["success"] is False
@@ -44,13 +44,13 @@ def test_invalid_input_query(test_app):
 
 
 @patch(
-    "backend.main.db_session_dependency.get_db",
+    "backend.infrastructure.database.database.get_db",
     side_effect=Exception("DB connection error"),
 )
 def test_database_connection_failure(mock_get_db, test_app):
     # Simulate DB connection failure
     response = test_app.post(
-        "/process_query", json={"session_id": "test_session", "query": "some query"}
+        "/api/agents/process_query", json={"task": "some query", "session_id": "test_session"}
     )
     assert response.status_code == 500
     assert response.json()["error_code"] == "INTERNAL_SERVER_ERROR"

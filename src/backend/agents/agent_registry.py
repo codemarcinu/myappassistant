@@ -10,8 +10,8 @@ class AgentRegistry:
         # Register intent to agent mappings
         self.intent_to_agent_mapping = {
             "general_conversation": "GeneralConversation",
+            "food_conversation": "GeneralConversation",
             "shopping_conversation": "Categorization",
-            "food_conversation": "Chef",
             "information_query": "Search",
             "cooking": "Chef",
             "weather": "Weather",

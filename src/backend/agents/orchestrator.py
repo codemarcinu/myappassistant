@@ -139,6 +139,7 @@ class Orchestrator:
                     self.agent_router.route_to_agent,
                     intent,
                     context,
+                    user_command=filename,
                 )
 
                 # Add file data to context
@@ -189,7 +190,7 @@ class Orchestrator:
 
             # 3. Detect intent
             intent = await self.intent_detector.detect_intent(
-                user_command, context, profile
+                user_command, context
             )
 
             # 4. Route to agent with circuit breaker
@@ -198,6 +199,7 @@ class Orchestrator:
                     self.agent_router.route_to_agent,
                     intent,
                     context,
+                    user_command=user_command,
                 )
             except pybreaker.CircuitBreakerError as e:
                 logger.error(f"Circuit breaker tripped for intent {intent.type}: {e}")
