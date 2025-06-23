@@ -28,7 +28,7 @@ class ShoppingTrip(Base):
     # Ta relacja tworzy połączenie z produktami.
     # Jeden paragon (ShoppingTrip) może mieć wiele produktów (Product).
     products: Mapped[List["Product"]] = relationship(
-        "Product",
+        f"{__name__}.Product",
         back_populates="trip",
         cascade="all, delete-orphan",
         lazy="selectin",
@@ -66,7 +66,7 @@ class Product(Base):
 
     # Relacja zwrotna do paragonu.
     trip: Mapped["ShoppingTrip"] = relationship(
-        "ShoppingTrip",
+        f"{__name__}.ShoppingTrip",
         back_populates="products",
         lazy="selectin",
     )

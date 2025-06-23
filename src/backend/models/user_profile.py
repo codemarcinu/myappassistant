@@ -2,7 +2,7 @@ from datetime import datetime, time
 from enum import Enum
 from typing import Dict, List, Optional
 
-import pytz  # Needed for timezone validation  # type: ignore
+import pytz  # type: ignore  # Needed for timezone validation
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -104,7 +104,7 @@ class UserActivity(Base):
     )  # Zmieniono z 'metadata' na 'activity_metadata'
 
     user: Mapped["UserProfile"] = relationship(
-        "UserProfile",
+        f"{__name__}.UserProfile",
         back_populates="activities",
         lazy="selectin",
     )
@@ -137,7 +137,7 @@ class UserProfile(Base):
     )
 
     activities: Mapped[List["UserActivity"]] = relationship(
-        "UserActivity",
+        f"{__name__}.UserActivity",
         back_populates="user",
         cascade="all, delete-orphan",
         lazy="selectin",

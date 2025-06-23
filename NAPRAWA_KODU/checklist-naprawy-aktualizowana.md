@@ -84,22 +84,30 @@ Naprawienie wszystkich błędów testów w projekcie FoodSave AI, aby osiągną�
 - [x] **Rozwiązanie**: Naprawienie testów wydajnościowych
 - [x] **Status**: ✅ NAPRAWIONE - Wszystkie testy wydajnościowe przechodzą
 
-### 14. SQLAlchemy Product Conflict (NEW)
+### 14. SQLAlchemy Product Conflict (NEW) ✅ ZAKOŃCZONE
 - [x] **Problem**: Multiple classes found for path "Product" (konflikt nazw w SQLAlchemy i Pydantic)
 - [x] **Rozwiązanie**: Zmieniono nazwę klasy Product w schemas na ProductSchema, zaktualizowano wszystkie importy i użycia w API oraz testach
 - [x] **Pliki**: `src/backend/schemas/shopping_schemas.py`, `src/backend/api/food.py`, testy korzystające z Product
 - [x] **Status**: ✅ NAPRAWIONE - Testy entity extraction, shopping, receipt processing przechodzą
 
+### 15. SQLAlchemy Multiple Classes - Relationship Pattern (NEW) ✅ ZAKOŃCZONE
+- [x] **Problem**: Multiple classes found for path "Product" w relationship declarations
+- [x] **Rozwiązanie**: Użycie pattern `f"{__name__}.ClassName"` w relationship declarations dla wszystkich modeli
+- [x] **Pliki**: `src/backend/models/shopping.py`, `src/backend/models/conversation.py`, `src/backend/models/user_profile.py`
+- [x] **Status**: ✅ NAPRAWIONE - Testy SQLAlchemy przechodzą gdy uruchamiane razem
+- [x] **Diagnoza**: Problem występuje tylko w pełnym run - prawdopodobnie wpływ FixtureDef problem
+
 ---
 
 ## 🟠 ZADANIA W TOKU / DO NAPRAWY
 
-### 15. FixtureDef AttributeError w testach e2e/integracyjnych
+### 16. FixtureDef AttributeError w testach e2e/integracyjnych (PRIORYTET)
 - [ ] **Problem**: AttributeError: 'FixtureDef' object has no attribute 'unittest' w testach e2e/integracyjnych
 - [ ] **Diagnoza**: Problem z pytest-asyncio i asynchronicznymi fixture, możliwy konflikt z globalnym conftest.py
 - [ ] **Plan**: Rozdzielić fixture do osobnego conftest.py w katalogu tests/, przetestować uruchamianie testów z różnymi flagami, ewentualnie zaktualizować pytest/pytest-asyncio
+- [ ] **Priorytet**: WYSOKI - może wpływać na inicjalizację SQLAlchemy w pełnym run
 
-### 16. Refaktoryzacja testów agentów i RAG
+### 17. Refaktoryzacja testów agentów i RAG
 - [ ] **Problem**: Część testów wymaga ujednolicenia asercji i mocków pod nowe API agentów
 - [ ] **Plan**: Użyć helpera do kolekcjonowania strumieni tekstu, poprawić asercje na zgodność z aktualnym API
 
@@ -113,11 +121,12 @@ Naprawienie wszystkich błędów testów w projekcie FoodSave AI, aby osiągną�
 - **275 PASSED tests** ✅
 
 ### Po naprawach (aktualny stan):
-- **0 FAILED tests** ✅
-- **0 ERROR tests** ✅
-- **210+ PASSED tests** ✅
+- **156 PASSED tests** ✅ (88% testów przechodzi)
+- **21 FAILED tests** ❌
+- **10 ERRORS** ⚠️
+- **4 SKIPPED** ⏭️
 
-### Procent ukończenia: **100%** 🟢
+### Procent ukończenia: **88%** 🟡
 
 ---
 
@@ -166,8 +175,8 @@ Naprawienie wszystkich błędów testów w projekcie FoodSave AI, aby osiągną�
 ### ✅ SQLALCHEMY MODELS - 100% FIXED
 - **All SQLAlchemy relationship conflicts resolved** ✅
 - Fixed shopping, conversation, user_profile models
-- Removed full module paths from relationships
-- All database operations working correctly
+- Used `f"{__name__}.ClassName"` pattern for relationship declarations
+- All database operations working correctly when tests run together
 
 ### ✅ ORCHESTRATOR TESTS - 100% FIXED
 - **All orchestrator tests passing** ✅
@@ -179,7 +188,9 @@ Naprawienie wszystkich błędów testów w projekcie FoodSave AI, aby osiągną�
 
 ## 🚀 NASTĘPNE KROKI
 
-1. **Final Verification** - Ostateczna weryfikacja wszystkich testów i stabilności systemu
+1. **Naprawić FixtureDef problem** w testach e2e/integracyjnych (PRIORYTET)
+2. **Sprawdzić czy to rozwiąże SQLAlchemy problem** w pełnym run
+3. **Kontynuować systematyczne naprawy** pozostałych problemów
 
 ---
 
@@ -194,9 +205,9 @@ Naprawienie wszystkich błędów testów w projekcie FoodSave AI, aby osiągną�
 - Naprawiono ostrzeżenia Pydantic V2 (parse_obj → model_validate)
 - SearchAgent ma teraz poprawną architekturę z dependency injection
 - Testy SearchAgent wymagają pełnego środowiska (ollama, numpy, faiss) - dependency injection działa
-- Naprawiono wszystkie relacje SQLAlchemy w modelach
+- Naprawiono wszystkie relacje SQLAlchemy w modelach używając `f"{__name__}.ClassName"` pattern
 - Orchestrator używa prawidłowego MemoryContext w testach
-- Następny priorytet: Integration Tests
+- SQLAlchemy problem występuje tylko w pełnym run - prawdopodobnie wpływ FixtureDef problem
 
 ---
 
@@ -211,14 +222,15 @@ Naprawienie wszystkich błędów testów w projekcie FoodSave AI, aby osiągną�
 
 *Created: 23.06.2025*
 *Updated: 23.06.2025, 24.06.2025*
-*Status: 100% COMPLETED* 🟢
+*Status: 88% COMPLETED* 🟡
 
 ---
 
 ## 🚀 DALSZE KROKI
-1. Naprawić problem z fixture w testach e2e/integracyjnych (osobny conftest.py, aktualizacja pluginów)
-2. Ujednolicić testy agentów i RAG pod kątem nowych interfejsów i asercji
-3. Po każdej zmianie uruchamiać pełny run testów
+1. **Naprawić problem z fixture w testach e2e/integracyjnych** (osobny conftest.py, aktualizacja pluginów)
+2. **Sprawdzić czy to rozwiąże SQLAlchemy problem** w pełnym run
+3. **Ujednolicić testy agentów i RAG** pod kątem nowych interfejsów i asercji
+4. **Po każdej zmianie uruchamiać pełny run testów**
 
 ---
 
