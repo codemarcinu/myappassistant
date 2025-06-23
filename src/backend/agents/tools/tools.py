@@ -4,11 +4,12 @@ from typing import Any, Dict, List
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.models.shopping import Product, ShoppingTrip
+
 from ...config import settings
 from ...core import crud
 from ...core.llm_client import llm_client
 from ...core.utils import extract_json_from_text
-from ...models.shopping import Product, ShoppingTrip
 
 logger = logging.getLogger(__name__)
 

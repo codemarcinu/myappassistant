@@ -5,16 +5,17 @@ with open("paste.txt", "r", encoding="utf-8", errors="ignore") as f:
 
 # Wyodrębnienie szczegółowych błędów SQLAlchemy
 import re
+
 sqlalchemy_errors = []
-lines = logs_content.split('\n')
+lines = logs_content.split("\n")
 
 for i, line in enumerate(lines):
     if "Multiple classes found for path" in line:
         # Pobierz kontekst błędu
         context = []
-        for j in range(max(0, i-3), min(len(lines), i+5)):
+        for j in range(max(0, i - 3), min(len(lines), i + 5)):
             context.append(lines[j])
-        sqlalchemy_errors.append('\n'.join(context))
+        sqlalchemy_errors.append("\n".join(context))
 
 print("=== SZCZEGÓŁOWA ANALIZA BŁĘDÓW SQLALCHEMY ===")
 if sqlalchemy_errors:
@@ -27,9 +28,9 @@ agent_factory_errors = []
 for i, line in enumerate(lines):
     if "Unsupported agent type" in line:
         context = []
-        for j in range(max(0, i-2), min(len(lines), i+3)):
+        for j in range(max(0, i - 2), min(len(lines), i + 3)):
             context.append(lines[j])
-        agent_factory_errors.append('\n'.join(context))
+        agent_factory_errors.append("\n".join(context))
 
 print("\n=== SZCZEGÓŁOWA ANALIZA BŁĘDÓW AGENT FACTORY ===")
 if agent_factory_errors:
@@ -56,19 +57,29 @@ for error_type, count in sorted(attr_counts.items(), key=lambda x: x[1], reverse
     print(f"  {error_type}: {count} wystąpień")
 
 # Analiza testów async
-async_errors = [line for line in lines if "async def functions are not natively supported" in line]
+async_errors = [
+    line for line in lines if "async def functions are not natively supported" in line
+]
 print(f"\n=== PROBLEMY Z TESTAMI ASYNC ===")
 print(f"Liczba plików z problemami async: {len(async_errors)}")
 
 print("\n=== PODSUMOWANIE KATEGORII BŁĘDÓW ===")
 categories = {
-    "SQLAlchemy Multiple Classes": len([l for l in lines if "Multiple classes found for path" in l]),
-    "SQLAlchemy Mapper Init": len([l for l in lines if "One or more mappers failed to initialize" in l]),
+    "SQLAlchemy Multiple Classes": len(
+        [l for l in lines if "Multiple classes found for path" in l]
+    ),
+    "SQLAlchemy Mapper Init": len(
+        [l for l in lines if "One or more mappers failed to initialize" in l]
+    ),
     "Agent Factory": len([l for l in lines if "Unsupported agent type" in l]),
-    "AttributeError": len([l for l for l in lines if "AttributeError:" in l]),
-    "AssertionError": len([l for l in lines if "AssertionError:" in l]),  
-    "Async Support": len([l for l in lines if "async def functions are not natively supported" in l]),
-    "Import Errors": len([l for l in lines if "ImportError:" in l or "ModuleNotFoundError:" in l]),
+    "AttributeError": len([l for l in lines if "AttributeError:" in l]),
+    "AssertionError": len([l for l in lines if "AssertionError:" in l]),
+    "Async Support": len(
+        [l for l in lines if "async def functions are not natively supported" in l]
+    ),
+    "Import Errors": len(
+        [l for l in lines if "ImportError:" in l or "ModuleNotFoundError:" in l]
+    ),
 }
 
 for category, count in sorted(categories.items(), key=lambda x: x[1], reverse=True):
