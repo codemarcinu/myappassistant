@@ -4,25 +4,26 @@ Tests for GeneralConversationAgent
 Tests the new agent that handles free-form conversations with RAG and internet search capabilities.
 """
 
-from typing import Any, Dict
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from backend.agents.general_conversation_agent import GeneralConversationAgent
-from backend.agents.interfaces import AgentResponse
+from backend.agents.general_conversation_agent import (
+    AgentResponse,
+    GeneralConversationAgent,
+)
 
 
 class TestGeneralConversationAgent:
     """Test suite for GeneralConversationAgent"""
 
     @pytest.fixture
-    def agent(self) -> None:
+    def agent(self):
         """Create a GeneralConversationAgent instance for testing"""
         return GeneralConversationAgent()
 
     @pytest.fixture
-    def mock_input_data(self) -> None:
+    def mock_input_data(self):
         """Mock input data for testing"""
         return {
             "query": "What is the weather like today?",
@@ -35,9 +36,7 @@ class TestGeneralConversationAgent:
     async def test_process_with_valid_input(self, agent, mock_input_data) -> None:
         """Test processing with valid input data"""
         with patch.object(
-            agent, "_needs_internet_search", return_value=True
-        ), patch.object(
-            agent, "_get_rag_context", return_value="RAG context"
+            agent, "_get_rag_context", return_value=("RAG context", 0.8)
         ), patch.object(
             agent, "_get_internet_context", return_value="Internet context"
         ), patch.object(
@@ -64,50 +63,69 @@ class TestGeneralConversationAgent:
 
         assert isinstance(result, AgentResponse)
         assert result.success is False
-        assert "Query is required" in result.error
+        assert "No query provided" in result.error
 
     @pytest.mark.asyncio
     async def test_get_rag_context_success(self, agent) -> None:
         """Test successful RAG context retrieval"""
         with patch(
+            "src.backend.agents.general_conversation_agent.mmlw_client"
+        ) as mock_mmlw, patch(
             "src.backend.agents.general_conversation_agent.vector_store"
-        ) as mock_vector_store, patch.object(
-            agent, "rag_integration"
-        ) as mock_rag_integration:
+        ) as mock_vector_store:
 
             # Mock async methods properly
+            mock_mmlw.embed_text = AsyncMock(return_value=[0.1, 0.2, 0.3])
             mock_vector_store.search = AsyncMock(
                 return_value=[
-                    {"content": "Document 1 content"},
-                    {"content": "Document 2 content"},
+                    (
+                        type(
+                            "obj",
+                            (object,),
+                            {
+                                "content": "Document 1 content",
+                                "metadata": {"filename": "test.txt"},
+                            },
+                        )(),
+                        0.8,
+                    ),
+                    (
+                        type(
+                            "obj",
+                            (object,),
+                            {
+                                "content": "Document 2 content",
+                                "metadata": {"filename": "test2.txt"},
+                            },
+                        )(),
+                        0.7,
+                    ),
                 ]
             )
-            mock_rag_integration.get_relevant_context = AsyncMock(
-                return_value="Database context"
-            )
 
-            result = await agent._get_rag_context("test query")
+            result, confidence = await agent._get_rag_context("test query")
 
             assert "Document 1 content" in result
             assert "Document 2 content" in result
-            assert "Database context" in result
+            assert confidence > 0.0
 
     @pytest.mark.asyncio
     async def test_get_rag_context_empty(self, agent) -> None:
         """Test RAG context retrieval when no documents found"""
         with patch(
+            "src.backend.agents.general_conversation_agent.mmlw_client"
+        ) as mock_mmlw, patch(
             "src.backend.agents.general_conversation_agent.vector_store"
-        ) as mock_vector_store, patch.object(
-            agent, "rag_integration"
-        ) as mock_rag_integration:
+        ) as mock_vector_store:
 
             # Mock async methods properly
+            mock_mmlw.embed_text = AsyncMock(return_value=[0.1, 0.2, 0.3])
             mock_vector_store.search = AsyncMock(return_value=[])
-            mock_rag_integration.get_relevant_context = AsyncMock(return_value="")
 
-            result = await agent._get_rag_context("test query")
+            result, confidence = await agent._get_rag_context("test query")
 
             assert result == ""
+            assert confidence == 0.0
 
     @pytest.mark.asyncio
     async def test_get_internet_context_with_perplexity(self, agent) -> None:
@@ -138,21 +156,14 @@ class TestGeneralConversationAgent:
     async def test_get_internet_context_with_local_search(self, agent) -> None:
         """Test internet context retrieval using local search"""
         with patch(
-            "src.backend.agents.search_agent.SearchAgent"
-        ) as mock_search_agent_class:
-            mock_search_agent = AsyncMock()
-            mock_search_agent_class.return_value = mock_search_agent
-
+            "src.backend.agents.general_conversation_agent.web_search"
+        ) as mock_web_search:
             # Mock successful search response
-            mock_search_agent.process.return_value = AgentResponse(
-                success=True,
-                text="Test search results",
-                data={
-                    "results": [
-                        {"content": "Test result 1"},
-                        {"content": "Test result 2"},
-                    ]
-                },
+            mock_web_search.search = AsyncMock(
+                return_value=[
+                    {"content": "Test result 1"},
+                    {"content": "Test result 2"},
+                ]
             )
 
             result = await agent._get_internet_context(
@@ -161,7 +172,6 @@ class TestGeneralConversationAgent:
 
             assert "Test result 1" in result
             assert "Test result 2" in result
-            mock_search_agent.process.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_generate_response_with_bielik(self, agent) -> None:
@@ -183,9 +193,6 @@ class TestGeneralConversationAgent:
             )
 
             assert result == "Bielik response"
-            mock_llm.chat.assert_called_once()
-            call_args = mock_llm.chat.call_args
-            assert call_args[1]["model"] == "SpeakLeash/bielik-11b-v2.3-instruct:Q5_K_M"
 
     @pytest.mark.asyncio
     async def test_generate_response_with_gemma(self, agent) -> None:

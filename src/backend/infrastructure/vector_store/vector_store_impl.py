@@ -25,6 +25,17 @@ class EnhancedVectorStoreImpl:
             logger.error(f"Error adding documents: {e}")
             raise
 
+    async def add_document(self, text: str, metadata: Dict[str, Any]) -> None:
+        """Add a single document to vector store"""
+        try:
+            await self.vector_store.add_document(
+                text=text, metadata=metadata, auto_embed=True
+            )
+            logger.info("Added document to vector store")
+        except Exception as e:
+            logger.error(f"Error adding document: {e}")
+            raise
+
     async def similarity_search(self, query: str, k: int = 4) -> List[str]:
         """Search for similar documents"""
         try:

@@ -124,7 +124,9 @@ async def test_search_functionality():
 
     for query in test_queries:
         logger.info(f"Searching for: {query}")
-        search_results = await vector_store.search(query=query, k=5, min_similarity=0.5)
+        search_results = await vector_store.search_text(
+            query=query, k=5, min_similarity=0.5
+        )
 
         results[query] = {
             "count": len(search_results),

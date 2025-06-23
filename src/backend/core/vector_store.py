@@ -11,10 +11,9 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, AsyncGenerator, Callable, Dict, List, Optional, Tuple
+
 import numpy as np
-from backend.core.interfaces import DocumentProcessor
-from concurrent.futures import ThreadPoolExecutor
 
 try:
     import faiss
@@ -196,12 +195,29 @@ class VectorStore:
             del self._vector_cache[oldest_key]
         self._vector_cache[doc_id] = embedding
 
-    async def add_document(self, text: str, metadata: Dict[str, Any]) -> None:
+    async def add_document(
+        self, text: str, metadata: Dict[str, Any], auto_embed: bool = False
+    ) -> None:
         """Add a single document to the vector store"""
         # Create a simple document chunk
         doc = DocumentChunk(
             id=f"doc_{len(self._documents)}", content=text, metadata=metadata
         )
+
+        # Generate embedding if auto_embed is True
+        if auto_embed:
+            try:
+                # Import here to avoid circular imports
+                from backend.core.llm_client import llm_client
+
+                embedding_response = await llm_client.embed(text)
+                if embedding_response and "embedding" in embedding_response:
+                    doc.embedding = np.array(
+                        embedding_response["embedding"], dtype=np.float32
+                    )
+            except Exception as e:
+                logger.warning(f"Failed to auto-generate embedding: {e}")
+
         await self.add_documents([doc])
 
     async def add_documents(self, documents: List[DocumentChunk]) -> None:
@@ -279,6 +295,45 @@ class VectorStore:
             return results
         except Exception as e:
             logger.error(f"Error during vector search: {e}")
+            return []
+
+    async def search_text(
+        self, query: str, k: int = 5, min_similarity: float = 0.0
+    ) -> List[Dict[str, Any]]:
+        """Search for documents using text query (generates embedding internally)"""
+        try:
+            # Import here to avoid circular imports
+            from backend.core.llm_client import llm_client
+
+            # Generate embedding for the query
+            embedding_response = await llm_client.embed(query)
+            if not embedding_response or "embedding" not in embedding_response:
+                logger.error("Failed to generate embedding for query")
+                return []
+
+            query_embedding = np.array(
+                embedding_response["embedding"], dtype=np.float32
+            )
+
+            # Search using the embedding
+            results = await self.search(query_embedding, k)
+
+            # Convert to expected format and filter by similarity
+            formatted_results = []
+            for doc_chunk, distance in results:
+                similarity = 1.0 - (distance / 2.0)  # Convert distance to similarity
+                if similarity >= min_similarity:
+                    formatted_results.append(
+                        {
+                            "content": doc_chunk.content,
+                            "metadata": doc_chunk.metadata,
+                            "similarity": similarity,
+                        }
+                    )
+
+            return formatted_results
+        except Exception as e:
+            logger.error(f"Error during text search: {e}")
             return []
 
     async def get_document(self, doc_id: str) -> Optional[DocumentChunk]:
@@ -380,6 +435,14 @@ class VectorStore:
             "stats": self._stats,
         }
 
+    async def get_statistics(self) -> Dict[str, Any]:
+        """Alias for get_stats for compatibility"""
+        return await self.get_stats()
+
+    async def is_empty(self) -> bool:
+        """Check if vector store is empty"""
+        return len(self._documents) == 0
+
     async def clear_all(self) -> None:
         """Clear all documents and reset vector store"""
         async with self._cleanup_lock:
@@ -403,16 +466,15 @@ class VectorStore:
             self.chunks_since_save = 0
 
     @asynccontextmanager
-    async def context_manager(self) -> None:
+    async def context_manager(self) -> AsyncGenerator["VectorStore", None]:
         """Async context manager for vector store lifecycle"""
         try:
             yield self
         finally:
-            # Optional cleanup on exit
             await self._cleanup_old_documents()
             logger.debug("Vector store context manager exited")
 
-    async def __aenter__(self) -> None:
+    async def __aenter__(self) -> "VectorStore":
         """Async context manager entry"""
         return self
 

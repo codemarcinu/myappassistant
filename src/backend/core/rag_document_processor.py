@@ -11,7 +11,7 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, AsyncGenerator, Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
@@ -26,10 +26,13 @@ except ImportError:
 # Import existing clients
 from backend.core.hybrid_llm_client import hybrid_llm_client
 from backend.core.interfaces import VectorStore
-from backend.infrastructure.vector_store.vector_store_impl import EnhancedVectorStoreImpl
+from backend.infrastructure.vector_store.vector_store_impl import (
+    EnhancedVectorStoreImpl,
+)
 
 # LangChain imports (optional)
 try:
+    from langchain.document_loaders.base import BaseLoader
     from langchain.text_splitter import RecursiveCharacterTextSplitter
     from langchain_community.document_loaders import PyPDFLoader, WebBaseLoader
     from langchain_community.document_loaders.email import UnstructuredEmailLoader
@@ -40,7 +43,6 @@ try:
     from langchain_community.document_loaders.word_document import (
         UnstructuredWordDocumentLoader,
     )
-    from langchain.document_loaders.base import BaseLoader
 
     LANGCHAIN_AVAILABLE = True
 except ImportError:
@@ -114,7 +116,9 @@ class RAGDocumentProcessor:
             pinecone_api_key: API key for Pinecone (if using Pinecone)
             pinecone_index: Index name for Pinecone (if using Pinecone)
         """
-        self.vector_store = vector_store or EnhancedVectorStoreImpl(llm_client=hybrid_llm_client)
+        self.vector_store = vector_store or EnhancedVectorStoreImpl(
+            llm_client=hybrid_llm_client
+        )
 
         # Memory management
         self._processed_documents: Dict[str, weakref.ref[Dict[str, Any]]] = {}
@@ -288,7 +292,7 @@ class RAGDocumentProcessor:
                 return []
 
         path = Path(file_path) if isinstance(file_path, str) else file_path
-        
+
         try:
             loader = self._get_loader_for_file(str(path))
 
@@ -432,13 +436,11 @@ class RAGDocumentProcessor:
                 except Exception as e:
                     logger.error(f"Failed to store in Pinecone: {e}")
                     # Fall back to vector store
-                    await self.vector_store.add_document(
-                        chunk, source_id, chunk_metadata
-                    )
+                    await self.vector_store.add_document(chunk, chunk_metadata)
                     storage = "vector_store"
             else:
                 # Store in local vector store
-                await self.vector_store.add_document(chunk, source_id, chunk_metadata)
+                await self.vector_store.add_document(chunk, chunk_metadata)
                 storage = "vector_store"
 
             # Record processed chunk
@@ -512,7 +514,7 @@ class RAGDocumentProcessor:
 
         # Process document
         processing_result = await self.process_document(
-            main_content, source_id, base_metadata
+            str(main_content), source_id, base_metadata
         )
 
         return {
@@ -846,16 +848,15 @@ class RAGDocumentProcessor:
             logger.info("Cleared all documents from processor")
 
     @asynccontextmanager
-    async def context_manager(self) -> None:
-        """Async context manager for processor lifecycle"""
+    async def context_manager(self) -> AsyncGenerator["RAGDocumentProcessor", None]:
+        """Async context manager for RAGDocumentProcessor lifecycle"""
         try:
             yield self
         finally:
-            # Optional cleanup on exit
             await self._cleanup_old_documents()
-            logger.debug("RAG document processor context manager exited")
+            logger.debug("RAGDocumentProcessor context manager exited")
 
-    async def __aenter__(self) -> None:
+    async def __aenter__(self) -> "RAGDocumentProcessor":
         """Async context manager entry"""
         return self
 
