@@ -7,7 +7,6 @@ import sys
 from pathlib import Path
 
 import pytest
-import pytest_asyncio
 
 # Add src directory to Python path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
@@ -33,42 +32,6 @@ def client():
     from src.backend.main import app
 
     return TestClient(app)
-
-
-@pytest_asyncio.fixture
-async def db_session():
-    """
-    Async fixture dla sesji bazodanowej z cleanup.
-    """
-    from src.backend.core.database import AsyncSessionLocal
-
-    async with AsyncSessionLocal() as session:
-        try:
-            yield session
-            await session.commit()
-        except Exception:
-            await session.rollback()
-            raise
-        finally:
-            await session.close()
-
-
-@pytest_asyncio.fixture
-async def test_db():
-    """
-    Fixture dla testowej bazy danych z cleanup.
-    """
-    from src.backend.core.database import Base, engine
-
-    # Create tables
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-
-    yield
-
-    # Cleanup
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
 
 
 @pytest.fixture

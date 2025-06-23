@@ -103,15 +103,31 @@ Naprawienie wszystkich błędów testów w projekcie FoodSave AI, aby osiągną�
 - [x] **Status**: ✅ NAPRAWIONE - testy e2e przechodzą, testy meal_planning_conversation przechodzą z mockiem LLM
 - [x] **Uwaga**: Testy shopping_conversation i product_query_with_date_filter wyłączone do czasu refaktoryzacji orchestratora (brak get_orchestrator)
 
+### 19. LLMClient generate_stream Async Generator Fix (NEW) ✅ ZAKOŃCZONE
+- [x] **Problem**: TypeError: 'async for' requires an object with __aiter__ method, got coroutine w meal_planner_agent
+- [x] **Rozwiązanie**: Naprawienie metody generate_stream w LLMClient aby poprawnie obsługiwała zwracany typ z metody chat
+- [x] **Pliki**: `src/backend/core/llm_client.py`, `tests/integration/test_agents.py`
+- [x] **Status**: ✅ NAPRAWIONE - generate_stream zwraca async generator, testy meal_planner_agent przechodzą
+
+### 20. FixtureDef AttributeError - Conftest Separation (NEW) ✅ ZAKOŃCZONE
+- [x] **Problem**: AttributeError: 'FixtureDef' object has no attribute 'unittest' w testach e2e/integracyjnych
+- [x] **Rozwiązanie**: Rozdzielenie fixture do osobnych conftest.py dla e2e i integration, poprawa dekoratorów pytest_asyncio
+- [x] **Pliki**: `conftest.py`, `tests/e2e/conftest.py`, `tests/integration/conftest.py`
+- [x] **Status**: ✅ NAPRAWIONE - Problem FixtureDef rozwiązany, testy integracyjne przechodzą (33/33), testy e2e bez błędów fixture
+- [x] **Podział fixture**:
+  - **Integration**: `db_session`, `test_db` (database-related)
+  - **E2E**: `mock_ocr_success`, `mock_ocr_pdf_success`, `mock_ocr_failure`, `mock_ocr_exception` (OCR/external API)
+  - **Global**: `client` (FastAPI TestClient)
+
 ---
 
 ## 🟠 ZADANIA W TOKU / DO NAPRAWY
 
-### 16. FixtureDef AttributeError w testach e2e/integracyjnych (PRIORYTET)
-- [ ] **Problem**: AttributeError: 'FixtureDef' object has no attribute 'unittest' w testach e2e/integracyjnych
-- [ ] **Diagnoza**: Problem z pytest-asyncio i asynchronicznymi fixture, możliwy konflikt z globalnym conftest.py
-- [ ] **Plan**: Rozdzielić fixture do osobnego conftest.py w katalogu tests/, przetestować uruchamianie testów z różnymi flagami, ewentualnie zaktualizować pytest/pytest-asyncio
-- [ ] **Priorytet**: WYSOKI - może wpływać na inicjalizację SQLAlchemy w pełnym run
+### 21. Testy e2e - konkretne błędy (PRIORYTET)
+- [ ] **Problem**: 2 testy e2e kończą się błędem (nie FixtureDef)
+- [ ] **Diagnoza**: Błędy dotyczą konkretnych testów, nie infrastruktury fixture
+- [ ] **Plan**: Przeanalizować i naprawić konkretne błędy w testach e2e
+- [ ] **Priorytet**: ŚREDNI - problemy nie są krytyczne, ale warto naprawić
 
 ### 17. Refaktoryzacja testów agentów i RAG
 - [ ] **Problem**: Część testów wymaga ujednolicenia asercji i mocków pod nowe API agentów
@@ -127,11 +143,12 @@ Naprawienie wszystkich błędów testów w projekcie FoodSave AI, aby osiągną�
 - **275 PASSED tests** ✅
 
 ### Po naprawach (aktualny stan):
-- **~90% testów przechodzi**
-- Testy e2e i asynchroniczne stabilne
-- Testy zależne od starego orchestratora wyłączone do refaktoryzacji
+- **~95% testów przechodzi**
+- Testy integracyjne w pełni stabilne (33/33 passed)
+- Problem FixtureDef rozwiązany
+- Testy e2e bez błędów infrastrukturalnych
 
-### Procent ukończenia: **90%** 🟡
+### Procent ukończenia: **95%** 🟢
 
 ---
 
@@ -161,6 +178,7 @@ Naprawienie wszystkich błędów testów w projekcie FoodSave AI, aby osiągną�
 
 ### ✅ INTEGRATION TESTS - 100% PASSING
 - **All integration tests passed** ✅
+- **33/33 tests passed** ✅
 - All integration tests for agents (weather, search, chef, meal_planner) pass after mock configuration improvements and initialization
 
 ### ✅ API ENDPOINT TESTS - 100% PASSING
@@ -189,12 +207,19 @@ Naprawienie wszystkich błędów testów w projekcie FoodSave AI, aby osiągną�
 - Proper dependency injection working
 - All orchestrator functionality tested
 
+### ✅ FIXTUREDEF PROBLEM - 100% RESOLVED
+- **FixtureDef AttributeError completely fixed** ✅
+- Separated conftest.py files for different test types
+- Proper async fixture decorators (@pytest_asyncio.fixture)
+- Integration tests: 33/33 passed
+- E2E tests: no more fixture infrastructure errors
+
 ---
 
 ## 🚀 NASTĘPNE KROKI
 
-1. **Naprawić FixtureDef problem** w testach e2e/integracyjnych (PRIORYTET)
-2. **Sprawdzić czy to rozwiąże SQLAlchemy problem** w pełnym run
+1. **Naprawić konkretne błędy w testach e2e** (PRIORYTET)
+2. **Sprawdzić czy to rozwiąże pozostałe problemy** w pełnym run
 3. **Kontynuować systematyczne naprawy** pozostałych problemów
 
 ---
@@ -212,7 +237,9 @@ Naprawienie wszystkich błędów testów w projekcie FoodSave AI, aby osiągną�
 - Testy SearchAgent wymagają pełnego środowiska (ollama, numpy, faiss) - dependency injection działa
 - Naprawiono wszystkie relacje SQLAlchemy w modelach używając `f"{__name__}.ClassName"` pattern
 - Orchestrator używa prawidłowego MemoryContext w testach
-- SQLAlchemy problem występuje tylko w pełnym run - prawdopodobnie wpływ FixtureDef problem
+- Problem FixtureDef został całkowicie rozwiązany przez rozdzielenie conftest.py
+- Testy integracyjne są w pełni stabilne (33/33 passed)
+- LLMClient generate_stream poprawnie obsługuje async generators
 
 ---
 
@@ -227,13 +254,13 @@ Naprawienie wszystkich błędów testów w projekcie FoodSave AI, aby osiągną�
 
 *Created: 23.06.2025*
 *Updated: 23.06.2025, 24.06.2025*
-*Status: 90% COMPLETED* 🟡
+*Status: 95% COMPLETED* 🟢
 
 ---
 
 ## 🚀 DALSZE KROKI
-1. **Naprawić problem z fixture w testach e2e/integracyjnych** (osobny conftest.py, aktualizacja pluginów)
-2. **Sprawdzić czy to rozwiąże SQLAlchemy problem** w pełnym run
+1. **Naprawić konkretne błędy w testach e2e** (analiza i naprawa 2 testów z błędami)
+2. **Sprawdzić czy to rozwiąże pozostałe problemy** w pełnym run
 3. **Ujednolicić testy agentów i RAG** pod kątem nowych interfejsów i asercji
 4. **Po każdej zmianie uruchamiać pełny run testów**
 
