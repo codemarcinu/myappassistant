@@ -22,7 +22,7 @@ class Conversation(Base):
     )
 
     messages: Mapped[List["Message"]] = relationship(
-        "Message",
+        "src.backend.models.conversation.Message",
         back_populates="conversation",
         cascade="all, delete-orphan",
         lazy="selectin",
@@ -48,7 +48,7 @@ class Message(Base):
         Integer, ForeignKey("conversations.id"), nullable=False
     )
     conversation: Mapped["Conversation"] = relationship(
-        "Conversation", back_populates="messages", lazy="selectin"
+        "src.backend.models.conversation.Conversation", back_populates="messages", lazy="selectin"
     )
 
 

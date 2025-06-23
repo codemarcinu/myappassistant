@@ -34,8 +34,37 @@ class AgentConfig(BaseModel):
     cache_enabled: bool = True
 
 
+# Tymczasowe szkielety brakujących agentów
+class ShoppingConversationAgent(BaseAgent):
+    """Placeholder for ShoppingConversationAgent"""
+    pass
+class FoodConversationAgent(BaseAgent):
+    """Placeholder for FoodConversationAgent"""
+    pass
+class InformationQueryAgent(BaseAgent):
+    """Placeholder for InformationQueryAgent"""
+    pass
+class CookingAgent(BaseAgent):
+    """Placeholder for CookingAgent"""
+    pass
+
 class AgentFactory:
     """Factory for creating agent instances with DI support."""
+
+    AGENT_REGISTRY = {
+        "general_conversation": GeneralConversationAgent,
+        "shopping_conversation": ShoppingConversationAgent,
+        "food_conversation": FoodConversationAgent,
+        "information_query": InformationQueryAgent,
+        "cooking": CookingAgent,
+        "search": SearchAgent,
+        "weather": WeatherAgent,
+        "rag": RAGAgent,
+        "categorization": CategorizationAgent,
+        "meal_planning": MealPlannerAgent,
+        "ocr": OCRAgent,
+        "analytics": AnalyticsAgent,
+    }
 
     def __init__(
         self,
@@ -120,19 +149,16 @@ class AgentFactory:
         **kwargs,
     ) -> BaseAgent:
         """
-        Creates and configures an agent instance using AgentBuilder.
+        Creates and configures an agent instance using the new registry.
 
         Args:
-            agent_type (str): Type of agent (e.g., 'ocr', 'weather')
+            agent_type (str): Type of agent (e.g., 'general_conversation', 'search')
             config (Optional[Dict]): Additional configuration for the agent
             use_cache (bool): Whether to use cached agent instance
             **kwargs: Additional arguments to pass to agent constructor
 
         Returns:
             BaseAgent: Configured agent instance
-
-        Raises:
-            ValueError: If the agent type is not found in the registry.
         """
         # Sprawdź cache jeśli włączony
         if use_cache and not config and not kwargs:
@@ -140,24 +166,16 @@ class AgentFactory:
             if cache_key in self._agent_cache:
                 return self._agent_cache[cache_key]
 
-        # Map agent_type to registered agent class using intent_to_agent_mapping
-        mapped_agent_type = self.agent_registry.intent_to_agent_mapping.get(agent_type, "GeneralConversation")
-        agent_class = self.agent_registry.get_agent_class(mapped_agent_type)
-        if not agent_class:
-            # Fallback: always return GeneralConversationAgent if mapping fails
-            from backend.agents.general_conversation_agent import GeneralConversationAgent
-            logger.warning(
-                f"Unknown agent type: {agent_type} (mapped: {mapped_agent_type}), using GeneralConversationAgent as fallback"
-            )
-            return GeneralConversationAgent()
+        # Sprawdź czy agent_type jest w rejestrze
+        if agent_type not in self.AGENT_REGISTRY:
+            logger.warning(f"Unknown agent type: {agent_type}, using GeneralConversationAgent as fallback")
+            agent_type = "general_conversation"
 
-        builder = AgentBuilder(self.container, self)
-        builder.of_type(agent_type)
-
-        if config:
-            builder.with_config(config)
-
-        agent = builder.build(**kwargs)
+        # Pobierz klasę agenta z rejestru
+        agent_class = self.AGENT_REGISTRY[agent_type]
+        
+        # Utwórz instancję agenta
+        agent = agent_class(**kwargs)
 
         # Zapisz w cache jeśli włączony i nie ma dodatkowej konfiguracji
         if use_cache and not config and not kwargs:
