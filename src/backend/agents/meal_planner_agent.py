@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Any, Dict
+from typing import Any, AsyncGenerator, Dict
 
 from backend.agents.base_agent import BaseAgent
 from backend.agents.interfaces import AgentResponse
@@ -52,10 +52,10 @@ class MealPlannerAgent(BaseAgent):
 
             prompt = get_meal_plan_prompt(products_list)
 
-            async def response_generator() -> None:
+            async def response_generator() -> AsyncGenerator[str, None]:
                 full_response = ""
                 try:
-                    async for chunk in await llm_client.generate_stream(
+                    async for chunk in llm_client.generate_stream(
                         model=model,
                         messages=[
                             {
