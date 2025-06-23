@@ -1,4 +1,4 @@
-exclude: '(^foodsave-frontend/node_modules/|foodsave-frontend/.next/)'
+exclude: '(^foodsave-frontend/node_modules/|foodsave-frontend/.next/|archive/code_fixes/)'
 repos:
   - repo: https://github.com/psf/black
     rev: 25.1.0
@@ -15,13 +15,13 @@ repos:
     hooks:
     -   id: flake8
         args: [--config=.flake8]
-        exclude: ^(docs/|examples/|scripts/|tests/|venv/|node_modules/|typings/|.vscode/|.idea/|.git/|.mypy_cache/|.pytest_cache/|build/|dist/|htmlcov/)
+        exclude: ^(docs/|examples/|scripts/|tests/|venv/|node_modules/|typings/|.vscode/|.idea/|.git/|.mypy_cache/|.pytest_cache/|build/|dist/|htmlcov/|archive/code_fixes/)
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.11.0
     hooks:
     -   id: mypy
         args: [--config-file=.mypy.ini]
-        exclude: ^(docs/|examples/|scripts/|tests/|venv/|node_modules/|typings/|.vscode/|.idea/|.git/|.mypy_cache/|.pytest_cache/|build/|dist/|htmlcov/)
+        exclude: ^(docs/|examples/|scripts/|tests/|venv/|node_modules/|typings/|.vscode/|.idea/|.git/|.mypy_cache/|.pytest_cache/|build/|dist/|htmlcov/|archive/code_fixes/)
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.6.0
     hooks:

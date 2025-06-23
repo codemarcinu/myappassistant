@@ -89,7 +89,7 @@ pytest-mock = "^3.14.1"
 pythonpath = ["src"]
 asyncio_mode = "auto"
 testpaths = ["tests"]
-addopts = "--strict-markers --strict-config --cov=src --cov-report=html"
+addopts = "--strict-markers --strict-config"
 markers = [
     "e2e: marks tests as end-to-end",
     "performance: marks tests as performance tests",

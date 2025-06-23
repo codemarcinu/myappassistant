@@ -274,12 +274,16 @@ Use this method if you prefer to run the services directly on your machine witho
 ### Running Backend Tests
 
 ```bash
-# Run all tests with coverage
-pytest --cov=src tests/ -v
+# Install dependencies (if not done yet)
+poetry install
+# Run all tests
+poetry run pytest tests/ -v
+```
 
-# Run specific test types
-pytest tests/unit/ -v
-pytest tests/integration/ -v
+- To run a specific test type:
+```bash
+poetry run pytest tests/unit/ -v
+poetry run pytest tests/integration/ -v
 ```
 
 ### Running Frontend Tests
@@ -294,7 +298,7 @@ npm run test:e2e
 - **Current coverage**: ~95% (target: 90%)
 - **Generate coverage report**:
   ```bash
-  pytest --cov=src --cov-report=html tests/
+  poetry run pytest --cov=src --cov-report=html tests/
   ```
 
 ## 📊 Monitoring
@@ -325,23 +329,19 @@ The project is equipped with a monitoring stack available in the Docker setup.
 
 ### Common Issues
 
-1. **Port already in use:**
+1. **Missing dependencies (ModuleNotFoundError, e.g. numpy):**
+   ```bash
+   poetry install
+   ```
+2. **Port already in use:**
    ```bash
    ./stop_all.sh  # Stop existing processes
    ./run_all.sh   # Start fresh
    ```
-
-2. **Ollama not working:**
+3. **Ollama not working:**
    ```bash
    ollama serve
    ```
-
-3. **Dependencies not installed:**
-   ```bash
-   poetry install
-   cd foodsave-frontend && npm install
-   ```
-
 4. **Permission error:**
    ```bash
    chmod +x run_all.sh stop_all.sh
@@ -464,3 +464,23 @@ python fix_test_imports.py
 ```
 
 Skrypt analizuje strukturę importów i generuje raport kompatybilności, który pomaga zidentyfikować potencjalne problemy.
+
+## 🧹 Project Cleanup 2024-06
+
+**Status:** Project structure and codebase were thoroughly cleaned and refactored in June 2024. Key improvements:
+
+- All temporary/debug/test log files removed from the root directory
+- Python cache (`__pycache__`, `.pyc`, `.mypy_cache`) fully cleaned
+- Database file `shopping.db` moved to `data/database/`
+- All code-fix and repair scripts archived in `archive/code_fixes/`
+- All critical imports refactored to use absolute import paths (see `.cursorrules`)
+- Poetry is the recommended way to install dependencies and run tests
+- Test configuration and coverage options updated for compatibility
+- Project root is now clean and production-ready
+
+**Best practices:**
+- Keep root directory clean (no logs, temp files, or test artifacts)
+- Always use absolute imports in backend Python code
+- Archive or remove repair/utility scripts after use
+- Use `poetry install` and `poetry run pytest` for backend development
+- See `.cursorrules` for enforced code standards

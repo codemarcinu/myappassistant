@@ -1,17 +1,14 @@
-from __future__ import annotations
-from typing import Any, Dict, List, Optional, Union, Callable
-from typing import AsyncGenerator, Coroutine
 """
 Authentication and authorization module for FoodSave AI
 """
 
 import os
 
-from .auth_middleware import AuthMiddleware
-from .jwt_handler import JWTHandler
-from .models import Role, User, UserRole
-from .routes import auth_router
-from .schemas import TokenResponse, UserCreate, UserLogin, UserResponse
+from backend.auth.auth_middleware import AuthMiddleware
+from backend.auth.jwt_handler import JWTHandler
+from backend.auth.models import Role, User, UserRole
+from backend.auth.routes import auth_router
+from backend.auth.schemas import TokenResponse, UserCreate, UserLogin, UserResponse
 
 # Set User-Agent environment variable early to prevent warnings
 os.environ.setdefault(
