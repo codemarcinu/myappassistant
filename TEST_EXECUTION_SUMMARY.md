@@ -7,13 +7,12 @@
 
 ## 📊 Overall Test Results
 
-### ❌ **CURRENT STATUS**: 202 PASSED, 4 SKIPPED, 8 FAILED, 6 ERRORS
+### ❌ **CURRENT STATUS**: 210 PASSED, 4 SKIPPED, 6 FAILED
 - **Total Tests**: 220
-- **Passed**: 202 ✅ (91.8%)
+- **Passed**: 210 ✅ (95.5%)
 - **Skipped**: 4 ⏭️ (1.8%)
-- **Failed**: 8 ❌ (3.6%)
-- **Errors**: 6 ❌ (2.7%)
-- **Warnings**: 22 ⚠️
+- **Failed**: 6 ❌ (2.7%)
+- **Warnings**: 30 ⚠️
 
 ### 🎯 Test Coverage
 - **Overall Coverage**: 38%
@@ -23,7 +22,7 @@
 ## 🏆 Test Categories Performance
 
 ### 🔗 **Integration Tests**
-**Status**: 15/21 PASSED (71%)
+**Status**: 19/21 PASSED (90%)
 
 **Key Test Areas**:
 - ✅ API endpoints and FastAPI integration
@@ -35,11 +34,10 @@
 - ✅ Error handling and exception management
 
 **Current Issues**:
-- ❌ Brak fixture `client` w testach integracyjnych uploadu
-- ❌ Błędy obsługi wyjątków w custom_exception_handler
+- ❌ Testy isolation: endpoint upload zwraca 404 (brak/mocking routera lub zależności)
 
 ### 🧩 **Unit Tests**
-**Status**: 150+ PASSED (91%+)
+**Status**: 91%+
 
 **Core Components Tested**:
 - ✅ **Agent Factory**: 16/18 tests passed
@@ -51,9 +49,8 @@
 - ✅ **Hybrid LLM Client**: 16/16 tests passed
 
 **Current Issues**:
-- ❌ SearchAgent: brak wymaganych argumentów `vector_store`, `llm_client`
-- ❌ SQLAlchemy: relacja User.user_roles wymaga jawnego foreign_keys
-- ❌ Testy health_check oczekują dwóch wartości (is_healthy, status), funkcja zwraca dict
+- ❌ SQLAlchemy: relacja UserRole.user wymaga jawnego foreign_keys (ambiguous join)
+- ❌ Testy entity extraction: błędy relacji w UserRole.user
 
 ### 🌐 **E2E Tests**
 **Status**: 2 ERRORS (pytest-asyncio), 4 SKIPPED (infra)
@@ -77,15 +74,12 @@
 - ~~Brak fixture `client` w testach integracyjnych uploadu~~ ✅ NAPRAWIONE
 
 ### 3. **Agent Factory**
-- `SearchAgent.__init__()` wymaga `vector_store` i `llm_client`
+- `SearchAgent.__init__()` wymaga `vector_store` i `llm_client` (naprawione, testy przechodzą)
 
 ### 4. **SQLAlchemy Relationships**
-- Relacja User.user_roles: wiele ścieżek foreign key, brak jawnego foreign_keys
+- Relacja UserRole.user: wiele ścieżek foreign key, brak jawnego foreign_keys (do poprawy)
 
-### 5. **Health Check Test**
-- Test oczekuje dwóch wartości, funkcja zwraca dict
-
-### 6. **Entity Extraction**
+### 5. **Entity Extraction**
 - Błędy relacji w testach entity extraction (patrz wyżej)
 
 ## 🎯 Key Success Indicators
@@ -146,10 +140,8 @@
    ```bash
    pip install pytest-asyncio==0.21.1
    ```
-
-2. **Configure API keys** for full E2E testing:
-   - Weather API key
-   - Perplexity API key
+2. **Popraw relację UserRole.user** – dodaj jawny foreign_keys w modelu
+3. **Popraw testy isolation** – zapewnij poprawny routing i zależności dla endpointu upload
 
 ### 📊 **Coverage Improvements**
 1. **Add authentication tests** (0% → target 80%)
@@ -164,7 +156,7 @@
 4. **Add API contract testing**
 
 ### 🔍 **Quality Assurance**
-1. **Address deprecation warnings** (19 warnings)
+1. **Address deprecation warnings** (30 warnings)
 2. **Fix async mock warnings** in weather agent
 3. **Add type checking** with mypy
 4. **Implement linting** with ruff/flake8
@@ -172,15 +164,15 @@
 ## 🏅 **Achievement Summary**
 
 ### 🎉 **Major Accomplishments**
-- ✅ **91.8% test pass rate** - Solid reliability
+- ✅ **95.5% test pass rate** - Solid reliability
 - ✅ **Zero application logic errors** - Core functionality solid
 - ✅ **Comprehensive integration testing** - End-to-end workflows working
 - ✅ **Robust error handling** - Graceful failure management
 - ✅ **Performance optimization** - Efficient resource usage
 
 ### 🎯 **Quality Metrics**
-- **Test Reliability**: 91.8% (202/220)
-- **Integration Coverage**: 71% (15/21)
+- **Test Reliability**: 95.5% (210/220)
+- **Integration Coverage**: 90% (19/21)
 - **Unit Test Coverage**: 91%+ (150+ tests)
 - **Error Handling**: Comprehensive
 - **Performance**: Optimized
@@ -188,12 +180,13 @@
 ## 📋 **Next Steps**
 
 1. **Priority 1**: Fix pytest-asyncio compatibility issues
-2. **Priority 2**: Improve test coverage in low-coverage areas
-3. **Priority 3**: Address deprecation warnings
-4. **Priority 4**: Add performance benchmarking
+2. **Priority 2**: Popraw relację UserRole.user (SQLAlchemy ambiguous join)
+3. **Priority 3**: Popraw testy isolation (routing/upload)
+4. **Priority 4**: Address deprecation warnings
+5. **Priority 5**: Add performance benchmarking
 
 ---
 
-**Conclusion**: FoodSave AI ma solidną bazę testów (ponad 90% przechodzi), ale wymaga kilku poprawek w testach integracyjnych, relacjach SQLAlchemy i obsłudze wyjątków, by osiągnąć pełną stabilność.
+**Conclusion**: FoodSave AI ma solidną bazę testów (ponad 95% przechodzi), ale wymaga kilku poprawek w testach integracyjnych, relacjach SQLAlchemy i obsłudze wyjątków, by osiągnąć pełną stabilność.
 
 **Status**: 🟡 **STABLE WITH MINOR TEST ISSUES**
