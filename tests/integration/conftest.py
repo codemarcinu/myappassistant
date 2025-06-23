@@ -56,3 +56,16 @@ def mock_ocr_agent_process():
             metadata={"file_type": "image"},
         )
         yield mock_process
+
+
+@pytest_asyncio.fixture
+async def client():
+    """
+    Async HTTP client dla FastAPI (httpx.AsyncClient)
+    """
+    import httpx
+
+    from src.backend.main import app
+
+    async with httpx.AsyncClient(app=app, base_url="http://testserver") as ac:
+        yield ac

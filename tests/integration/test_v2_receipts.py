@@ -42,10 +42,11 @@ def mock_ocr_agent_success():
         yield mock_process
 
 
-def test_upload_receipt_success_image(client, mock_ocr_agent_success):
+@pytest.mark.asyncio
+async def test_upload_receipt_success_image(client, mock_ocr_agent_success):
     """Test successful receipt upload with image"""
     test_image = BytesIO(b"fake image data")
-    response = client.post(
+    response = await client.post(
         "/api/v2/receipts/upload",
         files={"file": ("receipt.jpg", test_image, "image/jpeg")},
     )
@@ -59,9 +60,10 @@ def test_upload_receipt_success_image(client, mock_ocr_agent_success):
     mock_ocr_agent_success.assert_called_once()
 
 
-def test_upload_receipt_success_pdf(client, mock_ocr_agent_success):
+@pytest.mark.asyncio
+async def test_upload_receipt_success_pdf(client, mock_ocr_agent_success):
     test_pdf = BytesIO(b"fake pdf data")
-    response = client.post(
+    response = await client.post(
         "/api/v2/receipts/upload",
         files={"file": ("receipt.pdf", test_pdf, "application/pdf")},
     )
@@ -72,32 +74,32 @@ def test_upload_receipt_success_pdf(client, mock_ocr_agent_success):
     mock_ocr_agent_success.assert_called()
 
 
-def test_upload_receipt_missing_content_type():
+@pytest.mark.asyncio
+async def test_upload_receipt_missing_content_type(client):
     """Test unsupported file type (no extension)"""
-    # Używamy pliku bez rozszerzenia, co powoduje content_type="application/octet-stream"
-    response = client.post(
+    response = await client.post(
         "/api/v2/receipts/upload",
         files={"file": ("receipt", b"fake data")},  # Brak rozszerzenia pliku
     )
-
-    # Sprawdzamy, czy endpoint obsługuje nieobsługiwany typ pliku poprawnie
     assert response.status_code == 400
     data = response.json()
     assert "Unsupported file type" in str(data)
     assert "application/octet-stream" in str(data)
 
 
-def test_upload_receipt_unsupported_type():
+@pytest.mark.asyncio
+async def test_upload_receipt_unsupported_type(client):
     """Test unsupported file type"""
     test_file = BytesIO(b"fake data")
-    response = client.post(
+    response = await client.post(
         "/api/v2/receipts/upload",
         files={"file": ("receipt.txt", test_file, "text/plain")},
     )
     assert response.status_code == 400
 
 
-def test_upload_receipt_processing_error(client):
+@pytest.mark.asyncio
+async def test_upload_receipt_processing_error(client):
     with patch(
         "backend.agents.ocr_agent.OCRAgent.process", new_callable=AsyncMock
     ) as mock_process:
@@ -108,7 +110,7 @@ def test_upload_receipt_processing_error(client):
             metadata={"file_type": "image"},
         )
         test_image = BytesIO(b"fake image data")
-        response = client.post(
+        response = await client.post(
             "/api/v2/receipts/upload",
             files={"file": ("receipt.jpg", test_image, "image/jpeg")},
         )
@@ -116,13 +118,14 @@ def test_upload_receipt_processing_error(client):
         mock_process.assert_called_once()
 
 
-def test_upload_receipt_internal_error(client):
+@pytest.mark.asyncio
+async def test_upload_receipt_internal_error(client):
     with patch(
         "backend.agents.ocr_agent.OCRAgent.process", new_callable=AsyncMock
     ) as mock_process:
         mock_process.side_effect = Exception("Unexpected error")
         test_image = BytesIO(b"fake image data")
-        response = client.post(
+        response = await client.post(
             "/api/v2/receipts/upload",
             files={"file": ("receipt.jpg", test_image, "image/jpeg")},
         )

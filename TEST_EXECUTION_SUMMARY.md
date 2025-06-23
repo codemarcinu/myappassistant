@@ -73,8 +73,8 @@
 ### ✅ **FIXED: Exception Logging**
 - ~~`log_error_with_context()` wywoływane bez wymaganych argumentów w custom_exception_handler~~ ✅ NAPRAWIONE
 
-### 2. **Test Fixtures**
-- Brak fixture `client` w testach integracyjnych uploadu
+### ✅ **FIXED: Test Fixtures**
+- ~~Brak fixture `client` w testach integracyjnych uploadu~~ ✅ NAPRAWIONE
 
 ### 3. **Agent Factory**
 - `SearchAgent.__init__()` wymaga `vector_store` i `llm_client`
