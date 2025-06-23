@@ -7,18 +7,12 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 import asyncio
-import logging
 import time
 from datetime import datetime
 from typing import Any, AsyncGenerator, Dict, List, Optional, Union
 
-import httpx
 import ollama
 import structlog
-from ollama import AsyncClient
-
-from backend.config import settings
-from backend.core.async_patterns import async_retry
 
 logger = structlog.get_logger()
 
@@ -32,8 +26,6 @@ if ollama_host != "localhost":
     os.environ["OLLAMA_HOST"] = ollama_host
     logger.info(f"Configured ollama client to use host: {ollama_host}")
     logger.info(f"Ollama URL: {ollama_url}")
-
-import ollama
 
 
 class LLMCache:
@@ -301,12 +293,15 @@ class EnhancedLLMClient:
         Returns:
             Async generator yielding response chunks
         """
-        response = self.chat(
+        response = await self.chat(
             model=model, messages=messages, stream=True, options=options
         )
         if isinstance(response, AsyncGenerator):
             async for chunk in response:
                 yield chunk
+        else:
+            # If chat returned a dict (fallback response), yield it as a single chunk
+            yield response
 
 
 # Create a global instance

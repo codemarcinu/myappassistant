@@ -7,7 +7,9 @@ from backend.agents.search_agent import SearchAgent
 from backend.agents.weather_agent import WeatherAgent
 from backend.core.database import AsyncSessionLocal
 from backend.core.hybrid_llm_client import hybrid_llm_client
-from backend.infrastructure.vector_store.vector_store_impl import EnhancedVectorStoreImpl
+from backend.infrastructure.vector_store.vector_store_impl import (
+    EnhancedVectorStoreImpl,
+)
 
 
 @pytest.mark.skip(reason="Weather API key not available")
@@ -49,11 +51,13 @@ async def test_live_search_agent():
 async def test_live_chef_agent(db_session):
     """Tests the ChefAgent against the live Ollama service."""
     agent = ChefAgent()
-    result = await agent.process({
-        "db": db_session, 
-        "model": "gemma3:12b",
-        "ingredients": ["pomidory", "ser", "makaron"]
-    })
+    result = await agent.process(
+        {
+            "db": db_session,
+            "model": "gemma3:12b",
+            "available_ingredients": ["pomidory", "ser", "makaron"],
+        }
+    )
 
     assert result.success
     response_text = ""
@@ -67,10 +71,7 @@ async def test_live_chef_agent(db_session):
 async def test_live_meal_planner_agent(db_session):
     """Tests the MealPlannerAgent against the live Ollama service."""
     agent = MealPlannerAgent(name="LiveMealPlanner")
-    result = await agent.process({
-        "db": db_session,
-        "ingredients": ["kurczak", "ryż", "warzywa"]
-    })
+    result = await agent.process({"db": db_session})
 
     assert result.success
     response_text = ""

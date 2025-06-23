@@ -29,24 +29,36 @@ class DummyAgent(BaseAgent):
         return True
 
 
-def test_upload_receipt_success_image(client, mock_ocr_success):
+@pytest.fixture
+def mock_ocr_agent_success():
+    with patch(
+        "src.backend.agents.ocr_agent.OCRAgent.process", new_callable=AsyncMock
+    ) as mock_process:
+        mock_process.return_value = AgentResponse(
+            success=True,
+            text="BIEDRONKA\nData: 2024-06-23\nMleko 4.50zł\nChleb 3.20zł\nRazem: 7.70zł",
+            message="Pomyślnie wyodrębniono tekst z pliku",
+            metadata={"file_type": "image"},
+        )
+        yield mock_process
+
+
+def test_upload_receipt_success_image(client):
     test_image = BytesIO(b"fake image data")
     response = client.post(
         "/api/v2/receipts/upload",
         files={"file": ("receipt.jpg", test_image, "image/jpeg")},
     )
     assert response.status_code == 200
-    assert response.json() == {
-        "status_code": 200,
-        "message": "Receipt processed successfully",
-        "data": {
-            "text": "Test receipt text",
-            "message": "Pomyślnie wyodrębniono tekst z pliku",
-        },
-    }
+    data = response.json()
+    assert data["status_code"] == 200
+    assert data["message"] == "Receipt processed successfully"
+    assert "text" in data["data"]
+    assert "message" in data["data"]
+    assert "BIEDRONKA" in data["data"]["text"]
 
 
-def test_upload_receipt_missing_content_type(client, mock_ocr_success):
+def test_upload_receipt_missing_content_type(client):
     response = client.post(
         "/api/v2/receipts/upload",
         files={

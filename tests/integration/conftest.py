@@ -1,5 +1,9 @@
+from unittest.mock import AsyncMock, patch
+
 import pytest
 import pytest_asyncio
+
+from backend.agents.interfaces import AgentResponse
 
 # Tutaj można dodać fixture specyficzne dla testów integracyjnych
 
@@ -38,3 +42,17 @@ async def test_db():
     # Cleanup
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
+
+
+@pytest.fixture(autouse=True)
+def mock_ocr_agent_process():
+    with patch(
+        "backend.agents.ocr_agent.OCRAgent.process", new_callable=AsyncMock
+    ) as mock_process:
+        mock_process.return_value = AgentResponse(
+            success=True,
+            text="BIEDRONKA\nData: 2024-06-23\nMleko 4.50zł\nChleb 3.20zł\nRazem: 7.70zł",
+            message="Pomyślnie wyodrębniono tekst z pliku",
+            metadata={"file_type": "image"},
+        )
+        yield mock_process

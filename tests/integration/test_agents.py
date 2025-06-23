@@ -177,14 +177,11 @@ async def test_meal_planner_agent(mock_get_products, mock_llm_client):
     mock_get_products.return_value = [product_mock]
 
     async def generate_stream(*args, **kwargs):
-        async def generator():
-            yield {
-                "message": {
-                    "content": '{"meal_plan": [{"day": "Monday", "breakfast": "Jajecznica"}]}'
-                }
+        yield {
+            "message": {
+                "content": '{"meal_plan": [{"day": "Monday", "breakfast": "Jajecznica"}]}'
             }
-
-        return generator()
+        }
 
     mock_llm_client.generate_stream = generate_stream
     agent = MealPlannerAgent(name="TestMealPlanner")

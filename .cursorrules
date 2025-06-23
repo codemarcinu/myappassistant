@@ -156,10 +156,10 @@ markers = [
 async def test_food_processing():
     # Setup
     mock_data = create_test_food_data()
-    
+
     # Execute
     result = await food_processor.process(mock_data)
-    
+
     # Assert
     assert result.status == ProcessingStatus.SUCCESS
     assert len(result.processed_items) > 0
@@ -257,21 +257,21 @@ async def get_db_session():
 # ✅ REQUIRED: Proper class structure
 class FoodItemProcessor:
     """Processes food items for inventory management."""
-    
+
     def __init__(self, db_session: AsyncSession, config: ProcessingConfig):
         self.db_session = db_session
         self.config = config
         self._cache: Dict[str, Any] = {}
-    
+
     async def process_item(self, item: FoodItemData) -> ProcessingResult:
         """Process a single food item.
-        
+
         Args:
             item: Food item data to process
-            
+
         Returns:
             ProcessingResult with status and metadata
-            
+
         Raises:
             ProcessingError: If processing fails
         """
@@ -297,7 +297,7 @@ items = await session.execute(
 
 # ✅ ALWAYS: Use pagination for large result sets
 async def get_food_items(
-    page: int = 1, 
+    page: int = 1,
     size: int = 20
 ) -> PaginatedResponse[FoodItem]:
     offset = (page - 1) * size
@@ -353,10 +353,10 @@ async def health_check():
         "agents": await check_agents_health(),
         "external_apis": await check_external_apis_health()
     }
-    
+
     all_healthy = all(checks.values())
     status_code = 200 if all_healthy else 503
-    
+
     return Response(
         content={"status": "healthy" if all_healthy else "unhealthy", "checks": checks},
         status_code=status_code
@@ -373,7 +373,7 @@ from pydantic import BaseModel, validator, constr
 class FoodItemCreate(BaseModel):
     name: constr(min_length=1, max_length=100)
     category_id: int
-    
+
     @validator('name')
     def validate_name(cls, v):
         if not v.strip():
@@ -387,7 +387,7 @@ class FoodItemCreate(BaseModel):
 const useAuth = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  
+
   // Implementation with proper error handling
 };
 ```

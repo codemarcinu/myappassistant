@@ -45,7 +45,9 @@ class User(Base):
     roles: Mapped[List[Role]] = relationship(
         secondary=user_roles, back_populates="users"
     )
-    user_roles: Mapped[List[UserRole]] = relationship("backend.auth.models.UserRole", back_populates="user")
+    user_roles: Mapped[List[UserRole]] = relationship(
+        "backend.auth.models.UserRole", back_populates="user"
+    )
 
 
 class Role(Base):
@@ -66,7 +68,9 @@ class Role(Base):
     users: Mapped[List[User]] = relationship(
         secondary=user_roles, back_populates="roles"
     )
-    user_roles: Mapped[List[UserRole]] = relationship("backend.auth.models.UserRole", back_populates="role")
+    user_roles: Mapped[List[UserRole]] = relationship(
+        "backend.auth.models.UserRole", back_populates="role"
+    )
 
 
 class UserRole(Base):
@@ -89,5 +93,9 @@ class UserRole(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
     # Relationships
-    user: Mapped[User] = relationship("backend.auth.models.User", back_populates="user_roles")
-    role: Mapped[Role] = relationship("backend.auth.models.Role", back_populates="user_roles")
+    user: Mapped[User] = relationship(
+        "backend.auth.models.User", back_populates="user_roles"
+    )
+    role: Mapped[Role] = relationship(
+        "backend.auth.models.Role", back_populates="user_roles"
+    )

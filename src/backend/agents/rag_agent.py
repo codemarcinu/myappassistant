@@ -66,10 +66,12 @@ class RAGAgent(BaseAgent):
                     )
 
             self.initialized = True
-            count = len(await self.vector_store.get_all_documents()) if hasattr(self.vector_store, 'get_all_documents') else 0
-            logger.info(
-                f"RAG agent initialized with {count} chunks"
+            count = (
+                len(await self.vector_store.get_all_documents())
+                if hasattr(self.vector_store, "get_all_documents")
+                else 0
             )
+            logger.info(f"RAG agent initialized with {count} chunks")
 
     async def add_document(
         self, content: str, source_id: str, metadata: Optional[Dict[str, Any]] = None
@@ -179,8 +181,7 @@ class RAGAgent(BaseAgent):
         query_embedding = np.array(query_embedding_list, dtype=np.float32)
 
         search_results = await self.vector_store.search(
-            query_embedding=query_embedding,
-            k=k
+            query_embedding=query_embedding, k=k
         )
         # Format results to match the expected return type
         return [
@@ -211,7 +212,9 @@ class RAGAgent(BaseAgent):
         # Sprawdź flagę use_bielik
         use_bielik = context.get("use_bielik", True)
         model = (
-            "SpeakLeash/bielik-11b-v2.3-instruct:Q5_K_M" if use_bielik else "SpeakLeash/bielik-4.5b-v3.0-instruct:Q8_0"
+            "SpeakLeash/bielik-11b-v2.3-instruct:Q5_K_M"
+            if use_bielik
+            else "SpeakLeash/bielik-4.5b-v3.0-instruct:Q8_0"
         )
 
         # Get query embedding and search for relevant chunks
@@ -315,5 +318,5 @@ Answer:"""
                 "vector_search",
                 "source_tracking",
             ],
-            "document_count": 0, # Synchronous alternative needed
+            "document_count": 0,  # Synchronous alternative needed
         }

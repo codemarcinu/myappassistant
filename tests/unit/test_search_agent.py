@@ -15,6 +15,7 @@ async def collect_stream_text(response):
         collected_text += chunk
     return collected_text
 
+
 class TestSearchAgent:
     """Testy dla Search Agent - agenta wyszukiwania internetowego"""
 
@@ -31,19 +32,23 @@ class TestSearchAgent:
     @pytest.fixture
     def mock_web_search(self):
         mock = AsyncMock()
-        mock.search = AsyncMock(return_value={
-            "success": True,
-            "content": "Refined search results with detailed information about the query",
-            "query": "test query",
-            "model": "llama-3.1-8b-instruct"
-        })
+        mock.search = AsyncMock(
+            return_value={
+                "success": True,
+                "content": "Refined search results with detailed information about the query",
+                "query": "test query",
+                "model": "llama-3.1-8b-instruct",
+            }
+        )
         return mock
 
     @pytest.fixture
     def mock_llm_client(self):
         """Mock klienta LLM (hybrid_llm_client)"""
         with patch("backend.core.hybrid_llm_client.hybrid_llm_client") as mock_client:
-            mock_client.chat = AsyncMock(return_value={"message": {"content": "Refined search results"}})
+            mock_client.chat = AsyncMock(
+                return_value={"message": {"content": "Refined search results"}}
+            )
             yield mock_client
 
     @pytest.fixture
@@ -52,7 +57,7 @@ class TestSearchAgent:
         return SearchAgent(
             vector_store=mock_vector_store,
             llm_client=mock_llm_client_fixture,
-            perplexity_client=mock_web_search
+            perplexity_client=mock_web_search,
         )
 
     @pytest.mark.asyncio
@@ -64,7 +69,7 @@ class TestSearchAgent:
             "success": True,
             "content": "Weather Forecast for Warsaw: Sunny with 25°C",
             "query": "weather in Warsaw",
-            "model": "llama-3.1-8b-instruct"
+            "model": "llama-3.1-8b-instruct",
         }
 
         # When
@@ -89,7 +94,7 @@ class TestSearchAgent:
             "success": True,
             "content": "Refined search results with AI news information",
             "query": "latest AI news",
-            "model": "llama-3.1-8b-instruct"
+            "model": "llama-3.1-8b-instruct",
         }
 
         # When
@@ -111,7 +116,7 @@ class TestSearchAgent:
             "success": True,
             "content": "Refined search results with climate change information",
             "query": "climate change impacts",
-            "model": "llama-3.1-8b-instruct"
+            "model": "llama-3.1-8b-instruct",
         }
 
         # When
@@ -199,7 +204,9 @@ class TestSearchAgent:
         result_text = await collect_stream_text(response)
 
         # Then
-        assert response.success is True  # SearchAgent zawsze success=True, ale tekst zawiera błąd
+        assert (
+            response.success is True
+        )  # SearchAgent zawsze success=True, ale tekst zawiera błąd
         assert "Search error" in result_text or "błąd" in result_text.lower()
 
     @pytest.mark.asyncio
@@ -218,7 +225,10 @@ class TestSearchAgent:
 
         # Then
         assert response.success is True
-        assert "Fallback search results" in result_text or "Refined search results" in result_text
+        assert (
+            "Fallback search results" in result_text
+            or "Refined search results" in result_text
+        )
         assert mock_web_search.search.call_count == 2
 
     @pytest.mark.asyncio
@@ -347,7 +357,12 @@ class TestSearchAgent:
     async def test_search_with_multiple_filters(self, search_agent, mock_web_search):
         """Test wyszukiwania z wieloma filtrami"""
         # Given
-        input_data = {"query": "multi filter", "time_range": "year", "region": "us", "site": "example.com"}
+        input_data = {
+            "query": "multi filter",
+            "time_range": "year",
+            "region": "us",
+            "site": "example.com",
+        }
 
         # When
         response = await search_agent.process(input_data)
