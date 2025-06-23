@@ -1,11 +1,7 @@
 from __future__ import annotations
-from typing import Any, Dict, List, Optional, Union, Callable
-from typing import AsyncGenerator, Coroutine
-"""
-Application Factory
-"""
 
 from contextlib import asynccontextmanager
+from typing import AsyncGenerator
 
 import structlog
 from fastapi import APIRouter, FastAPI, Request
@@ -25,9 +21,9 @@ from backend.config import settings
 from backend.core.cache_manager import CacheManager
 from backend.core.database import AsyncSessionLocal, Base, engine
 from backend.core.exceptions import (
-    BaseCustomException,
+    FoodSaveError,
     convert_system_exception,
-    log_exception_with_context,
+    log_error_with_context,
 )
 from backend.core.middleware import (
     ErrorHandlingMiddleware,
@@ -43,8 +39,14 @@ limiter = Limiter(key_func=get_remote_address)
 
 
 # Exception Handlers
-async def custom_exception_handler(request: Request, exc: BaseCustomException) -> None:
-    log_exception_with_context(exc)
+async def custom_exception_handler(request: Request, exc: FoodSaveError) -> None:
+    context = {
+        "request_path": request.url.path,
+        "request_method": request.method,
+        "user_agent": request.headers.get("user-agent", "unknown"),
+        "client_ip": request.client.host if request.client else "unknown",
+    }
+    log_error_with_context(exc, context, "custom_exception_handler")
     return JSONResponse(
         status_code=exc.status_code,
         content={"error": exc.to_dict()},
@@ -66,7 +68,13 @@ async def api_v2_exception_handler(request: Request, exc: APIException) -> None:
 
 async def generic_exception_handler(request: Request, exc: Exception) -> None:
     system_exc = convert_system_exception(exc)
-    log_exception_with_context(system_exc)
+    context = {
+        "request_path": request.url.path,
+        "request_method": request.method,
+        "user_agent": request.headers.get("user-agent", "unknown"),
+        "client_ip": request.client.host if request.client else "unknown",
+    }
+    log_error_with_context(system_exc, context, "generic_exception_handler")
     return JSONResponse(
         status_code=system_exc.status_code,
         content={"detail": system_exc.detail},
@@ -81,7 +89,7 @@ async def not_found_handler(request: Request, exc) -> None:
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> None:
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Startup logic
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
@@ -133,7 +141,7 @@ def create_app() -> FastAPI:
     # app.add_middleware(PerformanceMonitoringMiddleware) # Can be noisy
 
     # Add exception handlers
-    app.add_exception_handler(BaseCustomException, custom_exception_handler)
+    app.add_exception_handler(FoodSaveError, custom_exception_handler)
     app.add_exception_handler(APIException, api_v2_exception_handler)
     app.add_exception_handler(Exception, generic_exception_handler)
     app.add_exception_handler(404, not_found_handler)
@@ -147,9 +155,10 @@ def create_app() -> FastAPI:
         elif type == "key":
             raise KeyError("Missing required field")
         elif type == "custom":
-            raise BaseCustomException("Test custom exception")
+            raise FoodSaveError("Test custom exception")
         elif type == "http":
             from fastapi import HTTPException
+
             raise HTTPException(status_code=418, detail="I'm a teapot")
         else:
             raise Exception("Unexpected error")
