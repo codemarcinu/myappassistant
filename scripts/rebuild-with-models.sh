@@ -33,7 +33,7 @@ fi
 
 # Stop existing containers
 echo "🛑 Stopping existing containers..."
-docker-compose -f docker-compose.dev.yml down
+docker-compose -f docker-compose.yaml down
 
 # Remove old images to force rebuild
 echo "🗑️  Removing old backend image..."
@@ -41,18 +41,22 @@ docker rmi my_ai_assistant_backend_1 2>/dev/null || true
 
 # Rebuild with pre-loaded models
 echo "🔨 Rebuilding backend with pre-loaded models..."
-echo "This will download the MMLW embedding model (~248MB) and Bielik-4.5B-v3.0-Instruct model..."
+echo "This will download the following models:"
+echo "- MMLW embedding model (~248MB)"
+echo "- Bielik-4.5B-v3.0-Instruct model"
+echo "- gemma3:12b model"
+echo "- nomic-embed-text model"
 echo ""
 
 # Build the backend image
-docker-compose -f docker-compose.dev.yml build backend
+docker-compose -f docker-compose.yaml build backend
 
 if [ $? -eq 0 ]; then
     echo ""
     echo "✅ Backend rebuilt successfully with pre-loaded models!"
     echo ""
     echo "🚀 Starting services..."
-    docker-compose -f docker-compose.dev.yml up -d
+    docker-compose -f docker-compose.yaml up -d
 
     echo ""
     echo "=================================================="

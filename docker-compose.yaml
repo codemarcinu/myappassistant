@@ -41,7 +41,7 @@ services:
   backend:
     build:
       context: .
-      dockerfile: ${BACKEND_DOCKERFILE:-Dockerfile}
+      dockerfile: ${BACKEND_DOCKERFILE:-src/backend/Dockerfile}
     container_name: foodsave-backend
     ports:
       - "8000:8000"

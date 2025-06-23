@@ -90,6 +90,28 @@ PARAMETER temperature 0.1
                     )
                 except subprocess.CalledProcessError as e:
                     logger.warning(f"Failed to pull Bielik model: {e}")
+                    
+                # Pobieranie modelu gemma3:12b
+                logger.info("Preloading gemma3:12b model...")
+                try:
+                    subprocess.run(
+                        ["ollama", "pull", "gemma3:12b"],
+                        check=True,
+                    )
+                    logger.info("gemma3:12b model preloaded successfully!")
+                except subprocess.CalledProcessError as e:
+                    logger.warning(f"Failed to pull gemma3:12b model: {e}")
+                    
+                # Pobieranie modelu do embeddingów
+                logger.info("Preloading nomic-embed-text model...")
+                try:
+                    subprocess.run(
+                        ["ollama", "pull", "nomic-embed-text"],
+                        check=True,
+                    )
+                    logger.info("nomic-embed-text model preloaded successfully!")
+                except subprocess.CalledProcessError as e:
+                    logger.warning(f"Failed to pull nomic-embed-text model: {e}")
             else:
                 logger.warning(
                     "Ollama not responding, models will be downloaded when needed"
