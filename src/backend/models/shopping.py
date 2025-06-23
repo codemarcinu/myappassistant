@@ -3,16 +3,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import List
 
-from sqlalchemy import (
-    Date,
-    DateTime,
-    Float,
-    ForeignKey,
-    Index,
-    Integer,
-    String,
-    Text,
-)
+from sqlalchemy import Date, DateTime, Float, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -37,7 +28,7 @@ class ShoppingTrip(Base):
     # Ta relacja tworzy połączenie z produktami.
     # Jeden paragon (ShoppingTrip) może mieć wiele produktów (Product).
     products: Mapped[List["Product"]] = relationship(
-        "backend.models.shopping.Product",
+        "Product",
         back_populates="trip",
         cascade="all, delete-orphan",
         lazy="selectin",
@@ -75,7 +66,7 @@ class Product(Base):
 
     # Relacja zwrotna do paragonu.
     trip: Mapped["ShoppingTrip"] = relationship(
-        "backend.models.shopping.ShoppingTrip",
+        "ShoppingTrip",
         back_populates="products",
         lazy="selectin",
     )
