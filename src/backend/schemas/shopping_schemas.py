@@ -36,7 +36,7 @@ class ProductUpdate(BaseModel):
 
 
 # Schemat używany przy odczytywaniu produktu z bazy danych
-class Product(ProductBase):
+class ProductSchema(ProductBase):
     id: int
     trip_id: int
 
@@ -75,7 +75,7 @@ class ShoppingTripUpdate(BaseModel):
 # Schemat do odczytu paragonu z bazy - zawiera listę wczytanych produktów
 class ShoppingTrip(ShoppingTripBase):
     id: int
-    products: List[Product] = []
+    products: List[ProductSchema] = []
 
     model_config = ConfigDict(from_attributes=True)
 

@@ -1,13 +1,15 @@
-from __future__ import annotations
-from backend.app_factory import create_app
-from typing import Any, Dict, List, Optional, Union, Callable
-from typing import AsyncGenerator, Coroutine
-from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import JSONResponse
 import logging
 from datetime import datetime
 
+from fastapi import HTTPException, Request
+from fastapi.responses import JSONResponse
+
+from backend.app_factory import create_app
+
 app = create_app()
+
+logger = logging.getLogger(__name__)
+
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
@@ -19,9 +21,10 @@ async def global_exception_handler(request: Request, exc: Exception):
             "error": "Internal Server Error",
             "error_code": "INTERNAL_SERVER_ERROR",
             "path": str(request.url.path),
-            "timestamp": datetime.now().isoformat()
-        }
+            "timestamp": datetime.now().isoformat(),
+        },
     )
+
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
@@ -38,6 +41,6 @@ async def http_exception_handler(request: Request, exc: HTTPException):
             "success": False,
             "error": exc.detail,
             "error_code": error_code,
-            "path": str(request.url.path)
-        }
+            "path": str(request.url.path),
+        },
     )

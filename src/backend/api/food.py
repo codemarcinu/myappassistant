@@ -70,7 +70,9 @@ async def update_shopping_trip(
 
 
 @router.patch(
-    "/products/{product_id}", response_model=shopping_schemas.Product, tags=["Food"]
+    "/products/{product_id}",
+    response_model=shopping_schemas.ProductSchema,
+    tags=["Food"],
 )
 async def update_product(
     product_id: int,

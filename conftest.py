@@ -8,9 +8,6 @@ from pathlib import Path
 
 import pytest
 import pytest_asyncio
-from fastapi.testclient import TestClient
-
-from src.backend.main import app
 
 # Add src directory to Python path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
@@ -31,6 +28,10 @@ def client():
     """
     Fixture do tworzenia TestClient dla FastAPI aplikacji.
     """
+    from fastapi.testclient import TestClient
+
+    from src.backend.main import app
+
     return TestClient(app)
 
 
@@ -40,7 +41,7 @@ async def db_session():
     Async fixture dla sesji bazodanowej z cleanup.
     """
     from src.backend.core.database import AsyncSessionLocal
-    
+
     async with AsyncSessionLocal() as session:
         try:
             yield session
@@ -57,14 +58,14 @@ async def test_db():
     """
     Fixture dla testowej bazy danych z cleanup.
     """
-    from src.backend.core.database import engine, Base
-    
+    from src.backend.core.database import Base, engine
+
     # Create tables
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    
+
     yield
-    
+
     # Cleanup
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)

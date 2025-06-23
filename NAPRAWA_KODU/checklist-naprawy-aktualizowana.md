@@ -84,6 +84,25 @@ Naprawienie wszystkich błędów testów w projekcie FoodSave AI, aby osiągną�
 - [x] **Rozwiązanie**: Naprawienie testów wydajnościowych
 - [x] **Status**: ✅ NAPRAWIONE - Wszystkie testy wydajnościowe przechodzą
 
+### 14. SQLAlchemy Product Conflict (NEW)
+- [x] **Problem**: Multiple classes found for path "Product" (konflikt nazw w SQLAlchemy i Pydantic)
+- [x] **Rozwiązanie**: Zmieniono nazwę klasy Product w schemas na ProductSchema, zaktualizowano wszystkie importy i użycia w API oraz testach
+- [x] **Pliki**: `src/backend/schemas/shopping_schemas.py`, `src/backend/api/food.py`, testy korzystające z Product
+- [x] **Status**: ✅ NAPRAWIONE - Testy entity extraction, shopping, receipt processing przechodzą
+
+---
+
+## 🟠 ZADANIA W TOKU / DO NAPRAWY
+
+### 15. FixtureDef AttributeError w testach e2e/integracyjnych
+- [ ] **Problem**: AttributeError: 'FixtureDef' object has no attribute 'unittest' w testach e2e/integracyjnych
+- [ ] **Diagnoza**: Problem z pytest-asyncio i asynchronicznymi fixture, możliwy konflikt z globalnym conftest.py
+- [ ] **Plan**: Rozdzielić fixture do osobnego conftest.py w katalogu tests/, przetestować uruchamianie testów z różnymi flagami, ewentualnie zaktualizować pytest/pytest-asyncio
+
+### 16. Refaktoryzacja testów agentów i RAG
+- [ ] **Problem**: Część testów wymaga ujednolicenia asercji i mocków pod nowe API agentów
+- [ ] **Plan**: Użyć helpera do kolekcjonowania strumieni tekstu, poprawić asercje na zgodność z aktualnym API
+
 ---
 
 ## 📊 POSTĘP OGÓLNY
@@ -193,3 +212,14 @@ Naprawienie wszystkich błędów testów w projekcie FoodSave AI, aby osiągną�
 *Created: 23.06.2025*
 *Updated: 23.06.2025, 24.06.2025*
 *Status: 100% COMPLETED* 🟢
+
+---
+
+## 🚀 DALSZE KROKI
+1. Naprawić problem z fixture w testach e2e/integracyjnych (osobny conftest.py, aktualizacja pluginów)
+2. Ujednolicić testy agentów i RAG pod kątem nowych interfejsów i asercji
+3. Po każdej zmianie uruchamiać pełny run testów
+
+---
+
+*Updated: 24.06.2025*

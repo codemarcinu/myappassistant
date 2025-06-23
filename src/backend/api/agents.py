@@ -2,25 +2,14 @@ import logging
 import uuid
 from typing import Any, Dict, List, Optional
 
-from fastapi import (
-    APIRouter,
-    BackgroundTasks,
-    Depends,
-    File,
-    Form,
-    HTTPException,
-    UploadFile,
-)
+from fastapi import APIRouter, Depends, Form, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession  # type: ignore
 
-from backend.agents.agent_registry import agent_registry
 from backend.agents.interfaces import AgentType
 from backend.agents.orchestrator_factory import create_orchestrator
-from backend.config import settings
-from backend.core.database import AsyncSessionLocal
-from backend.infrastructure.database.database import get_db
 from backend.core.database import get_db_with_error_handling
+from backend.infrastructure.database.database import get_db
 
 # Import MMLW client
 try:
@@ -224,21 +213,21 @@ async def process_query(
                 detail={
                     "error_code": "INTERNAL_SERVER_ERROR",
                     "message": "Database connection failed",
-                    "session_id": session_id
-                }
+                    "session_id": session_id,
+                },
             )
         # For other errors, return AgentResponse with success=False
         return AgentResponse(success=False, error=str(e), session_id=session_id)
 
 
 @router.get("/agents", response_model=List[Dict[str, str]])
-async def list_available_agents() -> None:
+async def list_available_agents() -> list[dict]:
     """Zwraca listę wszystkich dostępnych intencji."""
     return [{"name": intent.value, "description": intent.value} for intent in AgentType]
 
 
 @router.get("/mmlw/status")
-async def get_mmlw_status() -> None:
+async def get_mmlw_status() -> dict:
     """Sprawdza stan modelu MMLW"""
     if not MMLW_AVAILABLE:
         return {
@@ -254,7 +243,7 @@ async def get_mmlw_status() -> None:
 
 
 @router.post("/mmlw/initialize")
-async def initialize_mmlw() -> None:
+async def initialize_mmlw() -> dict:
     """Inicjalizuje model MMLW"""
     if not MMLW_AVAILABLE:
         raise HTTPException(
@@ -277,7 +266,7 @@ async def initialize_mmlw() -> None:
 
 
 @router.post("/mmlw/test")
-async def test_mmlw_embedding() -> None:
+async def test_mmlw_embedding() -> dict:
     """Testuje generowanie embeddingów przez model MMLW"""
     if not MMLW_AVAILABLE:
         raise HTTPException(
@@ -317,7 +306,7 @@ async def test_mmlw_embedding() -> None:
 
 
 @router.post("/perplexity/test")
-async def test_perplexity_api(query: str = Form(...)):
+async def test_perplexity_api(query: str = Form(...)) -> dict:
     """Testuje Perplexity API"""
     try:
         if not perplexity_client.is_configured():
@@ -350,7 +339,7 @@ async def test_perplexity_api(query: str = Form(...)):
 
 
 @router.get("/perplexity/status")
-async def get_perplexity_status() -> None:
+async def get_perplexity_status() -> dict:
     """Sprawdza status Perplexity API"""
     return {
         "configured": perplexity_client.is_configured(),
