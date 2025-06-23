@@ -222,7 +222,7 @@ class TestFullDialogue:
         )
 
         orchestrator = Orchestrator(
-            db=db_session,
+            db_session=db_session,
             profile_manager=mock_profile_manager,
             intent_detector=mock_intent_detector,
             memory_manager=mock_memory_manager,
@@ -258,7 +258,7 @@ class TestFullDialogue:
         )
 
         orchestrator = Orchestrator(
-            db=db_session,
+            db_session=db_session,
             profile_manager=mock_profile_manager,
             intent_detector=mock_intent_detector,
             memory_manager=mock_memory_manager,
@@ -294,7 +294,7 @@ class TestFullDialogue:
         )
 
         orchestrator = Orchestrator(
-            db=db_session,
+            db_session=db_session,
             profile_manager=mock_profile_manager,
             intent_detector=mock_intent_detector,
             memory_manager=mock_memory_manager,

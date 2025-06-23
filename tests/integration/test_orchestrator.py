@@ -86,7 +86,7 @@ async def test_orchestrator_routes_to_weather_agent(
     mock_agent_router.route_to_agent.return_value = mock_agent_response
 
     orchestrator = Orchestrator(
-        db=mock_db_session,
+        db_session=mock_db_session,
         profile_manager=mock_profile_manager,
         intent_detector=mock_intent_detector,
         agent_router=mock_agent_router,
@@ -133,7 +133,7 @@ async def test_orchestrator_routes_to_search_agent(
     mock_agent_router.route_to_agent.return_value = mock_agent_response
 
     orchestrator = Orchestrator(
-        db=mock_db_session,
+        db_session=mock_db_session,
         profile_manager=mock_profile_manager,
         intent_detector=mock_intent_detector,
         agent_router=mock_agent_router,
@@ -178,7 +178,7 @@ async def test_orchestrator_handles_circuit_breaker_error(
     mock_agent_router.route_to_agent.side_effect = pybreaker.CircuitBreakerError()
 
     orchestrator = Orchestrator(
-        db=mock_db_session,
+        db_session=mock_db_session,
         profile_manager=mock_profile_manager,
         intent_detector=mock_intent_detector,
         agent_router=mock_agent_router,
@@ -215,7 +215,7 @@ async def test_orchestrator_handles_general_exception(
     mock_intent_detector.detect_intent.side_effect = Exception("Test error")
 
     orchestrator = Orchestrator(
-        db=mock_db_session,
+        db_session=mock_db_session,
         profile_manager=mock_profile_manager,
         intent_detector=mock_intent_detector,
         agent_router=mock_agent_router,
@@ -246,7 +246,7 @@ async def test_orchestrator_health_check(
     """
     # Arrange
     orchestrator = Orchestrator(
-        db=mock_db_session,
+        db_session=mock_db_session,
         profile_manager=mock_profile_manager,
         intent_detector=mock_intent_detector,
         agent_router=mock_agent_router,
@@ -287,7 +287,7 @@ async def test_orchestrator_process_file(
     mock_agent_router.route_to_agent.return_value = mock_agent_response
 
     orchestrator = Orchestrator(
-        db=mock_db_session,
+        db_session=mock_db_session,
         profile_manager=mock_profile_manager,
         intent_detector=mock_intent_detector,
         agent_router=mock_agent_router,
@@ -326,7 +326,7 @@ async def test_orchestrator_process_file_unsupported_type(
     """
     # Arrange
     orchestrator = Orchestrator(
-        db=mock_db_session,
+        db_session=mock_db_session,
         profile_manager=mock_profile_manager,
         intent_detector=mock_intent_detector,
         agent_router=mock_agent_router,

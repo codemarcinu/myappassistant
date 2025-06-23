@@ -5,6 +5,8 @@ from backend.agents.meal_planner_agent import MealPlannerAgent
 from backend.agents.search_agent import SearchAgent
 from backend.agents.weather_agent import WeatherAgent
 from backend.core.database import AsyncSessionLocal
+from backend.core.hybrid_llm_client import hybrid_llm_client
+from backend.infrastructure.vector_store.vector_store_impl import EnhancedVectorStoreImpl
 
 
 @pytest.mark.skip(reason="Weather API key not available")
@@ -29,7 +31,8 @@ async def test_live_weather_agent():
 @pytest.mark.e2e
 async def test_live_search_agent():
     """Tests the SearchAgent against the live Ollama service."""
-    agent = SearchAgent()
+    vector_store = EnhancedVectorStoreImpl(llm_client=hybrid_llm_client)
+    agent = SearchAgent(vector_store=vector_store, llm_client=hybrid_llm_client)
     result = await agent.process({"query": "co to jest Python?", "model": "gemma3:12b"})
 
     assert result.success

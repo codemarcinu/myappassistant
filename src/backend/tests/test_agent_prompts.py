@@ -36,7 +36,7 @@ async def test_agent_prompt_routing(prompt, expected_agent) -> None:
     mock_intent_detector = AsyncMock(return_value=IntentData(expected_agent))
 
     orchestrator = Orchestrator(
-        db=mock_db,
+        db_session=mock_db,
         profile_manager=mock_profile_manager,
         intent_detector=mock_intent_detector,
     )

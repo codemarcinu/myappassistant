@@ -13,9 +13,19 @@ class TestSearchAgent:
     """Testy dla Search Agent - agenta wyszukiwania internetowego"""
 
     @pytest.fixture
-    def search_agent(self):
-        """Fixture dla Search Agent"""
-        return SearchAgent()
+    def mock_vector_store(self):
+        """Mock dla VectorStore."""
+        return AsyncMock()
+
+    @pytest.fixture
+    def mock_llm_client_fixture(self):
+        """Mock dla LLMClient."""
+        return AsyncMock()
+
+    @pytest.fixture
+    def search_agent(self, mock_vector_store, mock_llm_client_fixture):
+        """Fixture dla Search Agent z wstrzykniętymi zależnościami."""
+        return SearchAgent(vector_store=mock_vector_store, llm_client=mock_llm_client_fixture)
 
     @pytest.fixture
     def mock_web_search(self):

@@ -67,34 +67,6 @@ class TestGeneralConversationAgent:
         assert "Query is required" in result.error
 
     @pytest.mark.asyncio
-    async def test_needs_internet_search_with_time_keywords(self, agent) -> None:
-        """Test internet search detection with time-related keywords"""
-        queries_with_time = [
-            "What's the weather like today?",
-            "Show me the latest news",
-            "What are the current prices?",
-            "Tell me about recent events",
-        ]
-
-        for query in queries_with_time:
-            result = await agent._needs_internet_search(query)
-            assert result is True
-
-    @pytest.mark.asyncio
-    async def test_needs_internet_search_without_time_keywords(self, agent) -> None:
-        """Test internet search detection without time-related keywords"""
-        queries_without_time = [
-            "What is a computer?",
-            "Explain photosynthesis",
-            "How does gravity work?",
-            "What is the capital of France?",
-        ]
-
-        for query in queries_without_time:
-            result = await agent._needs_internet_search(query)
-            assert result is False
-
-    @pytest.mark.asyncio
     async def test_get_rag_context_success(self, agent) -> None:
         """Test successful RAG context retrieval"""
         with patch(

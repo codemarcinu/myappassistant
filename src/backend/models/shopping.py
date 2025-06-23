@@ -73,7 +73,7 @@ class Product(Base):
 
     # Relacja zwrotna do paragonu.
     trip: Mapped[ShoppingTrip] = relationship(
-        "ShoppingTrip", back_populates="products", lazy="joined"
+        "ShoppingTrip", back_populates="products", lazy="selectin"
     )
 
 
