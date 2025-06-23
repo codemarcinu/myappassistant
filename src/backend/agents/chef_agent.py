@@ -17,7 +17,9 @@ class ChefAgentInput(BaseModel):
     dietary_restrictions: Optional[str] = Field(
         None, description="Dietary restrictions"
     )
-    model: Optional[str] = Field("SpeakLeash/bielik-4.5b-v3.0-instruct:Q8_0", description="LLM model to use")
+    model: Optional[str] = Field(
+        "SpeakLeash/bielik-4.5b-v3.0-instruct:Q8_0", description="LLM model to use"
+    )
 
 
 class RecipeSuggestion(BaseModel):
@@ -61,13 +63,14 @@ class ChefAgent(BaseAgent):
             input_data["model"] = model
 
             # Validate input
-            validated_input = ChefAgentInput.parse_obj(input_data)
+            validated_input = ChefAgentInput.model_validate(input_data)
 
             # Generate recipe
             return await self._generate_recipe(
                 ingredients=validated_input.available_ingredients,
                 dietary_restrictions=validated_input.dietary_restrictions,
-                model=validated_input.model or "SpeakLeash/bielik-4.5b-v3.0-instruct:Q8_0",
+                model=validated_input.model
+                or "SpeakLeash/bielik-4.5b-v3.0-instruct:Q8_0",
             )
         except Exception as e:
             return AgentResponse(

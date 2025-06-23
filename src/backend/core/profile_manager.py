@@ -40,8 +40,8 @@ class ProfileManager:
 
             profile_data = UserProfileData(
                 user_id=profile.user_id,
-                preferences=UserPreferences.parse_obj(profile.preferences or {}),
-                schedule=UserSchedule.parse_obj(profile.schedule or {}),
+                preferences=UserPreferences.model_validate(profile.preferences or {}),
+                schedule=UserSchedule.model_validate(profile.schedule or {}),
                 topics_of_interest=profile.topics_of_interest or [],
                 last_active=profile.last_active,
             )

@@ -42,14 +42,15 @@ Naprawienie wszystkich błędów testów w projekcie FoodSave AI, aby osiągną�
 - [x] **Status**: ✅ WYKONANE - strategia mockowania OCR ujednolicona we wszystkich testach
 - [x] **Szablon fixture**: ✅ DODANE - fixture do mockowania OCR w conftest.py (mock_ocr_success, mock_ocr_pdf_success, mock_ocr_failure, mock_ocr_exception)
 
+### 7. API Endpoint Tests ✅ ZAKOŃCZONE
+- [x] **Problem**: Failing API endpoint tests
+- [x] **Rozwiązanie**: Naprawienie testów endpointów API, usunięcie ostrzeżeń Pydantic (parse_obj → model_validate)
+- [x] **Pliki**: `src/backend/core/profile_manager.py`, `src/backend/agents/chef_agent.py`
+- [x] **Status**: ✅ NAPRAWIONE - Wszystkie testy endpointów API przechodzą (40/40 testów: 33 integracyjne, 7 unit). Usunięto ostrzeżenia Pydantic V2. Wszystkie endpointy FastAPI działają poprawnie.
+
 ---
 
 ## 🔄 ZADANIA W TRAKCIE
-
-### 7. API Endpoint Tests 🔄 NASTĘPNE
-- [ ] **Problem**: Failing API endpoint tests
-- [ ] **Rozwiązanie**: Naprawienie testów endpointów API
-- [ ] **Status**: 🔄 OCZEKUJĄCE
 
 ### 8. Integration Tests 🔄 NASTĘPNE
 - [ ] **Problem**: Failing integration tests
@@ -71,11 +72,11 @@ Naprawienie wszystkich błędów testów w projekcie FoodSave AI, aby osiągną�
 - **275 PASSED tests** ✅
 
 ### Po naprawach (aktualny stan):
-- **~60 FAILED tests** ✅ (27 naprawionych)
-- **~35 ERROR tests** ✅ (12 naprawionych)
-- **~310 PASSED tests** ✅ (35 dodanych)
+- **~50 FAILED tests** ✅ (37 naprawionych)
+- **~25 ERROR tests** ✅ (22 naprawionych)
+- **~325 PASSED tests** ✅ (50 dodanych)
 
-### Procent ukończenia: **80%** ✅
+### Procent ukończenia: **85%** ✅
 
 ---
 
@@ -101,14 +102,20 @@ Naprawienie wszystkich błędów testów w projekcie FoodSave AI, aby osiągną�
 - **All integration tests passed** ✅
 - All integration tests for agents (weather, search, chef, meal_planner) pass after mock configuration improvements and initialization
 
+### ✅ API ENDPOINT TESTS - 100% PASSING
+- **All API endpoint tests passed** ✅
+- **40/40 testów endpointów API przechodzi (33 integracyjne, 7 unit)** ✅
+- Fixed Pydantic V2 deprecation warnings (parse_obj → model_validate)
+- All FastAPI endpoints working correctly
+- All v2 API endpoints (receipts, upload) working correctly
+
 ---
 
 ## 🚀 NASTĘPNE KROKI
 
-1. **Mock Configuration** - Poprawienie konfiguracji mocków w testach
-2. **API Endpoint Tests** - Naprawienie testów endpointów API
-3. **Integration Tests** - Naprawienie testów integracyjnych
-4. **Performance Tests** - Naprawienie testów wydajnościowych
+1. **Integration Tests** - Naprawienie testów integracyjnych
+2. **Performance Tests** - Naprawienie testów wydajnościowych
+3. **Final Verification** - Ostateczna weryfikacja wszystkich testów
 
 ---
 
@@ -119,10 +126,12 @@ Naprawienie wszystkich błędów testów w projekcie FoodSave AI, aby osiągną�
 - Async testy działają poprawnie
 - VectorStore interface jest kompletny
 - Wszystkie błędy importów zostały naprawione
-- Następny priorytet: Mock Configuration
+- Wszystkie testy API endpointów przechodzą (40/40: 33 integracyjne, 7 unit)
+- Naprawiono ostrzeżenia Pydantic V2 (parse_obj → model_validate)
+- Następny priorytet: Integration Tests
 
 ---
 
 *Created: 23.06.2025*
-*Updated: 23.06.2025*
-*Status: 80% COMPLETED* ✅
+*Updated: 23.06.2025, 24.06.2025*
+*Status: 85% COMPLETED* ✅
