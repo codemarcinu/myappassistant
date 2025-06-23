@@ -32,8 +32,11 @@ logger = logging.getLogger(__name__)
 class GeneralConversationAgent(BaseAgent):
     """Agent do obsługi swobodnych konwersacji z wykorzystaniem RAG i wyszukiwania internetowego"""
 
-    def __init__(self, name: str = "GeneralConversationAgent") -> None:
-        super().__init__(name)
+    def __init__(self, name: str = "GeneralConversationAgent", timeout=None, plugins=None, initial_state=None, **kwargs) -> None:
+        super().__init__(name, **kwargs)
+        self.timeout = timeout
+        self.plugins = plugins or []
+        self.initial_state = initial_state or {}
         self.rag_processor = RAGDocumentProcessor()
         self.rag_integration = RAGDatabaseIntegration(self.rag_processor)
         self.description = "Agent do obsługi swobodnych konwersacji z wykorzystaniem RAG i wyszukiwania internetowego"

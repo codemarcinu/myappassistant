@@ -9,7 +9,7 @@ from typing import List
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Table
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from backend.infrastructure.database.database import Base
+from backend.core.database import Base
 
 # Association table for many-to-many relationship between users and roles
 user_roles = Table(

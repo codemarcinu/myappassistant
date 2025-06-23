@@ -3,13 +3,11 @@ from typing import Any, Dict, Optional, Type
 
 from pydantic import BaseModel
 
-from backend.agents.agent_builder import AgentBuilder
 from backend.agents.agent_container import AgentContainer
 from backend.agents.agent_registry import AgentRegistry
 from backend.agents.analytics_agent import AnalyticsAgent
 from backend.agents.base_agent import BaseAgent
 from backend.agents.categorization_agent import CategorizationAgent
-from backend.agents.chef_agent import ChefAgent
 from backend.agents.general_conversation_agent import GeneralConversationAgent
 from backend.agents.meal_planner_agent import MealPlannerAgent
 from backend.agents.ocr_agent import OCRAgent
@@ -37,16 +35,27 @@ class AgentConfig(BaseModel):
 # Tymczasowe szkielety brakujących agentów
 class ShoppingConversationAgent(BaseAgent):
     """Placeholder for ShoppingConversationAgent"""
+
     pass
+
+
 class FoodConversationAgent(BaseAgent):
     """Placeholder for FoodConversationAgent"""
+
     pass
+
+
 class InformationQueryAgent(BaseAgent):
     """Placeholder for InformationQueryAgent"""
+
     pass
+
+
 class CookingAgent(BaseAgent):
     """Placeholder for CookingAgent"""
+
     pass
+
 
 class AgentFactory:
     """Factory for creating agent instances with DI support."""
@@ -58,12 +67,19 @@ class AgentFactory:
         "information_query": InformationQueryAgent,
         "cooking": CookingAgent,
         "search": SearchAgent,
+        "Search": SearchAgent,  # Alias z wielką literą
         "weather": WeatherAgent,
+        "Weather": WeatherAgent,  # Alias z wielką literą
         "rag": RAGAgent,
+        "RAG": RAGAgent,  # Alias z wielką literą
         "categorization": CategorizationAgent,
+        "Categorization": CategorizationAgent,  # Alias z wielką literą
         "meal_planning": MealPlannerAgent,
+        "MealPlanner": MealPlannerAgent,  # Alias z wielką literą
         "ocr": OCRAgent,
+        "OCR": OCRAgent,  # Alias z wielką literą
         "analytics": AnalyticsAgent,
+        "Analytics": AnalyticsAgent,  # Alias z wielką literą
     }
 
     def __init__(
@@ -168,12 +184,14 @@ class AgentFactory:
 
         # Sprawdź czy agent_type jest w rejestrze
         if agent_type not in self.AGENT_REGISTRY:
-            logger.warning(f"Unknown agent type: {agent_type}, using GeneralConversationAgent as fallback")
+            logger.warning(
+                f"Unknown agent type: {agent_type}, using GeneralConversationAgent as fallback"
+            )
             agent_type = "general_conversation"
 
         # Pobierz klasę agenta z rejestru
         agent_class = self.AGENT_REGISTRY[agent_type]
-        
+
         # Utwórz instancję agenta
         agent = agent_class(**kwargs)
 

@@ -4,6 +4,7 @@ from typing import Any, List
 from unittest.mock import AsyncMock, patch
 
 import pytest
+import pytest_asyncio
 
 from backend.agents.prompts import get_entity_extraction_prompt
 from backend.agents.tools import generate_clarification_question_text

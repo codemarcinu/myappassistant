@@ -7,13 +7,12 @@ from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple, Type
 import httpx
 from pydantic import BaseModel, Field, ConfigDict
 
-from ..config import settings
-from ..core.cache_manager import cache_manager
-from ..core.decorators import handle_exceptions
-from ..core.exceptions import ConfigurationError, NetworkError
-from ..core.hybrid_llm_client import hybrid_llm_client
-from .base_agent import BaseAgent
-from .interfaces import AgentResponse
+from backend.config import settings
+from backend.core.cache_manager import cache_manager
+from backend.core.decorators import handle_exceptions
+from backend.core.exceptions import ConfigurationError, NetworkError
+from backend.agents.base_agent import BaseAgent
+from backend.agents.interfaces import AgentResponse
 
 logger = logging.getLogger(__name__)
 

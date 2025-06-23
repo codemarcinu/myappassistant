@@ -1,44 +1,13 @@
-import asyncio
 import logging
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.orm import DeclarativeBase
-from sqlalchemy.pool import StaticPool
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.config import settings
+from backend.core.database import AsyncSessionLocal, engine
 
 logger = logging.getLogger(__name__)
-
-# Database URL is now loaded from central configuration.
-# We're using SQLite which will store the database in a file.
-
-# Create async SQLAlchemy engine with optimized connection pooling
-engine = create_async_engine(
-    settings.DATABASE_URL,
-    connect_args={
-        "check_same_thread": False,
-        "timeout": 30,  # Connection timeout
-        "isolation_level": "EXCLUSIVE",  # Better concurrency for SQLite
-    },
-    echo=False,  # Disable SQL logging in production
-    poolclass=StaticPool,  # Use StaticPool for SQLite async engine
-    pool_pre_ping=True,  # Verify connections before use
-    pool_recycle=3600,  # Recycle connections after 1 hour
-)
-
-# Create async session factory with optimizations
-AsyncSessionLocal = async_sessionmaker(
-    bind=engine,
-    expire_on_commit=False,  # Keep objects loaded after commit
-)
-
-
-# Create base class for SQLAlchemy models
-class Base(DeclarativeBase):
-    pass
 
 
 # Enhanced async context manager for database sessions
