@@ -4,8 +4,8 @@ from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlalchemy.orm import DeclarativeBase, sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.pool import StaticPool
 
 from backend.config import settings
@@ -30,11 +30,8 @@ engine = create_async_engine(
 )
 
 # Create async session factory with optimizations
-AsyncSessionLocal = sessionmaker(
-    autocommit=False,
-    autoflush=False,
+AsyncSessionLocal = async_sessionmaker(
     bind=engine,
-    class_=AsyncSession,
     expire_on_commit=False,  # Keep objects loaded after commit
 )
 
@@ -71,7 +68,7 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 class DatabaseMetrics:
     """Enhanced database performance metrics with memory monitoring"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.query_count = 0
         self.slow_queries = []
         self.connection_errors = 0
@@ -82,7 +79,7 @@ class DatabaseMetrics:
             "invalid": 0,
         }
 
-    def record_query(self, query_time: float, query: str):
+    def record_query(self, query_time: float, query: str) -> None:
         """Record query performance"""
         self.query_count += 1
         if query_time > 1.0:  # Queries taking more than 1 second
@@ -90,11 +87,11 @@ class DatabaseMetrics:
                 {"query": query, "time": query_time, "timestamp": "now"}
             )
 
-    def record_connection_error(self):
+    def record_connection_error(self) -> None:
         """Record connection error"""
         self.connection_errors += 1
 
-    def update_pool_stats(self, pool):
+    def update_pool_stats(self, pool) -> None:
         """Update connection pool statistics"""
         if hasattr(pool, "_pool"):
             self.connection_pool_stats.update(

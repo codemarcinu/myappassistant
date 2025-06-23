@@ -142,13 +142,13 @@ async def execute_orchestrator_task(
 
 
 @router.get("/agents", response_model=List[Dict[str, str]])
-async def list_available_agents():
+async def list_available_agents() -> None:
     """Zwraca listę wszystkich dostępnych intencji."""
     return [{"name": intent.value, "description": intent.value} for intent in AgentType]
 
 
 @router.get("/mmlw/status")
-async def get_mmlw_status():
+async def get_mmlw_status() -> None:
     """Sprawdza stan modelu MMLW"""
     if not MMLW_AVAILABLE:
         return {
@@ -164,7 +164,7 @@ async def get_mmlw_status():
 
 
 @router.post("/mmlw/initialize")
-async def initialize_mmlw():
+async def initialize_mmlw() -> None:
     """Inicjalizuje model MMLW"""
     if not MMLW_AVAILABLE:
         raise HTTPException(
@@ -187,7 +187,7 @@ async def initialize_mmlw():
 
 
 @router.post("/mmlw/test")
-async def test_mmlw_embedding():
+async def test_mmlw_embedding() -> None:
     """Testuje generowanie embeddingów przez model MMLW"""
     if not MMLW_AVAILABLE:
         raise HTTPException(
@@ -260,7 +260,7 @@ async def test_perplexity_api(query: str = Form(...)):
 
 
 @router.get("/perplexity/status")
-async def get_perplexity_status():
+async def get_perplexity_status() -> None:
     """Sprawdza status Perplexity API"""
     return {
         "configured": perplexity_client.is_configured(),

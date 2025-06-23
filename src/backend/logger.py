@@ -1,15 +1,18 @@
+from __future__ import annotations
 import logging
 import os
 import sys
 import json
 from datetime import datetime
 from logging.handlers import RotatingFileHandler
+from typing import Any, Dict, List, Optional, Union, Callable
+from typing import AsyncGenerator, Coroutine
 
 
 class JsonFormatter(logging.Formatter):
     """JSON formatter for structured logging to be parsed by Loki/Promtail"""
 
-    def format(self, record):
+    def format(self, record) -> None:
         log_data = {
             "timestamp": datetime.now().isoformat(),
             "level": record.levelname,
@@ -34,7 +37,7 @@ class JsonFormatter(logging.Formatter):
         return json.dumps(log_data)
 
 
-def setup_logger(name="backend", level=logging.INFO):
+def setup_logger(name="backend", level=logging.INFO) -> None:
     """Konfiguruje i zwraca logger z formatem JSON dla integracji z Loki"""
     logger = logging.getLogger(name)
     logger.setLevel(level)
@@ -70,7 +73,7 @@ def setup_logger(name="backend", level=logging.INFO):
 
 
 # Konfiguracja root loggera, aby przechwytywać wszystkie logi
-def configure_root_logger(level=logging.INFO):
+def configure_root_logger(level=logging.INFO) -> None:
     """Konfiguruje root logger z formatem JSON"""
     root_logger = logging.getLogger()
     root_logger.setLevel(level)

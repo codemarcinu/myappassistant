@@ -57,12 +57,12 @@ class UserSchedule(BaseModel):
 
     @field_validator("time_zone")
     @classmethod
-    def validate_timezone(cls, v):
+    def validate_timezone(cls, v) -> None:
         if v not in pytz.all_timezones:
             return "Europe/Warsaw"
         return v
 
-    def dict(self, *args, **kwargs):
+    def dict(self, *args, **kwargs) -> None:
         """Override dict() to serialize time objects to ISO format strings"""
         data = super().dict(*args, **kwargs)
         for field in [
@@ -143,8 +143,9 @@ class UserProfile(Base):
             "work_end_time",
             "lunch_time",
         ]:
-            if field in schedule_data and isinstance(schedule_data[field], str):
-                schedule_data[field] = UserSchedule.parse_time(schedule_data[field])
+            if field in schedule_data and schedule_data[field]:
+                # Ensure the value is a string before parsing
+                schedule_data[field] = UserSchedule.parse_time(str(schedule_data[field]))
 
         return UserSchedule.model_validate(schedule_data)
 

@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any, Dict, Union
 
 from pydantic import BaseModel, ValidationError
 
@@ -24,10 +24,10 @@ class OCRAgent(BaseAgent):
     def __init__(
         self,
         name: str = "OCRAgent",
-        error_handler=None,
-        fallback_manager=None,
-        **kwargs,
-    ):
+        error_handler: Any = None,
+        fallback_manager: Any = None,
+        **kwargs: Any,
+    ) -> None:
         """Inicjalizuje OCRAgent."""
         super().__init__(
             name=name, error_handler=error_handler, fallback_manager=fallback_manager
@@ -37,12 +37,12 @@ class OCRAgent(BaseAgent):
         self.default_language = kwargs.get("language", "eng")
 
     @handle_exceptions(max_retries=1, retry_delay=0.5)
-    async def process(self, input_data: Dict[str, Any]) -> AgentResponse:
+    async def process(self, input_data: Union[OCRAgentInput, Dict[str, Any]]) -> AgentResponse:
         """
         Przetwarza pliki obrazów lub PDF-ów za pomocą OCR.
 
         Args:
-            input_data (Any): Dane wejściowe, oczekiwany słownik lub OCRAgentInput.
+            input_data (Union[OCRAgentInput, Dict[str, Any]]): Dane wejściowe, oczekiwany słownik lub OCRAgentInput.
 
         Returns:
             AgentResponse: Odpowiedź agenta z wynikiem OCR lub błędem.

@@ -17,7 +17,7 @@ class BaseCustomException(Exception):
         error_code: Optional[str] = None,
         details: Optional[Dict[str, Any]] = None,
         severity: str = "medium",
-    ):
+    ) -> None:
         super().__init__(message)
         self.message = message
         self.error_code = error_code
@@ -34,7 +34,7 @@ class BaseCustomException(Exception):
 
         return datetime.now().isoformat()
 
-    def _log_exception(self):
+    def _log_exception(self) -> None:
         """Log the exception with appropriate level"""
         log_message = f"{self.__class__.__name__}: {self.message}"
         if self.error_code:
@@ -72,7 +72,7 @@ class ValidationError(BaseCustomException):
         field: Optional[str] = None,
         value: Optional[Any] = None,
         **kwargs,
-    ):
+    ) -> None:
         details = kwargs.get("details", {})
         if field:
             details["field"] = field
@@ -97,7 +97,7 @@ class AIModelError(BaseCustomException):
         model_name: Optional[str] = None,
         operation: Optional[str] = None,
         **kwargs,
-    ):
+    ) -> None:
         details = kwargs.get("details", {})
         if model_name:
             details["model_name"] = model_name
@@ -122,7 +122,7 @@ class DatabaseError(BaseCustomException):
         operation: Optional[str] = None,
         table: Optional[str] = None,
         **kwargs,
-    ):
+    ) -> None:
         details = kwargs.get("details", {})
         if operation:
             details["operation"] = operation
@@ -147,7 +147,7 @@ class NetworkError(BaseCustomException):
         url: Optional[str] = None,
         status_code: Optional[int] = None,
         **kwargs,
-    ):
+    ) -> None:
         details = kwargs.get("details", {})
         if url:
             details["url"] = url
@@ -172,7 +172,7 @@ class FileProcessingError(BaseCustomException):
         file_path: Optional[str] = None,
         file_type: Optional[str] = None,
         **kwargs,
-    ):
+    ) -> None:
         details = kwargs.get("details", {})
         if file_path:
             details["file_path"] = file_path
@@ -197,7 +197,7 @@ class AgentError(BaseCustomException):
         agent_type: Optional[str] = None,
         agent_name: Optional[str] = None,
         **kwargs,
-    ):
+    ) -> None:
         details = kwargs.get("details", {})
         if agent_type:
             details["agent_type"] = agent_type
@@ -216,7 +216,7 @@ class AgentError(BaseCustomException):
 class ConfigurationError(BaseCustomException):
     """Błędy konfiguracji"""
 
-    def __init__(self, message: str, config_key: Optional[str] = None, **kwargs):
+    def __init__(self, message: str, config_key: Optional[str] = None, **kwargs) -> None:
         details = kwargs.get("details", {})
         if config_key:
             details["config_key"] = config_key
@@ -233,7 +233,7 @@ class ConfigurationError(BaseCustomException):
 class AuthenticationError(BaseCustomException):
     """Błędy uwierzytelniania"""
 
-    def __init__(self, message: str, user_id: Optional[str] = None, **kwargs):
+    def __init__(self, message: str, user_id: Optional[str] = None, **kwargs) -> None:
         details = kwargs.get("details", {})
         if user_id:
             details["user_id"] = user_id
@@ -256,7 +256,7 @@ class AuthorizationError(BaseCustomException):
         user_id: Optional[str] = None,
         required_permission: Optional[str] = None,
         **kwargs,
-    ):
+    ) -> None:
         details = kwargs.get("details", {})
         if user_id:
             details["user_id"] = user_id
@@ -275,7 +275,7 @@ class AuthorizationError(BaseCustomException):
 class RateLimitError(BaseCustomException):
     """Błędy limitu żądań"""
 
-    def __init__(self, message: str, retry_after: Optional[int] = None, **kwargs):
+    def __init__(self, message: str, retry_after: Optional[int] = None, **kwargs) -> None:
         details = kwargs.get("details", {})
         if retry_after:
             details["retry_after"] = retry_after
@@ -292,7 +292,7 @@ class RateLimitError(BaseCustomException):
 class CircuitBreakerError(BaseCustomException):
     """Błędy circuit breakera"""
 
-    def __init__(self, message: str, circuit_name: Optional[str] = None, **kwargs):
+    def __init__(self, message: str, circuit_name: Optional[str] = None, **kwargs) -> None:
         details = kwargs.get("details", {})
         if circuit_name:
             details["circuit_name"] = circuit_name
@@ -312,7 +312,7 @@ def handle_exceptions(
     retry_delay: float = 1.0,
     exceptions_to_catch: Optional[tuple] = None,
     fallback_response: Optional[Dict[str, Any]] = None,
-):
+) -> None:
     """
     Decorator do obsługi wyjątków z mechanizmem retry
 
@@ -326,9 +326,9 @@ def handle_exceptions(
     import functools
     import time
 
-    def decorator(func):
+    def decorator(func) -> None:
         @functools.wraps(func)
-        async def async_wrapper(*args, **kwargs):
+        async def async_wrapper(*args, **kwargs) -> None:
             last_exception = None
 
             for attempt in range(max_retries + 1):
@@ -364,7 +364,7 @@ def handle_exceptions(
             raise last_exception
 
         @functools.wraps(func)
-        def sync_wrapper(*args, **kwargs):
+        def sync_wrapper(*args, **kwargs) -> None:
             last_exception = None
 
             for attempt in range(max_retries + 1):
@@ -449,7 +449,7 @@ def convert_system_exception(exception: Exception) -> BaseCustomException:
 
 def log_exception_with_context(
     exception: Exception, context: Optional[Dict[str, Any]] = None, level: str = "error"
-):
+) -> None:
     """
     Loguje wyjątek z dodatkowym kontekstem
 

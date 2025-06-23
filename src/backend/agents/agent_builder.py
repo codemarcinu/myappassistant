@@ -21,7 +21,7 @@ class AgentBuilder:
     Wykorzystuje ModelSelector do wyboru odpowiedniego modelu językowego.
     """
 
-    def __init__(self, container: AgentContainer, factory: Any = None):
+    def __init__(self, container: AgentContainer, factory: Any = None) -> None:
         self.container = container
         self._factory = factory
         self._config: Dict[str, Any] = {}
@@ -112,8 +112,8 @@ class AgentBuilder:
         self,
         agent_type: AgentType,
         query: str = "",
-        context: Dict[str, Any] = None,
-        model: Optional[str] = None
+        context: Optional[Dict[str, Any]] = None,
+        model: Optional[str] = None,
     ) -> BaseAgent:
         """
         Buduje i zwraca odpowiedniego agenta dla podanego typu.
@@ -166,7 +166,7 @@ class AgentBuilder:
         # Jeśli nadal brak modelu, użyj domyślnego dla danego agenta
         if not model:
             model = self._get_default_model_for_agent(agent_type)
-            
+        
         # Utwórz i zwróć agenta
         agent_class = self.agent_classes[agent_type]
         agent_instance = agent_class()

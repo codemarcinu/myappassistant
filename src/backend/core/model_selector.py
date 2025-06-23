@@ -1,7 +1,7 @@
 import logging
 import re
 from enum import Enum
-from typing import Dict, List, Optional, Set, Tuple, Union, Any
+from typing import Any, Dict, List, Optional, Set, Tuple, TypedDict, Union
 
 from backend.core.language_detector import language_detector
 
@@ -17,6 +17,12 @@ class ModelTask(str, Enum):
     CREATIVE = "creative"
     RAG = "rag" # Retrieval Augmented Generation
     STRUCTURED_OUTPUT = "structured_output"
+
+
+class ModelCapability(TypedDict):
+    languages: Dict[str, float]
+    tasks: Dict[ModelTask, float]
+    context_length: int
 
 
 class ModelSelector:
@@ -36,7 +42,7 @@ class ModelSelector:
     DEFAULT_INTERNATIONAL_MODEL = "gemma3:12b"
     
     # Moce przetwarzania poszczególnych modeli (arbitralne wartości)
-    MODEL_CAPABILITIES = {
+    MODEL_CAPABILITIES: Dict[str, ModelCapability] = {
         "SpeakLeash/bielik-4.5b-v3.0-instruct:Q8_0": {
             "languages": {"pl": 0.95, "en": 0.75},
             "tasks": {
@@ -63,7 +69,13 @@ class ModelSelector:
         }
     }
     
-    def __init__(self):
+    DEFAULT_CAPABILITY: ModelCapability = {
+        "languages": {},
+        "tasks": {},
+        "context_length": 0,
+    }
+    
+    def __init__(self) -> None:
         """Inicjalizacja selektora modeli"""
         self.language_detector = language_detector
         logger.info("ModelSelector initialized")
@@ -105,8 +117,12 @@ class ModelSelector:
         # Jeśli zapytanie zawiera obrazy, wymaga modelu multimodalnego
         if contains_images:
             candidate_models = [
-                model for model in candidate_models
-                if self.MODEL_CAPABILITIES.get(model, {}).get("tasks", {}).get(ModelTask.IMAGE_ANALYSIS, 0) > 0
+                model
+                for model in candidate_models
+                if self.MODEL_CAPABILITIES.get(model, self.DEFAULT_CAPABILITY)["tasks"].get(
+                    ModelTask.IMAGE_ANALYSIS, 0
+                )
+                > 0
             ]
             logger.info(f"Filtered to multimodal models: {candidate_models}")
             
@@ -118,20 +134,26 @@ class ModelSelector:
         # Jeśli kontekst jest duży, potrzebujemy modelu z dużym kontekstem
         if context_length > 0:
             candidate_models = [
-                model for model in candidate_models
-                if self.MODEL_CAPABILITIES.get(model, {}).get("context_length", 0) >= context_length
+                model
+                for model in candidate_models
+                if self.MODEL_CAPABILITIES.get(model, self.DEFAULT_CAPABILITY)[
+                    "context_length"
+                ]
+                >= context_length
             ]
             logger.info(f"Filtered to large context models: {candidate_models}")
             
             # Jeśli nie ma modeli z wystarczającym kontekstem
             if not candidate_models:
                 logger.warning(
-                    f"No models with sufficient context length ({context_length}), " +
-                    f"selecting model with largest context"
+                    f"No models with sufficient context length ({context_length}), "
+                    + f"selecting model with largest context"
                 )
                 return max(
                     available_models,
-                    key=lambda m: self.MODEL_CAPABILITIES.get(m, {}).get("context_length", 0)
+                    key=lambda m: self.MODEL_CAPABILITIES.get(
+                        m, self.DEFAULT_CAPABILITY
+                    )["context_length"],
                 )
         
         # Wartości do oceny modeli
@@ -142,10 +164,14 @@ class ModelSelector:
             base_score = 0.5
             
             # Dodaj punkty za dopasowanie językowe
-            language_score = self.MODEL_CAPABILITIES.get(model, {}).get("languages", {}).get(detected_language, 0.5)
+            language_score = self.MODEL_CAPABILITIES.get(
+                model, self.DEFAULT_CAPABILITY
+            )["languages"].get(detected_language, 0.5)
             
             # Dodaj punkty za obsługę zadania
-            task_score = self.MODEL_CAPABILITIES.get(model, {}).get("tasks", {}).get(task, 0.5)
+            task_score = self.MODEL_CAPABILITIES.get(model, self.DEFAULT_CAPABILITY)[
+                "tasks"
+            ].get(task, 0.5)
             
             # Wynik końcowy - ważona suma
             if detected_language == "pl":

@@ -17,12 +17,12 @@ class TestGeneralConversationAgent:
     """Test suite for GeneralConversationAgent"""
 
     @pytest.fixture
-    def agent(self):
+    def agent(self) -> None:
         """Create a GeneralConversationAgent instance for testing"""
         return GeneralConversationAgent()
 
     @pytest.fixture
-    def mock_input_data(self):
+    def mock_input_data(self) -> None:
         """Mock input data for testing"""
         return {
             "query": "What is the weather like today?",
@@ -32,7 +32,7 @@ class TestGeneralConversationAgent:
         }
 
     @pytest.mark.asyncio
-    async def test_process_with_valid_input(self, agent, mock_input_data):
+    async def test_process_with_valid_input(self, agent, mock_input_data) -> None:
         """Test processing with valid input data"""
         with patch.object(
             agent, "_needs_internet_search", return_value=True
@@ -56,7 +56,7 @@ class TestGeneralConversationAgent:
             assert result.data["use_bielik"] is True
 
     @pytest.mark.asyncio
-    async def test_process_with_empty_query(self, agent):
+    async def test_process_with_empty_query(self, agent) -> None:
         """Test processing with empty query"""
         input_data = {"query": "", "use_perplexity": False, "use_bielik": True}
 
@@ -67,7 +67,7 @@ class TestGeneralConversationAgent:
         assert "Query is required" in result.error
 
     @pytest.mark.asyncio
-    async def test_needs_internet_search_with_time_keywords(self, agent):
+    async def test_needs_internet_search_with_time_keywords(self, agent) -> None:
         """Test internet search detection with time-related keywords"""
         queries_with_time = [
             "What's the weather like today?",
@@ -81,7 +81,7 @@ class TestGeneralConversationAgent:
             assert result is True
 
     @pytest.mark.asyncio
-    async def test_needs_internet_search_without_time_keywords(self, agent):
+    async def test_needs_internet_search_without_time_keywords(self, agent) -> None:
         """Test internet search detection without time-related keywords"""
         queries_without_time = [
             "What is a computer?",
@@ -95,7 +95,7 @@ class TestGeneralConversationAgent:
             assert result is False
 
     @pytest.mark.asyncio
-    async def test_get_rag_context_success(self, agent):
+    async def test_get_rag_context_success(self, agent) -> None:
         """Test successful RAG context retrieval"""
         with patch(
             "src.backend.agents.general_conversation_agent.vector_store"
@@ -121,7 +121,7 @@ class TestGeneralConversationAgent:
             assert "Database context" in result
 
     @pytest.mark.asyncio
-    async def test_get_rag_context_empty(self, agent):
+    async def test_get_rag_context_empty(self, agent) -> None:
         """Test RAG context retrieval when no documents found"""
         with patch(
             "src.backend.agents.general_conversation_agent.vector_store"
@@ -138,7 +138,7 @@ class TestGeneralConversationAgent:
             assert result == ""
 
     @pytest.mark.asyncio
-    async def test_get_internet_context_with_perplexity(self, agent):
+    async def test_get_internet_context_with_perplexity(self, agent) -> None:
         """Test internet context retrieval using Perplexity"""
         with patch(
             "src.backend.agents.general_conversation_agent.perplexity_client"
@@ -163,7 +163,7 @@ class TestGeneralConversationAgent:
             assert "Informacje z internetu:" in result
 
     @pytest.mark.asyncio
-    async def test_get_internet_context_with_local_search(self, agent):
+    async def test_get_internet_context_with_local_search(self, agent) -> None:
         """Test internet context retrieval using local search"""
         with patch(
             "src.backend.agents.search_agent.SearchAgent"
@@ -192,7 +192,7 @@ class TestGeneralConversationAgent:
             mock_search_agent.process.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_generate_response_with_bielik(self, agent):
+    async def test_generate_response_with_bielik(self, agent) -> None:
         """Test response generation using Bielik model"""
         with patch(
             "src.backend.agents.general_conversation_agent.hybrid_llm_client"
@@ -216,7 +216,7 @@ class TestGeneralConversationAgent:
             assert call_args[1]["model"] == "SpeakLeash/bielik-11b-v2.3-instruct:Q5_K_M"
 
     @pytest.mark.asyncio
-    async def test_generate_response_with_gemma(self, agent):
+    async def test_generate_response_with_gemma(self, agent) -> None:
         """Test response generation using Gemma model"""
         with patch(
             "src.backend.agents.general_conversation_agent.hybrid_llm_client"
@@ -240,7 +240,7 @@ class TestGeneralConversationAgent:
             assert call_args[1]["model"] == "gemma3:12b"
 
     @pytest.mark.asyncio
-    async def test_generate_response_error_handling(self, agent):
+    async def test_generate_response_error_handling(self, agent) -> None:
         """Test error handling in response generation"""
         with patch(
             "src.backend.agents.general_conversation_agent.hybrid_llm_client"
@@ -259,7 +259,7 @@ class TestGeneralConversationAgent:
             assert "Przepraszam, wystąpił błąd podczas generowania odpowiedzi" in result
 
     @pytest.mark.asyncio
-    async def test_process_exception_handling(self, agent):
+    async def test_process_exception_handling(self, agent) -> None:
         """Test exception handling in process method"""
         with patch.object(
             agent, "_needs_internet_search", side_effect=Exception("Test error")

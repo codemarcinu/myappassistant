@@ -63,7 +63,7 @@ class Alert:
 class AlertManager:
     """Manager dla alertów i monitoring thresholds"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.rules: Dict[str, AlertRule] = {}
         self.active_alerts: Dict[str, Alert] = {}
         self.alert_history: List[Alert] = []
@@ -74,7 +74,7 @@ class AlertManager:
         # Default alert rules
         self._setup_default_rules()
 
-    def _setup_default_rules(self):
+    def _setup_default_rules(self) -> None:
         """Setup default alert rules"""
         default_rules = [
             AlertRule(
@@ -127,22 +127,24 @@ class AlertManager:
         for rule in default_rules:
             self.add_rule(rule)
 
-    def add_rule(self, rule: AlertRule):
+    def add_rule(self, rule: AlertRule) -> None:
         """Add alert rule"""
         self.rules[rule.name] = rule
         logger.info(f"Added alert rule: {rule.name}")
 
-    def remove_rule(self, rule_name: str):
+    def remove_rule(self, rule_name: str) -> bool:
         """Remove alert rule"""
         if rule_name in self.rules:
             del self.rules[rule_name]
             logger.info(f"Removed alert rule: {rule_name}")
+            return True
+        return False
 
-    def add_handler(self, handler: Callable[[Alert], None]):
+    def add_handler(self, handler: Callable[[Alert], None]) -> None:
         """Add alert handler"""
         self.handlers.append(handler)
 
-    def record_metric(self, metric_name: str, value: float):
+    def record_metric(self, metric_name: str, value: float) -> None:
         """Record metric value"""
         if metric_name not in self.metric_values:
             self.metric_values[metric_name] = []
@@ -224,7 +226,7 @@ class AlertManager:
 
         return None
 
-    async def check_alerts(self):
+    async def check_alerts(self) -> None:
         """Check all alert rules"""
         new_alerts = []
 
@@ -257,15 +259,17 @@ class AlertManager:
 
         return new_alerts
 
-    def acknowledge_alert(self, rule_name: str, user: str):
+    def acknowledge_alert(self, rule_name: str, user: str) -> bool:
         """Acknowledge alert"""
         if rule_name in self.active_alerts:
             alert = self.active_alerts[rule_name]
             alert.status = AlertStatus.ACKNOWLEDGED
             alert.acknowledged_by = user
             logger.info(f"Alert acknowledged: {rule_name} by {user}")
+            return True
+        return False
 
-    def resolve_alert(self, rule_name: str):
+    def resolve_alert(self, rule_name: str) -> bool:
         """Resolve alert"""
         if rule_name in self.active_alerts:
             alert = self.active_alerts[rule_name]
@@ -273,6 +277,8 @@ class AlertManager:
             alert.resolved_at = datetime.now()
             del self.active_alerts[rule_name]
             logger.info(f"Alert resolved: {rule_name}")
+            return True
+        return False
 
     def get_active_alerts(self) -> List[Alert]:
         """Get all active alerts"""
@@ -311,7 +317,7 @@ alert_manager = AlertManager()
 
 
 # Default alert handlers
-def log_alert_handler(alert: Alert):
+def log_alert_handler(alert: Alert) -> None:
     """Default handler that logs alerts"""
     logger.error(
         f"ALERT: {alert.rule.severity.value.upper()} - {alert.rule.name}",
@@ -321,7 +327,7 @@ def log_alert_handler(alert: Alert):
     )
 
 
-def console_alert_handler(alert: Alert):
+def console_alert_handler(alert: Alert) -> None:
     """Handler that prints to console"""
     print(f"\n🚨 ALERT: {alert.rule.severity.value.upper()}")
     print(f"Rule: {alert.rule.name}")
@@ -337,7 +343,7 @@ alert_manager.add_handler(console_alert_handler)
 
 
 # Background task dla alert checking
-async def alert_checker_task():
+async def alert_checker_task() -> None:
     """Background task to check alerts periodically"""
     while True:
         try:
@@ -349,7 +355,7 @@ async def alert_checker_task():
 
 
 # Utility functions
-def record_system_metrics():
+def record_system_metrics() -> None:
     """Record system metrics for alerting"""
     import psutil
 
@@ -369,7 +375,7 @@ def record_system_metrics():
     alert_manager.record_metric("system_disk_usage_percent", disk_percent)
 
 
-def start_alert_checker():
+def start_alert_checker() -> None:
     """Start background alert checker task"""
     asyncio.create_task(alert_checker_task())
     logger.info("Alert checker task started")

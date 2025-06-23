@@ -65,8 +65,6 @@ def setup_telemetry(
     if enable_prometheus:
         setup_prometheus_metrics()
 
-    return tracer
-
 
 def setup_prometheus_metrics(port: int = 8001) -> None:
     """Setup Prometheus metrics exporter"""
@@ -125,27 +123,27 @@ def record_exception(span: trace.Span, exception: Exception) -> None:
 class SpanContext:
     """Context manager dla spans"""
 
-    def __init__(self, name: str, attributes: Optional[dict] = None):
+    def __init__(self, name: str, attributes: Optional[dict] = None) -> None:
         self.name = name
         self.attributes = attributes or {}
         self.span = None
 
-    def __enter__(self):
+    def __enter__(self) -> None:
         self.span = create_span(self.name, self.attributes)
         return self.span
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         if exc_type:
             record_exception(self.span, exc_val)
         self.span.end()
 
 
 # Decorator dla funkcji z tracing
-def traced_function(name: str | None = None, attributes: Optional[dict] = None):
+def traced_function(name: str | None = None, attributes: Optional[dict] = None) -> None:
     """Decorator to add tracing to functions"""
 
-    def decorator(func):
-        def wrapper(*args, **kwargs):
+    def decorator(func) -> None:
+        def wrapper(*args, **kwargs) -> None:
             span_name = name or f"{func.__module__}.{func.__name__}"
             with SpanContext(span_name, attributes):
                 return func(*args, **kwargs)
@@ -156,11 +154,11 @@ def traced_function(name: str | None = None, attributes: Optional[dict] = None):
 
 
 # Async decorator
-def traced_async_function(name: str | None = None, attributes: Optional[dict] = None):
+def traced_async_function(name: str | None = None, attributes: Optional[dict] = None) -> None:
     """Decorator to add tracing to async functions"""
 
-    def decorator(func):
-        async def wrapper(*args, **kwargs):
+    def decorator(func) -> None:
+        async def wrapper(*args, **kwargs) -> None:
             span_name = name or f"{func.__module__}.{func.__name__}"
             with SpanContext(span_name, attributes):
                 return await func(*args, **kwargs)

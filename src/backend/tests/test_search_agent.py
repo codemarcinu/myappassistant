@@ -1,13 +1,16 @@
+from __future__ import annotations
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from backend.agents.interfaces import AgentResponse
 from backend.agents.search_agent import SearchAgent
+from typing import Any, Dict, List, Optional, Union, Callable
+from typing import AsyncGenerator, Coroutine
 
 
 @pytest.mark.asyncio
-async def test_search_agent_with_results():
+async def test_search_agent_with_results() -> None:
     agent = SearchAgent()
     mock_context = {"query": "test query", "model": "llama3"}
 
@@ -33,7 +36,7 @@ async def test_search_agent_with_results():
 
 
 @pytest.mark.asyncio
-async def test_search_agent_empty_results():
+async def test_search_agent_empty_results() -> None:
     agent = SearchAgent()
     mock_context = {"query": "test query"}
 
@@ -52,7 +55,7 @@ async def test_search_agent_empty_results():
 
 
 @pytest.mark.asyncio
-async def test_search_agent_input_validation():
+async def test_search_agent_input_validation() -> None:
     agent = SearchAgent()
 
     # Test empty query
@@ -69,7 +72,7 @@ async def test_search_agent_input_validation():
 
 
 @pytest.mark.asyncio
-async def test_search_agent_llm_error():
+async def test_search_agent_llm_error() -> None:
     agent = SearchAgent()
     mock_input = {"query": "test query"}
 

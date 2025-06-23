@@ -7,7 +7,7 @@ from backend.agents.plugin_interface import AgentPlugin
 class PluginManager:
     """Manages registration and execution of agent plugins"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.plugins: Dict[str, AgentPlugin] = {}
 
     def register_plugin(self, name: str, plugin: AgentPlugin) -> None:

@@ -23,7 +23,7 @@ class APIException(Exception):
         error_code: str,
         message: str,
         details: Optional[Dict[str, Any]] = None,
-    ):
+    ) -> None:
         self.status_code = status_code
         self.error_code = error_code
         self.message = message
@@ -57,7 +57,7 @@ class APIErrorCodes:
 class BadRequestError(APIException):
     """400 Bad Request errors"""
 
-    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None) -> None:
         super().__init__(
             status_code=status.HTTP_400_BAD_REQUEST,
             error_code=APIErrorCodes.INVALID_INPUT,
@@ -69,7 +69,7 @@ class BadRequestError(APIException):
 class UnauthorizedError(APIException):
     """401 Unauthorized errors"""
 
-    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None) -> None:
         super().__init__(
             status_code=status.HTTP_401_UNAUTHORIZED,
             error_code=APIErrorCodes.UNAUTHORIZED,
@@ -81,7 +81,7 @@ class UnauthorizedError(APIException):
 class ForbiddenError(APIException):
     """403 Forbidden errors"""
 
-    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None) -> None:
         super().__init__(
             status_code=status.HTTP_403_FORBIDDEN,
             error_code=APIErrorCodes.FORBIDDEN,
@@ -93,7 +93,7 @@ class ForbiddenError(APIException):
 class NotFoundError(APIException):
     """404 Not Found errors"""
 
-    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None) -> None:
         super().__init__(
             status_code=status.HTTP_404_NOT_FOUND,
             error_code=APIErrorCodes.NOT_FOUND,
@@ -105,7 +105,7 @@ class NotFoundError(APIException):
 class MethodNotAllowedError(APIException):
     """405 Method Not Allowed errors"""
 
-    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None) -> None:
         super().__init__(
             status_code=status.HTTP_405_METHOD_NOT_ALLOWED,
             error_code=APIErrorCodes.METHOD_NOT_ALLOWED,
@@ -117,7 +117,7 @@ class MethodNotAllowedError(APIException):
 class ConflictError(APIException):
     """409 Conflict errors"""
 
-    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None) -> None:
         super().__init__(
             status_code=status.HTTP_409_CONFLICT,
             error_code=APIErrorCodes.CONFLICT,
@@ -129,7 +129,7 @@ class ConflictError(APIException):
 class UnprocessableEntityError(APIException):
     """422 Unprocessable Entity errors"""
 
-    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None) -> None:
         super().__init__(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             error_code=APIErrorCodes.UNPROCESSABLE_ENTITY,
@@ -141,7 +141,7 @@ class UnprocessableEntityError(APIException):
 class InternalServerError(APIException):
     """500 Internal Server Error"""
 
-    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None) -> None:
         super().__init__(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             error_code=APIErrorCodes.INTERNAL_ERROR,
@@ -153,7 +153,7 @@ class InternalServerError(APIException):
 class ServiceUnavailableError(APIException):
     """503 Service Unavailable"""
 
-    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None) -> None:
         super().__init__(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             error_code=APIErrorCodes.SERVICE_UNAVAILABLE,
@@ -165,7 +165,7 @@ class ServiceUnavailableError(APIException):
 class ExternalServiceError(APIException):
     """Errors from external services"""
 
-    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None) -> None:
         super().__init__(
             status_code=status.HTTP_502_BAD_GATEWAY,
             error_code=APIErrorCodes.EXTERNAL_SERVICE_ERROR,

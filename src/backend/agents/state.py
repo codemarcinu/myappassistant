@@ -39,23 +39,23 @@ class ConversationState:
     )
     current_model: str = "SpeakLeash/bielik-4.5b-v3.0-instruct:Q8_0"  # Default model to use for LLM operations
 
-    def add_message(self, role: str, content: str):
+    def add_message(self, role: str, content: str) -> None:
         self.history.append({"role": role, "content": content})
 
     def set_clarification_mode(
         self, intent: str, entities: Dict[str, Any], options: List[Any]
-    ):
+    ) -> None:
         self.is_awaiting_clarification = True
         self.original_intent = intent
         self.original_entities = entities
         self.ambiguous_options = options
 
-    def set_cooking_state(self, ingredients: List[Dict[str, Any]]):
+    def set_cooking_state(self, ingredients: List[Dict[str, Any]]) -> None:
         """Set state for cooking confirmation flow."""
         self.is_cooking_confirmation = True
         self.cooking_ingredients = ingredients
 
-    def reset(self):
+    def reset(self) -> None:
         self.is_awaiting_clarification = False
         self.is_cooking_confirmation = False
         self.original_intent = None

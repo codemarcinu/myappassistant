@@ -12,8 +12,9 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
-
 import numpy as np
+from backend.core.interfaces import DocumentProcessor
+from concurrent.futures import ThreadPoolExecutor
 
 try:
     import faiss
@@ -36,7 +37,7 @@ class DocumentChunk:
     embedding: Optional[np.ndarray] = None
     created_at: Optional[str] = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.created_at is None:
             self.created_at = datetime.now().isoformat()
 
@@ -49,7 +50,7 @@ class SmartChunker:
         chunk_size: int = 1000,
         chunk_overlap: int = 200,
         separators: Optional[List[str]] = None,
-    ):
+    ) -> None:
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
         self.separators = separators or [
@@ -112,7 +113,7 @@ class SmartChunker:
 class VectorStore:
     """FAISS-based vector store with proper memory management and optimizations"""
 
-    def __init__(self, dimension: int = 768, index_type: str = "IndexIVFFlat"):
+    def __init__(self, dimension: int = 768, index_type: str = "IndexIVFFlat") -> None:
         self.dimension = dimension
         self.index_type = index_type
 
@@ -166,7 +167,7 @@ class VectorStore:
         # Track chunks since last save
         self.chunks_since_save = 0
 
-    def _cleanup_callback(self, weak_ref):
+    def _cleanup_callback(self, weak_ref) -> None:
         """Callback when document is garbage collected"""
         for doc_id, ref in list(self._documents.items()):
             if ref is weak_ref:
@@ -187,7 +188,7 @@ class VectorStore:
         self._stats["cache_misses"] = int(self._stats.get("cache_misses", 0)) + 1
         return None
 
-    def _cache_embedding(self, doc_id: str, embedding: np.ndarray):
+    def _cache_embedding(self, doc_id: str, embedding: np.ndarray) -> None:
         """Cache embedding with LRU eviction"""
         if len(self._vector_cache) >= self._cache_max_size:
             # Remove oldest entry (simple LRU)
@@ -402,7 +403,7 @@ class VectorStore:
             self.chunks_since_save = 0
 
     @asynccontextmanager
-    async def context_manager(self):
+    async def context_manager(self) -> None:
         """Async context manager for vector store lifecycle"""
         try:
             yield self
@@ -411,11 +412,11 @@ class VectorStore:
             await self._cleanup_old_documents()
             logger.debug("Vector store context manager exited")
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> None:
         """Async context manager entry"""
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
         """Async context manager exit with cleanup"""
         await self.clear_all()
 
@@ -467,7 +468,7 @@ class VectorStore:
 class AsyncDocumentLoader:
     """Asynchronous document loader with incremental indexing"""
 
-    def __init__(self, vector_store: VectorStore):
+    def __init__(self, vector_store: VectorStore) -> None:
         self.vector_store = vector_store
         self.loading_task: Optional[asyncio.Task] = None
         self._stop_event = asyncio.Event()
@@ -548,7 +549,7 @@ class AsyncDocumentLoader:
         # Track last modified times
         self.last_modified_times.clear()
 
-        async def _indexing_task():
+        async def _indexing_task() -> None:
             while not self._stop_event.is_set():
                 try:
                     # Collect all matching files

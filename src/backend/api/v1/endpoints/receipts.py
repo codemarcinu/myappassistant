@@ -1,7 +1,10 @@
+from __future__ import annotations
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
 from fastapi.responses import JSONResponse
 
 from backend.agents.ocr_agent import OCRAgent, OCRAgentInput
+from typing import Any, Dict, List, Optional, Union, Callable
+from typing import AsyncGenerator, Coroutine
 
 router = APIRouter(prefix="/receipts", tags=["Receipts"])
 

@@ -120,7 +120,7 @@ class IntentData:
 
     def __init__(
         self, type: str, entities: Optional[Dict] = None, confidence: float = 1.0
-    ):
+    ) -> None:
         self.type = type
         self.entities = entities if entities is not None else {}
         self.confidence = confidence
@@ -129,7 +129,7 @@ class IntentData:
 class MemoryContext:
     """Context for maintaining conversation state and memory"""
 
-    def __init__(self, session_id: str, history: Optional[List[Dict]] = None):
+    def __init__(self, session_id: str, history: Optional[List[Dict]] = None) -> None:
         self.session_id = session_id
         self.history = history if history is not None else []
         self.active_agents: Dict[str, BaseAgent] = {}
@@ -147,7 +147,7 @@ class IAgentRouter(ABC):
         """Routes the intent to the appropriate agent and returns its response."""
 
     @abstractmethod
-    def register_agent(self, agent_type: AgentType, agent: BaseAgent):
+    def register_agent(self, agent_type: AgentType, agent: BaseAgent) -> None:
         """Register an agent implementation for a specific type"""
 
     @abstractmethod
@@ -207,7 +207,7 @@ class AgentPlugin(ABC):
     """Interface for agent plugins"""
 
     @abstractmethod
-    def initialize(self, agent: BaseAgent):
+    def initialize(self, agent: BaseAgent) -> None:
         pass
 
     @abstractmethod
@@ -343,42 +343,39 @@ class RateLimitConfig(BaseModel):
 
 # Common utility classes
 class AgentMetrics:
-    """Metrics tracking for agents"""
+    """Metrics tracking for agent performance"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.request_count: int = 0
         self.success_count: int = 0
         self.error_count: int = 0
         self.total_processing_time: float = 0.0
-        self.last_request_time: Optional[datetime] = None
         self.average_response_time: float = 0.0
 
-    def record_request(self, success: bool, processing_time: float):
+    def record_request(self, success: bool, processing_time: float) -> None:
         """Record a request and its metrics"""
         self.request_count += 1
-        self.total_processing_time += processing_time
-        self.last_request_time = datetime.now()
-
         if success:
             self.success_count += 1
         else:
             self.error_count += 1
 
+        self.total_processing_time += processing_time
         self.average_response_time = self.total_processing_time / self.request_count
 
     def get_success_rate(self) -> float:
-        """Get success rate as percentage"""
+        """Calculate success rate as percentage"""
         if self.request_count == 0:
             return 0.0
         return (self.success_count / self.request_count) * 100
 
 
 class AgentHealthCheck:
-    """Health check for agents"""
+    """Health check information for agents"""
 
-    def __init__(self):
-        self.last_check: Optional[datetime] = None
+    def __init__(self) -> None:
         self.is_healthy: bool = True
+        self.last_check: datetime = datetime.now()
         self.error_message: Optional[str] = None
         self.response_time: Optional[float] = None
 
@@ -387,10 +384,10 @@ class AgentHealthCheck:
         is_healthy: bool,
         error_message: Optional[str] = None,
         response_time: Optional[float] = None,
-    ):
+    ) -> None:
         """Update health check status"""
-        self.last_check = datetime.now()
         self.is_healthy = is_healthy
+        self.last_check = datetime.now()
         self.error_message = error_message
         self.response_time = response_time
 

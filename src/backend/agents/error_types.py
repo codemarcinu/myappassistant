@@ -37,7 +37,7 @@ class AlertConfig(BaseModel):
 class AgentError(Exception):
     """Base class for agent errors"""
 
-    def __init__(self, message: str, severity: ErrorSeverity = ErrorSeverity.MEDIUM):
+    def __init__(self, message: str, severity: ErrorSeverity = ErrorSeverity.MEDIUM) -> None:
         self.message = message
         self.severity = severity
         super().__init__(message)
@@ -46,7 +46,7 @@ class AgentError(Exception):
 class OrchestratorError(AgentError):
     """Error specific to orchestrator operations"""
 
-    def __init__(self, message: str, severity: ErrorSeverity = ErrorSeverity.HIGH):
+    def __init__(self, message: str, severity: ErrorSeverity = ErrorSeverity.HIGH) -> None:
         super().__init__(message, severity)
 
 
@@ -58,7 +58,7 @@ class AgentProcessingError(AgentError):
         message: str,
         agent_type: str,
         severity: ErrorSeverity = ErrorSeverity.MEDIUM,
-    ):
+    ) -> None:
         self.agent_type = agent_type
         super().__init__(message, severity)
 
@@ -71,6 +71,6 @@ class AgentInitializationError(AgentError):
         message: str,
         agent_type: str,
         severity: ErrorSeverity = ErrorSeverity.HIGH,
-    ):
+    ) -> None:
         self.agent_type = agent_type
         super().__init__(message, severity)

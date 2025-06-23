@@ -12,6 +12,8 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
+import numpy as np
+
 from ..core.hybrid_llm_client import ModelComplexity, hybrid_llm_client
 from ..core.rag_document_processor import rag_document_processor
 from ..core.vector_store import vector_store
@@ -35,10 +37,10 @@ class RAGAgent(BaseAgent):
     def __init__(
         self,
         name: str = "RAGAgent",
-        error_handler=None,
-        fallback_manager=None,
-        **kwargs,
-    ):
+        error_handler: Any = None,
+        fallback_manager: Any = None,
+        **kwargs: Any,
+    ) -> None:
         super().__init__(
             name=name, error_handler=error_handler, fallback_manager=fallback_manager
         )
@@ -46,11 +48,11 @@ class RAGAgent(BaseAgent):
         self.document_processor = rag_document_processor
         self.vector_store = vector_store
 
-    async def initialize(self):
+    async def initialize(self) -> None:
         """Initialize the agent by ensuring vector store is populated"""
         if not self.initialized:
             # Check if vector store has documents
-            if not self.vector_store.chunks:
+            if await self.vector_store.is_empty():
                 # Try to process documents in the data/docs directory
                 docs_dir = Path("data/docs")
                 if docs_dir.exists() and docs_dir.is_dir():
@@ -64,8 +66,9 @@ class RAGAgent(BaseAgent):
                     )
 
             self.initialized = True
+            count = len(await self.vector_store.get_all_documents()) if hasattr(self.vector_store, 'get_all_documents') else 0
             logger.info(
-                f"RAG agent initialized with {len(self.vector_store.chunks)} chunks"
+                f"RAG agent initialized with {count} chunks"
             )
 
     async def add_document(
@@ -82,9 +85,10 @@ class RAGAgent(BaseAgent):
         Returns:
             Processing result information
         """
-        return await self.document_processor.process_document(
+        results = await self.document_processor.process_document(
             content, source_id, metadata
         )
+        return {"processed_chunks": len(results), "source_id": source_id}
 
     async def add_file(
         self, file_path: Union[str, Path], metadata: Optional[Dict[str, Any]] = None
@@ -140,6 +144,14 @@ class RAGAgent(BaseAgent):
             directory_path, file_extensions=file_extensions, recursive=recursive
         )
 
+    async def _get_embedding(self, text: str) -> List[float]:
+        """Get embedding for text using the LLM client"""
+        try:
+            return await self.llm_client.embed(text)
+        except Exception as e:
+            logger.error(f"Error getting embedding: {str(e)}")
+            return []
+
     async def search(
         self,
         query: str,
@@ -160,12 +172,25 @@ class RAGAgent(BaseAgent):
             List of relevant document chunks with metadata
         """
         await self.initialize()
-        return await self.vector_store.search(
-            query=query,
-            k=k,
-            filter_metadata=filter_metadata,
-            min_similarity=min_similarity,
+        query_embedding_list = await self._get_embedding(query)
+        if not query_embedding_list:
+            return []
+
+        query_embedding = np.array(query_embedding_list, dtype=np.float32)
+
+        search_results = await self.vector_store.search(
+            query_embedding=query_embedding,
+            k=k
         )
+        # Format results to match the expected return type
+        return [
+            {
+                "text": chunk.content,
+                "metadata": chunk.metadata,
+                "similarity": score,
+            }
+            for chunk, score in search_results
+        ]
 
     async def process(self, context: Dict[str, Any]) -> AgentResponse:
         """
@@ -284,12 +309,11 @@ Answer:"""
         """Return agent metadata including capabilities"""
         return {
             "name": self.name,
-            "type": "RAGAgent",
+            "type": self.__class__.__name__,
             "capabilities": [
                 "document_processing",
                 "vector_search",
-                "context_retrieval",
                 "source_tracking",
             ],
-            "document_count": len(self.vector_store.chunks) if self.vector_store else 0,
+            "document_count": 0, # Synchronous alternative needed
         }

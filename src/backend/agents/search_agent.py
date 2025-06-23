@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 class SearchAgentInput:
     """Input model for SearchAgent"""
 
-    def __init__(self, query: str, model: str | None = None, max_results: int = 5):
+    def __init__(self, query: str, model: str | None = None, max_results: int = 5) -> None:
         self.query = query
         self.model = model or "SpeakLeash/bielik-4.5b-v3.0-instruct:Q8_0"  # Użyj domyślnego modelu
         self.max_results = max_results
@@ -33,7 +33,7 @@ class SearchAgent(BaseAgent):
         llm_client: LLMClient,
         model: str | None = None,
         embedding_model: str = "nomic-embed-text",
-    ):
+    ) -> None:
         super().__init__()
         self.vector_store = vector_store
         self.search_url = "https://api.duckduckgo.com/"
@@ -57,7 +57,7 @@ class SearchAgent(BaseAgent):
         max_results = input_data.get("max_results", 5)
         use_perplexity = input_data.get("use_perplexity", True)  # Domyślnie Perplexity
 
-        async def stream_generator():
+        async def stream_generator() -> None:
             try:
                 yield "Rozpoczynam wyszukiwanie...\n"
 

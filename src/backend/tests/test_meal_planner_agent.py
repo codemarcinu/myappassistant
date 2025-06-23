@@ -1,12 +1,15 @@
+from __future__ import annotations
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from backend.agents.meal_planner_agent import MealPlannerAgent
+from typing import Any, Dict, List, Optional, Union, Callable
+from typing import AsyncGenerator, Coroutine
 
 
 @pytest.mark.asyncio
-async def test_meal_planner_with_products():
+async def test_meal_planner_with_products() -> None:
     agent = MealPlannerAgent()
     mock_input = {"dietary_restrictions": "vegetarian", "db": AsyncMock()}
 
@@ -29,7 +32,7 @@ async def test_meal_planner_with_products():
 
 
 @pytest.mark.asyncio
-async def test_meal_planner_no_products():
+async def test_meal_planner_no_products() -> None:
     agent = MealPlannerAgent()
     mock_input = {"dietary_restrictions": "vegetarian", "db": AsyncMock()}
 

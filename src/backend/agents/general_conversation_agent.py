@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 class GeneralConversationAgent(BaseAgent):
     """Agent do obsługi swobodnych konwersacji z wykorzystaniem RAG i wyszukiwania internetowego"""
 
-    def __init__(self, name: str = "GeneralConversationAgent"):
+    def __init__(self, name: str = "GeneralConversationAgent") -> None:
         super().__init__(name)
         self.rag_processor = RAGDocumentProcessor()
         self.rag_integration = RAGDatabaseIntegration(self.rag_processor)
@@ -133,9 +133,6 @@ class GeneralConversationAgent(BaseAgent):
                 filtered_results
             )
 
-            # Pobierz dodatkowe dane z relacyjnej bazy danych
-            db_context = await self.rag_integration.get_relevant_context(query)
-
             context_parts = []
             if filtered_results:
                 doc_texts = [
@@ -145,9 +142,6 @@ class GeneralConversationAgent(BaseAgent):
                 ]
                 if doc_texts:
                     context_parts.append("Dokumenty:\n" + "\n".join(doc_texts[:2]))
-
-            if db_context:
-                context_parts.append("Dane z bazy:\n" + db_context)
 
             return "\n\n".join(context_parts) if context_parts else "", avg_confidence
 

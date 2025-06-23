@@ -1,3 +1,4 @@
+from __future__ import annotations
 # src/backend/agents/tools/date_parser.py
 
 import json
@@ -6,6 +7,8 @@ from datetime import date, timedelta
 import ollama
 
 from ...core.utils import extract_json_from_text
+from typing import Any, Dict, List, Optional, Union, Callable
+from typing import AsyncGenerator, Coroutine
 
 # Definiujemy dzisiejszą datę jako punkt odniesienia dla LLM
 # W prawdziwej aplikacji moglibyśmy ją dynamicznie aktualizować.

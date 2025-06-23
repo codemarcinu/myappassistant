@@ -11,15 +11,17 @@ import logging
 import pickle
 import time
 from functools import wraps
-from typing import Any, Dict, Optional, Tuple, TypeVar, Union, cast
+from typing import Any, Callable, Dict, Optional, Tuple, TypeVar, Union, cast
 
 try:
     import redis.asyncio as redis
+    from redis.asyncio.client import Redis as RedisClient
 
     REDIS_AVAILABLE = True
 except ImportError:
     REDIS_AVAILABLE = False
-    redis = None
+    redis = None  # type: ignore
+    RedisClient = None  # type: ignore
 
 from pydantic import BaseModel
 
@@ -39,7 +41,7 @@ INTERNET_CACHE_TTL = 600  # 10 minutes
 class QueryCache:
     """Simple in-memory cache for query results"""
 
-    def __init__(self, name: str, ttl: int = DEFAULT_CACHE_TTL, max_size: int = 100):
+    def __init__(self, name: str, ttl: int = DEFAULT_CACHE_TTL, max_size: int = 100) -> None:
         """
         Initialize a new query cache
 
@@ -133,8 +135,8 @@ class QueryCache:
 class CacheManager:
     """Redis cache manager with automatic serialization/deserialization"""
 
-    def __init__(self):
-        self.redis_client: Optional[redis.Redis] = None
+    def __init__(self) -> None:
+        self.redis_client: Optional["RedisClient"] = None  # type: ignore
         self.is_connected = False
         self.default_ttl = 3600  # 1 hour default
 
@@ -172,7 +174,7 @@ class CacheManager:
             self.is_connected = False
             return False
 
-    async def disconnect(self):
+    async def disconnect(self) -> None:
         """Disconnect from Redis"""
         if self.redis_client:
             await self.redis_client.close()
@@ -189,24 +191,30 @@ class CacheManager:
         try:
             if serialize:
                 if isinstance(value, BaseModel):
-                    data = value.model_dump_json()
+                    data = value.model_dump_json().encode("utf-8")
                 elif isinstance(value, (dict, list)):
-                    data = json.dumps(value, ensure_ascii=False)
+                    data = json.dumps(value, ensure_ascii=False).encode("utf-8")
                 else:
                     data = pickle.dumps(value)
             else:
                 data = str(value).encode("utf-8")
 
             ttl = ttl or self.default_ttl
-            await self.redis_client.setex(key, ttl, data)
+            await self.redis_client.set(key, data, ex=ttl)
             logger.debug(f"Cache set: {key} (TTL: {ttl}s)")
             return True
 
         except Exception as e:
-            logger.error(f"Cache set error for key {key}: {e}")
+            logger.error(f"Failed to set cache for key {key}: {e}")
             return False
 
-    async def get(self, key: str, deserialize: bool = True, default: Any = None) -> Any:
+    async def get(
+        self,
+        key: str,
+        deserialize: bool = True,
+        default: Any = None,
+        expected_type: Optional[type] = None,
+    ) -> None:
         """Get value from cache"""
         if not self.is_connected or not self.redis_client:
             return default
@@ -217,21 +225,19 @@ class CacheManager:
                 return default
 
             if deserialize:
+                if expected_type and issubclass(expected_type, BaseModel):
+                    return expected_type.model_validate_json(data.decode("utf-8"))
                 try:
                     # Try JSON first
                     return json.loads(data.decode("utf-8"))
                 except (json.JSONDecodeError, UnicodeDecodeError):
-                    try:
-                        # Try pickle
-                        return pickle.loads(data)
-                    except pickle.UnpicklingError:
-                        # Return as string
-                        return data.decode("utf-8")
+                    # Fallback to pickle
+                    return pickle.loads(data)
             else:
                 return data.decode("utf-8")
 
         except Exception as e:
-            logger.error(f"Cache get error for key {key}: {e}")
+            logger.error(f"Failed to get cache for key {key}: {e}")
             return default
 
     async def delete(self, key: str) -> bool:
@@ -336,7 +342,7 @@ rag_cache = QueryCache("RAG", ttl=RAG_CACHE_TTL)
 internet_cache = QueryCache("Internet", ttl=INTERNET_CACHE_TTL)
 
 
-def cached_async(cache_instance: QueryCache):
+def cached_async(cache_instance: QueryCache) -> None:
     """
     Decorator for caching async function results
 
@@ -347,9 +353,9 @@ def cached_async(cache_instance: QueryCache):
         Decorated function
     """
 
-    def decorator(func):
+    def decorator(func) -> None:
         @wraps(func)
-        async def wrapper(*args, **kwargs):
+        async def wrapper(*args, **kwargs) -> None:
             # Extract query from args or kwargs
             query = None
             if len(args) > 1:  # Assuming first arg is self, second is query
@@ -379,12 +385,17 @@ def cached_async(cache_instance: QueryCache):
 
 # Cache decorator for functions
 def cache_result(
-    key_prefix: str, ttl: int = 3600, key_builder: Optional[callable] = None
-):
-    """Decorator to cache function results"""
+    key_prefix: str,
+    ttl: int = 3600,
+    key_builder: Optional[Callable] = None,
+) -> None:
+    """
+    Decorator to cache the result of an async function in Redis.
+    It automatically serializes/deserializes Pydantic models, dicts, lists, and other pickleable objects.
+    """
 
-    def decorator(func):
-        async def async_wrapper(*args, **kwargs):
+    def decorator(func) -> None:
+        async def async_wrapper(*args, **kwargs) -> None:
             # Build cache key
             if key_builder:
                 cache_key = key_builder(*args, **kwargs)
@@ -408,7 +419,7 @@ def cache_result(
 
             return result
 
-        def sync_wrapper(*args, **kwargs):
+        def sync_wrapper(*args, **kwargs) -> None:
             # For sync functions, we can't use async cache directly
             # This would need to be handled differently
             return func(*args, **kwargs)

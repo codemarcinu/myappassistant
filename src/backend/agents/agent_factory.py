@@ -41,7 +41,7 @@ class AgentFactory:
         self,
         container: Optional[AgentContainer] = None,
         agent_registry: Optional[AgentRegistry] = None,
-    ):
+    ) -> None:
         self.container = container or AgentContainer()
         self.config: Dict[str, Any] = {}
         self._agent_cache: Dict[str, BaseAgent] = {}  # Cache dla agentów

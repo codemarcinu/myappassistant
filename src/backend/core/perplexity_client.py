@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 class PerplexityClient:
     """Client for Perplexity AI API"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.api_key = settings.PERPLEXITY_API_KEY
         self.base_url = "https://api.perplexity.ai/chat/completions"
         self.http_client = httpx.AsyncClient(
@@ -248,7 +248,7 @@ class PerplexityClient:
         except Exception as e:
             return {"success": False, "error": f"Connection test failed: {str(e)}"}
 
-    async def close(self):
+    async def close(self) -> None:
         """Close HTTP client"""
         await self.http_client.aclose()
 

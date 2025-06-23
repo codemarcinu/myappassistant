@@ -30,7 +30,7 @@ class ReceiptAnalysisAgent(BaseAgent):
         error_handler=None,
         fallback_manager=None,
         **kwargs,
-    ):
+    ) -> None:
         super().__init__(
             name=name, error_handler=error_handler, fallback_manager=fallback_manager
         )

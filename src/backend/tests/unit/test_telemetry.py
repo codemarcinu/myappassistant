@@ -1,3 +1,6 @@
+from __future__ import annotations
+from typing import Any, Dict, List, Optional, Union, Callable
+from typing import AsyncGenerator, Coroutine
 """
 Tests dla OpenTelemetry Integration
 Zgodnie z regułami MDC dla testowania i monitoringu
@@ -21,7 +24,7 @@ from backend.core.telemetry import (
 class TestTelemetry:
     """Testy dla OpenTelemetry integration"""
 
-    def test_setup_telemetry(self):
+    def test_setup_telemetry(self) -> None:
         """Test setup telemetry"""
         with patch("backend.core.telemetry.settings") as mock_settings:
             mock_settings.APP_VERSION = "1.0.0"
@@ -31,7 +34,7 @@ class TestTelemetry:
             setup_telemetry(enable_jaeger=False, enable_prometheus=False)
             assert get_tracer() is not None
 
-    def test_create_span(self):
+    def test_create_span(self) -> None:
         """Test creating spans"""
         with patch("backend.core.telemetry.settings") as mock_settings:
             mock_settings.APP_VERSION = "1.0.0"
@@ -43,7 +46,7 @@ class TestTelemetry:
             assert span is not None
             assert span.name == "test_span"
 
-    def test_span_context(self):
+    def test_span_context(self) -> None:
         """Test span context manager"""
         with patch("backend.core.telemetry.settings") as mock_settings:
             mock_settings.APP_VERSION = "1.0.0"
@@ -55,7 +58,7 @@ class TestTelemetry:
                 assert span is not None
                 assert span.name == "test_context"
 
-    def test_traced_function_decorator(self):
+    def test_traced_function_decorator(self) -> None:
         """Test traced function decorator"""
         with patch("backend.core.telemetry.settings") as mock_settings:
             mock_settings.APP_VERSION = "1.0.0"
@@ -64,14 +67,14 @@ class TestTelemetry:
             setup_telemetry(enable_jaeger=False, enable_prometheus=False)
 
             @traced_function("test_function")
-            def test_func():
+            def test_func() -> None:
                 return "test"
 
             result = test_func()
             assert result == "test"
 
     @pytest.mark.asyncio
-    async def test_traced_async_function_decorator(self):
+    async def test_traced_async_function_decorator(self) -> None:
         """Test traced async function decorator"""
         with patch("backend.core.telemetry.settings") as mock_settings:
             mock_settings.APP_VERSION = "1.0.0"
@@ -80,14 +83,14 @@ class TestTelemetry:
             setup_telemetry(enable_jaeger=False, enable_prometheus=False)
 
             @traced_async_function("test_async_function")
-            async def test_async_func():
+            async def test_async_func() -> None:
                 await asyncio.sleep(0.01)
                 return "test_async"
 
             result = await test_async_func()
             assert result == "test_async"
 
-    def test_span_context_with_exception(self):
+    def test_span_context_with_exception(self) -> None:
         """Test span context with exception handling"""
         with patch("backend.core.telemetry.settings") as mock_settings:
             mock_settings.APP_VERSION = "1.0.0"
@@ -100,7 +103,7 @@ class TestTelemetry:
                     assert span is not None
                     raise ValueError("Test exception")
 
-    def test_get_tracer_singleton(self):
+    def test_get_tracer_singleton(self) -> None:
         """Test that get_tracer returns singleton"""
         with patch("backend.core.telemetry.settings") as mock_settings:
             mock_settings.APP_VERSION = "1.0.0"

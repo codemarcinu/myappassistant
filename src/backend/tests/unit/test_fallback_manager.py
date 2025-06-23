@@ -1,4 +1,6 @@
+from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock, patch
+from typing import Any, Dict, List, Optional, Union, Callable, AsyncGenerator, Coroutine
 
 import pytest
 
@@ -13,15 +15,15 @@ from backend.agents.interfaces import AgentResponse, ErrorSeverity
 
 class TestFallbackStrategies:
     @pytest.fixture
-    def input_data(self):
+    def input_data(self) -> None:
         return {"query": "test query"}
 
     @pytest.fixture
-    def error(self):
+    def error(self) -> None:
         return Exception("test error")
 
     @pytest.mark.asyncio
-    async def test_prompt_rewriting_strategy(self, input_data, error):
+    async def test_prompt_rewriting_strategy(self, input_data, error) -> None:
         strategy = PromptRewritingStrategy()
         with patch(
             "backend.core.hybrid_llm_client.hybrid_llm_client.chat"
@@ -34,7 +36,7 @@ class TestFallbackStrategies:
             assert result.metadata["rewritten_query"] == "rewritten query"
 
     @pytest.mark.asyncio
-    async def test_simplified_model_strategy(self, input_data, error):
+    async def test_simplified_model_strategy(self, input_data, error) -> None:
         strategy = SimplifiedModelStrategy()
         with patch(
             "backend.core.hybrid_llm_client.hybrid_llm_client.chat"
@@ -45,7 +47,7 @@ class TestFallbackStrategies:
             assert result.text == "simplified answer"
 
     @pytest.mark.asyncio
-    async def test_minimal_response_strategy(self, input_data, error):
+    async def test_minimal_response_strategy(self, input_data, error) -> None:
         strategy = MinimalResponseStrategy()
         result = await strategy.execute(input_data, error)
         assert isinstance(result, AgentResponse)
@@ -55,11 +57,11 @@ class TestFallbackStrategies:
 
 class TestFallbackManager:
     @pytest.fixture
-    def manager(self):
+    def manager(self) -> None:
         return FallbackManager()
 
     @pytest.mark.asyncio
-    async def test_execute_fallback(self, manager):
+    async def test_execute_fallback(self, manager) -> None:
         input_data = {"query": "test"}
         error = Exception("test error")
 
@@ -71,7 +73,7 @@ class TestFallbackManager:
             assert response.success
 
     @pytest.mark.asyncio
-    async def test_execute_fallback_all_fail(self, manager):
+    async def test_execute_fallback_all_fail(self, manager) -> None:
         input_data = {"query": "test"}
         error = Exception("test error")
 

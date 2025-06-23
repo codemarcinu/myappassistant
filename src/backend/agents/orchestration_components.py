@@ -3,59 +3,39 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from .interfaces import AgentResponse, BaseAgent, IntentData, MemoryContext
+from pydantic import BaseModel, Field
+
+from backend.agents.interfaces import AgentResponse, BaseAgent, MemoryContext, IntentData
 
 logger = logging.getLogger(__name__)
 
 
 class IIntentDetector(ABC):
     @abstractmethod
-    async def detect_intent(self, query: str, context: MemoryContext) -> IntentData:
+    async def detect_intent(
+        self, query: str, context: MemoryContext
+    ) -> IntentData:
         """Detects user intent based on query and context."""
-
-
-class IAgentRouter(ABC):
-    @abstractmethod
-    async def route_to_agent(
-        self, intent: IntentData, context: MemoryContext
-    ) -> AgentResponse:
-        """Routes the intent to the appropriate agent and returns its response."""
-
-    @abstractmethod
-    def register_agent(self, agent_type: str, agent: BaseAgent):
-        """Register an agent implementation for a specific type"""
-
-    @abstractmethod
-    def get_agent(self, agent_type: str) -> BaseAgent:
-        """Get registered agent by type"""
 
 
 class IMemoryManager(ABC):
     @abstractmethod
-    async def store_context(self, context: MemoryContext) -> None:
-        """Store context for later retrieval"""
-
-    @abstractmethod
-    async def retrieve_context(self, session_id: str) -> Optional[MemoryContext]:
-        """Retrieve context for session if it exists"""
+    async def get_context(self, session_id: str) -> MemoryContext:
+        """Retrieves or creates a memory context for a session."""
 
     @abstractmethod
     async def update_context(
-        self, context: MemoryContext, new_data: Optional[Dict[str, Any]] = None
+        self, context: MemoryContext, new_data: Dict[str, Any]
     ) -> None:
-        """Update existing context with optional new data"""
-
-    @abstractmethod
-    async def clear_context(self, session_id: str) -> None:
-        """Clear context for session"""
+        """Updates the memory context with new data."""
 
 
 class IResponseGenerator(ABC):
     @abstractmethod
     async def generate_response(
-        self, context: MemoryContext, agent_response: AgentResponse
+        self, context: MemoryContext, last_response: AgentResponse
     ) -> AgentResponse:
-        """Generate final response based on context and agent response"""
+        """Generates a final response based on the conversation context."""
 
 
 class SimpleIntentDetector(IIntentDetector):
@@ -69,7 +49,7 @@ class SimpleIntentDetector(IIntentDetector):
 
 
 class BasicMemoryManager(IMemoryManager):
-    def __init__(self):
+    def __init__(self) -> None:
         self.contexts = {}
 
     async def get_context(self, session_id: str) -> MemoryContext:
@@ -78,8 +58,8 @@ class BasicMemoryManager(IMemoryManager):
         return self.contexts[session_id]
 
     async def update_context(
-        self, context: MemoryContext, new_data: Optional[Dict[str, Any]] = None
-    ):
+        self, context: MemoryContext, new_data: Dict[str, Any]
+    ) -> None:
         if new_data:
             context.history.append(
                 {"timestamp": datetime.now().isoformat(), "data": new_data}
@@ -88,8 +68,10 @@ class BasicMemoryManager(IMemoryManager):
 
 class BasicResponseGenerator(IResponseGenerator):
     async def generate_response(
-        self, agent_response: Dict[str, Any], context: MemoryContext
-    ) -> str:
-        if "response" in agent_response:
-            return agent_response["response"]
-        return "Przepraszam, wystąpił problem podczas przetwarzania żądania."
+        self, context: MemoryContext, agent_response: AgentResponse
+    ) -> AgentResponse:
+        if agent_response.text:
+            return AgentResponse(success=True, text=agent_response.text)
+        return AgentResponse(
+            success=False, error="Przepraszam, wystąpił problem podczas przetwarzania żądania."
+        )

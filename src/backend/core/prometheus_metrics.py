@@ -190,10 +190,10 @@ CIRCUIT_BREAKER_FAILURES = Counter(
 class MetricsCollector:
     """Collector dla system metrics"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.process = psutil.Process()
 
-    def collect_system_metrics(self):
+    def collect_system_metrics(self) -> None:
         """Collect system metrics"""
         try:
             # Memory metrics
@@ -216,11 +216,11 @@ class MetricsCollector:
 class MetricsMiddleware:
     """Middleware dla collecting metrics"""
 
-    def __init__(self, app):
+    def __init__(self, app) -> None:
         self.app = app
         self.metrics_collector = MetricsCollector()
 
-    async def __call__(self, scope, receive, send):
+    async def __call__(self, scope, receive, send) -> None:
         if scope["type"] == "http":
             start_time = time.time()
             method = scope["method"]
@@ -247,7 +247,7 @@ class MetricsMiddleware:
 
 def record_agent_metrics(
     agent_type: str, success: bool, duration: float, memory_usage: int | None = None
-):
+) -> None:
     """Record agent performance metrics"""
     status = "success" if success else "error"
     AGENT_REQUEST_COUNT.labels(agent_type=agent_type, status=status).inc()
@@ -256,7 +256,7 @@ def record_agent_metrics(
         AGENT_MEMORY_USAGE.labels(agent_type=agent_type).set(memory_usage)
 
 
-def record_db_metrics(operation: str, table: str, duration: float):
+def record_db_metrics(operation: str, table: str, duration: float) -> None:
     """Record database metrics"""
     DB_QUERY_COUNT.labels(operation=operation, table=table).inc()
     DB_QUERY_DURATION.labels(operation=operation, table=table).observe(duration)
@@ -268,7 +268,7 @@ def record_llm_metrics(
     duration: float,
     tokens: int | None = None,
     token_type: str = "total",
-):
+) -> None:
     """Record LLM performance metrics"""
     status = "success" if success else "error"
     LLM_REQUEST_COUNT.labels(model=model, status=status).inc()
@@ -279,7 +279,7 @@ def record_llm_metrics(
 
 def record_vector_metrics(
     index_type: str, duration: float, store_size: int | None = None
-):
+) -> None:
     """Record vector store performance metrics"""
     VECTOR_SEARCH_COUNT.labels(index_type=index_type).inc()
     VECTOR_SEARCH_DURATION.labels(index_type=index_type).observe(duration)
@@ -287,14 +287,14 @@ def record_vector_metrics(
         VECTOR_STORE_SIZE.labels(index_type=index_type).set(store_size)
 
 
-def record_ocr_metrics(file_type: str, success: bool, duration: float):
+def record_ocr_metrics(file_type: str, success: bool, duration: float) -> None:
     """Record OCR metrics"""
     status = "success" if success else "error"
     OCR_PROCESSING_COUNT.labels(file_type=file_type, status=status).inc()
     OCR_PROCESSING_DURATION.labels(file_type=file_type).observe(duration)
 
 
-def record_cache_metrics(cache_type: str, hit: bool):
+def record_cache_metrics(cache_type: str, hit: bool) -> None:
     """Record cache metrics"""
     if hit:
         CACHE_HIT_COUNT.labels(cache_type=cache_type).inc()
@@ -304,7 +304,7 @@ def record_cache_metrics(cache_type: str, hit: bool):
 
 def record_circuit_breaker_metrics(
     breaker_name: str, state: str, failure: bool = False
-):
+) -> None:
     """Record circuit breaker metrics"""
     state_map = {"closed": 0, "open": 1, "half_open": 2}
     CIRCUIT_BREAKER_STATE.labels(breaker_name=breaker_name).set(

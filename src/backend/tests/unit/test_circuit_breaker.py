@@ -1,5 +1,7 @@
+from __future__ import annotations
 import time
 from unittest.mock import AsyncMock
+from typing import Any, Dict, List, Optional, Union, Callable, AsyncGenerator, Coroutine
 
 import pytest
 
@@ -13,13 +15,13 @@ from backend.agents.mixins.circuit_breaker import (
 
 class TestCircuitBreaker:
     @pytest.fixture
-    def breaker(self):
+    def breaker(self) -> None:
         return CircuitBreaker(
             failure_threshold=2, recovery_timeout=0.1, half_open_threshold=1
         )
 
     @pytest.mark.asyncio
-    async def test_closed_state_success(self, breaker):
+    async def test_closed_state_success(self, breaker) -> None:
         mock_func = AsyncMock(return_value="success")
         wrapped = breaker(mock_func)
         result = await wrapped()
@@ -27,7 +29,7 @@ class TestCircuitBreaker:
         assert breaker.state == CircuitState.CLOSED
 
     @pytest.mark.asyncio
-    async def test_closed_to_open_transition(self, breaker):
+    async def test_closed_to_open_transition(self, breaker) -> None:
         mock_func = AsyncMock(side_effect=Exception("error"))
         wrapped = breaker(mock_func)
 
@@ -42,7 +44,7 @@ class TestCircuitBreaker:
         assert breaker.state == CircuitState.OPEN
 
     @pytest.mark.asyncio
-    async def test_open_state_blocks_calls(self, breaker):
+    async def test_open_state_blocks_calls(self, breaker) -> None:
         breaker.state = CircuitState.OPEN
         breaker.last_failure_time = time.time()
 
@@ -54,7 +56,7 @@ class TestCircuitBreaker:
         mock_func.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_open_to_half_open_transition(self, breaker):
+    async def test_open_to_half_open_transition(self, breaker) -> None:
         breaker.state = CircuitState.OPEN
         breaker.last_failure_time = time.time() - 0.2  # Past recovery timeout
 
@@ -66,7 +68,7 @@ class TestCircuitBreaker:
         assert breaker.state == CircuitState.CLOSED
 
     @pytest.mark.asyncio
-    async def test_half_open_to_closed(self, breaker):
+    async def test_half_open_to_closed(self, breaker) -> None:
         breaker.state = CircuitState.HALF_OPEN
         mock_func = AsyncMock(return_value="success")
         wrapped = breaker(mock_func)
@@ -75,7 +77,7 @@ class TestCircuitBreaker:
         assert breaker.state == CircuitState.CLOSED
 
     @pytest.mark.asyncio
-    async def test_half_open_to_open(self, breaker):
+    async def test_half_open_to_open(self, breaker) -> None:
         breaker.state = CircuitState.HALF_OPEN
         mock_func = AsyncMock(side_effect=Exception("error"))
         wrapped = breaker(mock_func)
@@ -87,18 +89,18 @@ class TestCircuitBreaker:
 
 class TestCircuitBreakerDecorator:
     @pytest.mark.asyncio
-    async def test_decorator_success(self):
+    async def test_decorator_success(self) -> None:
         @circuit_breaker(failure_threshold=1)
-        async def test_func():
+        async def test_func() -> None:
             return "success"
 
         result = await test_func()
         assert result == "success"
 
     @pytest.mark.asyncio
-    async def test_decorator_failure(self):
+    async def test_decorator_failure(self) -> None:
         @circuit_breaker(failure_threshold=1)
-        async def test_func():
+        async def test_func() -> None:
             raise Exception("error")
 
         # First call fails and opens circuit

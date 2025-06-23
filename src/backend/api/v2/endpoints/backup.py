@@ -76,7 +76,7 @@ async def create_backup(
 
 
 @router.get("/list", response_model=None)
-async def list_backups():
+async def list_backups() -> None:
     """
     List all available backups
     """
@@ -164,7 +164,7 @@ async def restore_backup(
 
 
 @router.get("/stats", response_model=None)
-async def get_backup_stats():
+async def get_backup_stats() -> None:
     """
     Get backup system statistics
     """
@@ -194,7 +194,7 @@ async def get_backup_stats():
 
 
 @router.post("/verify/{backup_name}", response_model=None)
-async def verify_backup(backup_name: str):
+async def verify_backup(backup_name: str) -> None:
     """
     Verify backup integrity
     """
@@ -236,7 +236,7 @@ async def verify_backup(backup_name: str):
 
 
 @router.delete("/cleanup", response_model=None)
-async def cleanup_old_backups():
+async def cleanup_old_backups() -> None:
     """
     Clean up old backups based on retention policy
     """
@@ -265,7 +265,7 @@ async def cleanup_old_backups():
 
 
 @router.get("/health", response_model=None)
-async def backup_health_check():
+async def backup_health_check() -> None:
     """
     Health check for backup system
     """

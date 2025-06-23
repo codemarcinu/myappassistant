@@ -1,3 +1,6 @@
+from __future__ import annotations
+from typing import Any, Dict, List, Optional, Union, Callable
+from typing import AsyncGenerator, Coroutine
 """
 Memory Profiling Tests z pytest-benchmark
 Zgodnie z regułami MDC dla testowania i monitoringu
@@ -24,14 +27,14 @@ from backend.core.monitoring import (
 class TestMemoryProfiler:
     """Testy dla MemoryProfiler"""
 
-    def test_memory_profiler_initialization(self):
+    def test_memory_profiler_initialization(self) -> None:
         """Test inicjalizacji profilerów"""
         profiler = MemoryProfiler(enable_tracemalloc=False)
         assert profiler.enable_tracemalloc is False
         assert len(profiler.snapshots) == 0
         assert len(profiler.performance_metrics) == 0
 
-    def test_take_snapshot(self):
+    def test_take_snapshot(self) -> None:
         """Test pobierania snapshot pamięci"""
         profiler = MemoryProfiler(enable_tracemalloc=False)
         snapshot = profiler.take_snapshot()
@@ -42,7 +45,7 @@ class TestMemoryProfiler:
         assert snapshot.peak_memory >= 0
         assert len(profiler.snapshots) == 1
 
-    def test_get_performance_metrics(self):
+    def test_get_performance_metrics(self) -> None:
         """Test pobierania metryk wydajności"""
         profiler = MemoryProfiler(enable_tracemalloc=False)
         metrics = profiler.get_performance_metrics()
@@ -57,7 +60,7 @@ class TestMemoryProfiler:
         assert metrics.threads > 0
         assert len(profiler.performance_metrics) == 1
 
-    def test_memory_leak_detection(self):
+    def test_memory_leak_detection(self) -> None:
         """Test wykrywania wycieków pamięci"""
         profiler = MemoryProfiler(enable_tracemalloc=False)
 
@@ -79,7 +82,7 @@ class TestMemoryProfiler:
             # Wykrycie wycieku
             assert profiler.detect_memory_leak(threshold_mb=50.0) is True
 
-    def test_cleanup(self):
+    def test_cleanup(self) -> None:
         """Test cleanup resources"""
         profiler = MemoryProfiler(enable_tracemalloc=False)
         profiler.take_snapshot()
@@ -98,7 +101,7 @@ class TestAsyncMemoryProfiler:
     """Testy dla AsyncMemoryProfiler"""
 
     @pytest.mark.asyncio
-    async def test_async_snapshot(self):
+    async def test_async_snapshot(self) -> None:
         """Test asynchronicznego pobierania snapshot"""
         profiler = AsyncMemoryProfiler(enable_tracemalloc=False)
         snapshot = await profiler.take_snapshot_async()
@@ -107,7 +110,7 @@ class TestAsyncMemoryProfiler:
         assert snapshot.timestamp > 0
 
     @pytest.mark.asyncio
-    async def test_async_performance_metrics(self):
+    async def test_async_performance_metrics(self) -> None:
         """Test asynchronicznego pobierania metryk"""
         profiler = AsyncMemoryProfiler(enable_tracemalloc=False)
         metrics = await profiler.get_performance_metrics_async()
@@ -119,7 +122,7 @@ class TestAsyncMemoryProfiler:
 class TestMemoryProfilingContext:
     """Testy dla context managers"""
 
-    def test_memory_profiling_context(self):
+    def test_memory_profiling_context(self) -> None:
         """Test synchronicznego context manager"""
         with memory_profiling_context("test_operation") as profiler:
             assert isinstance(profiler, MemoryProfiler)
@@ -130,7 +133,7 @@ class TestMemoryProfilingContext:
         assert len(profiler.snapshots) == 0
 
     @pytest.mark.asyncio
-    async def test_async_memory_profiling_context(self):
+    async def test_async_memory_profiling_context(self) -> None:
         """Test asynchronicznego context manager"""
         async with async_memory_profiling_context("test_async_operation") as profiler:
             assert isinstance(profiler, AsyncMemoryProfiler)
@@ -144,7 +147,7 @@ class TestMemoryProfilingContext:
 class TestMemoryMonitor:
     """Testy dla globalnego monitora pamięci"""
 
-    def test_get_profiler(self):
+    def test_get_profiler(self) -> None:
         """Test pobierania profilerów"""
         profiler1 = memory_monitor.get_profiler("test_component")
         profiler2 = memory_monitor.get_profiler("test_component")
@@ -152,7 +155,7 @@ class TestMemoryMonitor:
         assert profiler1 is profiler2  # Singleton pattern
         assert "test_component" in memory_monitor.profilers
 
-    def test_cleanup_all(self):
+    def test_cleanup_all(self) -> None:
         """Test cleanup wszystkich profilerów"""
         memory_monitor.profilers.clear()  # Wyczyść globalny stan
         memory_monitor.get_profiler("test1")
@@ -166,32 +169,32 @@ class TestMemoryMonitor:
 class TestMemoryProfilingBenchmarks:
     """Benchmark tests dla memory profiling"""
 
-    def test_snapshot_creation_benchmark(self, benchmark):
+    def test_snapshot_creation_benchmark(self, benchmark) -> None:
         """Benchmark tworzenia snapshot"""
         profiler = MemoryProfiler(enable_tracemalloc=False)
 
-        def create_snapshot():
+        def create_snapshot() -> None:
             return profiler.take_snapshot()
 
         result = benchmark(create_snapshot)
         assert isinstance(result, MemorySnapshot)
 
-    def test_performance_metrics_benchmark(self, benchmark):
+    def test_performance_metrics_benchmark(self, benchmark) -> None:
         """Benchmark pobierania metryk wydajności"""
         profiler = MemoryProfiler(enable_tracemalloc=False)
 
-        def get_metrics():
+        def get_metrics() -> None:
             return profiler.get_performance_metrics()
 
         result = benchmark(get_metrics)
         assert isinstance(result, PerformanceMetrics)
 
     @pytest.mark.asyncio
-    async def test_async_snapshot_benchmark(self, benchmark):
+    async def test_async_snapshot_benchmark(self, benchmark) -> None:
         """Benchmark asynchronicznego snapshot"""
         profiler = AsyncMemoryProfiler(enable_tracemalloc=False)
 
-        async def create_async_snapshot():
+        async def create_async_snapshot() -> None:
             return await profiler.take_snapshot_async()
 
         result = await benchmark(create_async_snapshot)
@@ -202,7 +205,7 @@ class TestMemoryProfilingBenchmarks:
 class TestMemoryLeakDetection:
     """Testy wykrywania wycieków pamięci"""
 
-    def test_no_memory_leak(self):
+    def test_no_memory_leak(self) -> None:
         """Test gdy nie ma wycieku pamięci"""
         profiler = MemoryProfiler(enable_tracemalloc=False)
 
@@ -222,7 +225,7 @@ class TestMemoryLeakDetection:
             # Brak wycieku
             assert profiler.detect_memory_leak(threshold_mb=50.0) is False
 
-    def test_memory_leak_threshold(self):
+    def test_memory_leak_threshold(self) -> None:
         """Test różnych progów wycieku pamięci"""
         profiler = MemoryProfiler(enable_tracemalloc=False)
 
@@ -250,7 +253,7 @@ class TestMemoryLeakDetection:
 class TestMemoryProfilingIntegration:
     """Testy integracyjne memory profiling"""
 
-    def test_full_profiling_cycle(self):
+    def test_full_profiling_cycle(self) -> None:
         """Test pełnego cyklu profilowania"""
         with memory_profiling_context("integration_test") as profiler:
             # Wykonaj operacje
@@ -262,7 +265,7 @@ class TestMemoryProfilingIntegration:
             assert len(profiler.snapshots) >= 5  # Pozwól na dodatkowe snapshoty
 
     @pytest.mark.asyncio
-    async def test_async_profiling_cycle(self):
+    async def test_async_profiling_cycle(self) -> None:
         """Test asynchronicznego cyklu profilowania"""
         async with async_memory_profiling_context("async_integration_test") as profiler:
             # Wykonaj operacje

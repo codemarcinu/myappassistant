@@ -1,3 +1,4 @@
+from __future__ import annotations
 import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -5,10 +6,12 @@ import pytest
 
 from backend.agents.interfaces import AgentResponse, IntentData
 from backend.agents.orchestrator import Orchestrator
+from typing import Any, Dict, List, Optional, Union, Callable
+from typing import AsyncGenerator, Coroutine
 
 
 @pytest.mark.asyncio
-async def test_integration_chat_flow():
+async def test_integration_chat_flow() -> None:
     """Test podstawowego przepływu czatu"""
     # Mock wymagane zależności
     mock_db = AsyncMock()
@@ -41,7 +44,7 @@ async def test_integration_chat_flow():
 
 
 @pytest.mark.asyncio
-async def test_integration_error_handling():
+async def test_integration_error_handling() -> None:
     """Test obsługi błędów w przepływie integracyjnym"""
     # Mock wymagane zależności
     mock_db = AsyncMock()
@@ -67,7 +70,7 @@ async def test_integration_error_handling():
 
 
 @pytest.mark.asyncio
-async def test_integration_combined_flow():
+async def test_integration_combined_flow() -> None:
     """Test złożonego przepływu używającego wielu agentów"""
     # Mock wymagane zależności
     mock_db = AsyncMock()
@@ -103,7 +106,7 @@ async def test_integration_combined_flow():
 
 
 @pytest.mark.asyncio
-async def test_integration_performance():
+async def test_integration_performance() -> None:
     """Test wydajnościowy z wieloma równoległymi żądaniami"""
     # Mock wymagane zależności
     mock_db = AsyncMock()
@@ -144,7 +147,7 @@ async def test_integration_performance():
 
 
 @pytest.mark.asyncio
-async def test_integration_fallback_mechanism():
+async def test_integration_fallback_mechanism() -> None:
     """Test mechanizmu fallback gdy główny agent zawiedzie"""
     # Mock wymagane zależności
     mock_db = AsyncMock()

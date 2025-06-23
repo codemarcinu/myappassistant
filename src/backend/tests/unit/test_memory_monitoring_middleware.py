@@ -1,3 +1,6 @@
+from __future__ import annotations
+from typing import Any, Dict, List, Optional, Union, Callable
+from typing import AsyncGenerator, Coroutine
 """
 Tests dla Memory Monitoring Middleware
 Zgodnie z regułami MDC dla testowania i monitoringu
@@ -12,11 +15,12 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from backend.core.middleware import MemoryMonitoringMiddleware
+from backend.core.telemetry import get_tracer
 
 
 # GLOBALNY PATCH dla async_memory_profiling_context
 @pytest.fixture(autouse=True)
-def patch_async_memory_profiling_context(monkeypatch):
+def patch_async_memory_profiling_context(monkeypatch) -> None:
     mock_profiler = AsyncMock()
     mock_profiler.get_performance_metrics_async.return_value.memory_rss = (
         100 * 1024 * 1024
@@ -24,12 +28,12 @@ def patch_async_memory_profiling_context(monkeypatch):
     mock_profiler.get_performance_metrics_async.return_value.cpu_percent = 25.5
     mock_profiler.log_memory_usage_async.return_value = None
 
-    async def dummy_cm(*args, **kwargs):
+    async def dummy_cm(*args, **kwargs) -> None:
         class DummyAsyncCM:
-            async def __aenter__(self):
+            async def __aenter__(self) -> None:
                 return mock_profiler
 
-            async def __aexit__(self, exc_type, exc_val, exc_tb):
+            async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
                 return None
 
         return DummyAsyncCM()
@@ -41,16 +45,16 @@ def patch_async_memory_profiling_context(monkeypatch):
 
 
 @pytest.fixture
-def app_with_memory_middleware():
+def app_with_memory_middleware() -> None:
     """FastAPI app z memory monitoring middleware"""
     app = FastAPI()
 
     @app.get("/test")
-    async def test_endpoint():
+    async def test_endpoint() -> None:
         return {"message": "test"}
 
     @app.get("/memory-intensive")
-    async def memory_intensive_endpoint():
+    async def memory_intensive_endpoint() -> None:
         # Symulacja operacji intensywnej pamięciowo
         large_list = [i for i in range(10000)]
         return {"count": len(large_list)}
@@ -60,7 +64,7 @@ def app_with_memory_middleware():
 
 
 @pytest.fixture
-def client(app_with_memory_middleware):
+def client(app_with_memory_middleware) -> None:
     """Test client dla app z memory middleware"""
     return TestClient(app_with_memory_middleware)
 
@@ -68,7 +72,7 @@ def client(app_with_memory_middleware):
 class TestMemoryMonitoringMiddleware:
     """Testy dla MemoryMonitoringMiddleware"""
 
-    def test_middleware_initialization(self):
+    def test_middleware_initialization(self) -> None:
         """Test inicjalizacji middleware"""
         app = FastAPI()
         middleware = MemoryMonitoringMiddleware(app, enable_memory_profiling=True)
@@ -76,12 +80,12 @@ class TestMemoryMonitoringMiddleware:
         assert middleware.enable_memory_profiling is True
         assert middleware.app == app
 
-    def test_middleware_with_memory_profiling_disabled(self):
+    def test_middleware_with_memory_profiling_disabled(self) -> None:
         """Test middleware z wyłączonym memory profiling"""
         app = FastAPI()
 
         @app.get("/test")
-        async def test_endpoint():
+        async def test_endpoint() -> None:
             return {"message": "test"}
 
         app.add_middleware(MemoryMonitoringMiddleware, enable_memory_profiling=False)
@@ -93,7 +97,7 @@ class TestMemoryMonitoringMiddleware:
         assert "X-CPU-Percent" not in response.headers
 
     @pytest.mark.asyncio
-    async def test_middleware_with_memory_profiling_enabled(self, client):
+    async def test_middleware_with_memory_profiling_enabled(self, client) -> None:
         """Test middleware z włączonym memory profiling"""
         response = client.get("/test")
         assert response.status_code == 200
@@ -106,19 +110,19 @@ class TestMemoryMonitoringMiddleware:
         assert 0 <= cpu <= 100
 
     @pytest.mark.asyncio
-    async def test_middleware_logs_memory_usage(self, client):
+    async def test_middleware_logs_memory_usage(self, client) -> None:
         """Test czy middleware loguje użycie pamięci"""
         response = client.get("/test")
         # Nie sprawdzamy call_count mocka, bo patch jest globalny
         assert response.status_code == 200
 
     @pytest.mark.asyncio
-    async def test_middleware_handles_exceptions(self, client):
+    async def test_middleware_handles_exceptions(self, client) -> None:
         """Test obsługi wyjątków przez middleware"""
         app = FastAPI()
 
         @app.get("/error")
-        async def error_endpoint():
+        async def error_endpoint() -> None:
             raise ValueError("Test error")
 
         app.add_middleware(MemoryMonitoringMiddleware, enable_memory_profiling=True)
@@ -127,7 +131,7 @@ class TestMemoryMonitoringMiddleware:
         assert response.status_code == 500
 
     @pytest.mark.asyncio
-    async def test_middleware_different_endpoints(self, client):
+    async def test_middleware_different_endpoints(self, client) -> None:
         """Test middleware dla różnych endpointów"""
         response1 = client.get("/test")
         response2 = client.get("/memory-intensive")
@@ -135,7 +139,7 @@ class TestMemoryMonitoringMiddleware:
         assert response2.status_code == 200
 
     @pytest.mark.asyncio
-    async def test_middleware_context_names(self, client):
+    async def test_middleware_context_names(self, client) -> None:
         """Test nazw contextów w middleware"""
         response1 = client.get("/test")
         response2 = client.get("/memory-intensive")
@@ -143,7 +147,7 @@ class TestMemoryMonitoringMiddleware:
         assert response2.status_code == 200
 
     @pytest.mark.asyncio
-    async def test_middleware_performance_impact(self, client):
+    async def test_middleware_performance_impact(self, client) -> None:
         """Test wpływu middleware na wydajność"""
         import os
         import platform
@@ -155,7 +159,7 @@ class TestMemoryMonitoringMiddleware:
         app_no_middleware = FastAPI()
 
         @app_no_middleware.get("/test")
-        async def test_endpoint():
+        async def test_endpoint() -> None:
             return {"message": "test"}
 
         client_no_middleware = TestClient(app_no_middleware)
@@ -175,7 +179,7 @@ class TestMemoryMonitoringMiddlewareIntegration:
     """Testy integracyjne dla memory monitoring middleware"""
 
     @pytest.mark.asyncio
-    async def test_middleware_with_real_memory_usage(self, client):
+    async def test_middleware_with_real_memory_usage(self, client) -> None:
         """Test middleware z rzeczywistym użyciem pamięci"""
         # Ten test może być uruchamiany tylko w środowisku testowym
         # gdzie memory profiling jest włączony
@@ -190,12 +194,12 @@ class TestMemoryMonitoringMiddlewareIntegration:
         assert 0 < cpu_percent < 1000  # Akceptujemy >100% na systemach wielordzeniowych
 
     @pytest.mark.asyncio
-    async def test_middleware_concurrent_requests(self, client):
+    async def test_middleware_concurrent_requests(self, client) -> None:
         """Test middleware z równoczesnymi żądaniami"""
         import asyncio
         import concurrent.futures
 
-        def make_request():
+        def make_request() -> None:
             return client.get("/test")
 
         # Wykonaj równoczesne żądania

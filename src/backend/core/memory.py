@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 class MemoryManager:
     """Core memory management for conversation context"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._contexts: Dict[str, MemoryContext] = {}
 
     def get_or_create_context(self, session_id: str) -> MemoryContext:

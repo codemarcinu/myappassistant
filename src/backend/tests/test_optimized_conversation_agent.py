@@ -14,7 +14,7 @@ from backend.core.hybrid_llm_client import ModelComplexity
 
 
 @pytest.mark.asyncio
-async def test_parallel_processing():
+async def test_parallel_processing() -> None:
     """Test that RAG and internet search run in parallel"""
     agent = GeneralConversationAgent()
 
@@ -22,13 +22,13 @@ async def test_parallel_processing():
     original_rag = agent._get_rag_context
     original_internet = agent._get_internet_context
 
-    async def timed_rag_context(query: str):
+    async def timed_rag_context(query: str) -> None:
         print(f"Starting RAG search at {time.time()}")
         await asyncio.sleep(1)  # Simulate 1s delay
         print(f"Finished RAG search at {time.time()}")
         return "", 0.0
 
-    async def timed_internet_context(query: str, use_perplexity: bool):
+    async def timed_internet_context(query: str, use_perplexity: bool) -> None:
         print(f"Starting internet search at {time.time()}")
         await asyncio.sleep(1)  # Simulate 1s delay
         print(f"Finished internet search at {time.time()}")
@@ -65,7 +65,7 @@ async def test_parallel_processing():
 
 
 @pytest.mark.asyncio
-async def test_caching():
+async def test_caching() -> None:
     """Test that results are cached"""
     # Clear caches first
     rag_cache.clear()
@@ -108,7 +108,7 @@ async def test_caching():
 
 
 @pytest.mark.asyncio
-async def test_adaptive_model_selection():
+async def test_adaptive_model_selection() -> None:
     """Test that model is selected based on query complexity"""
     agent = GeneralConversationAgent()
 

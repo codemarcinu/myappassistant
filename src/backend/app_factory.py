@@ -1,3 +1,6 @@
+from __future__ import annotations
+from typing import Any, Dict, List, Optional, Union, Callable
+from typing import AsyncGenerator, Coroutine
 """
 Application Factory
 """
@@ -40,7 +43,7 @@ limiter = Limiter(key_func=get_remote_address)
 
 
 # Exception Handlers
-async def custom_exception_handler(request: Request, exc: BaseCustomException):
+async def custom_exception_handler(request: Request, exc: BaseCustomException) -> None:
     log_exception_with_context(exc)
     return JSONResponse(
         status_code=exc.status_code,
@@ -48,7 +51,7 @@ async def custom_exception_handler(request: Request, exc: BaseCustomException):
     )
 
 
-async def api_v2_exception_handler(request: Request, exc: APIException):
+async def api_v2_exception_handler(request: Request, exc: APIException) -> None:
     return JSONResponse(
         status_code=exc.status_code,
         content={
@@ -61,7 +64,7 @@ async def api_v2_exception_handler(request: Request, exc: APIException):
     )
 
 
-async def generic_exception_handler(request: Request, exc: Exception):
+async def generic_exception_handler(request: Request, exc: Exception) -> None:
     system_exc = convert_system_exception(exc)
     log_exception_with_context(system_exc)
     return JSONResponse(
@@ -70,7 +73,7 @@ async def generic_exception_handler(request: Request, exc: Exception):
     )
 
 
-async def not_found_handler(request: Request, exc):
+async def not_found_handler(request: Request, exc) -> None:
     return JSONResponse(
         status_code=404,
         content={"detail": "Resource not found."},
@@ -78,7 +81,7 @@ async def not_found_handler(request: Request, exc):
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> None:
     # Startup logic
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

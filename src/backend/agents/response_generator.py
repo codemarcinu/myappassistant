@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 class ResponseGenerator(IResponseGenerator):
     """Implementation of response generation logic"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.response_templates = {
             "success": "Operacja zakończona pomyślnie: {message}",
             "error": "Wystąpił błąd: {error}",

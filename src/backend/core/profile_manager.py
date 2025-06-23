@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 class ProfileManager:
     """Manager for user profiles with personalization logic"""
 
-    def __init__(self, db_session):
+    def __init__(self, db_session) -> None:
         self.db = db_session
         self.active_sessions: Dict[str, UserProfileData] = {}
 

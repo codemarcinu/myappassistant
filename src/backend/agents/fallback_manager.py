@@ -73,7 +73,7 @@ class MinimalResponseStrategy(FallbackStrategy):
 class FallbackManager:
     """Manages fallback strategies for agent failures."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.strategies: List[FallbackStrategy] = [
             PromptRewritingStrategy(),
             SimplifiedModelStrategy(),

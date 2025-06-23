@@ -1,3 +1,4 @@
+from __future__ import annotations
 import time
 from datetime import datetime, timedelta
 
@@ -7,15 +8,17 @@ from sqlalchemy import select
 from backend.core.database import AsyncSessionLocal, Base, engine
 from backend.models.conversation import Conversation, Message
 from backend.models.shopping import Product, ShoppingTrip
+from typing import Any, Dict, List, Optional, Union, Callable
+from typing import AsyncGenerator, Coroutine
 
 
 @pytest.fixture
-def unique_session_id():
+def unique_session_id() -> None:
     return f"perf_test_{str(hash(time.time()))[-8:]}"
 
 
 @pytest.fixture(scope="session", autouse=True)
-async def setup_database():
+async def setup_database() -> None:
     """Inicjalizacja bazy danych dla testów"""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
@@ -26,7 +29,7 @@ async def setup_database():
 
 
 @pytest.mark.asyncio
-async def test_conversation_query_performance(unique_session_id):
+async def test_conversation_query_performance(unique_session_id) -> None:
     """Test performance of optimized conversation queries"""
     async with AsyncSessionLocal() as session:
         # Create test data
@@ -59,7 +62,7 @@ async def test_conversation_query_performance(unique_session_id):
 
 
 @pytest.mark.asyncio
-async def test_shopping_query_performance():
+async def test_shopping_query_performance() -> None:
     """Test performance of optimized shopping queries"""
     async with AsyncSessionLocal() as session:
         # Create test trip with unique name
@@ -96,10 +99,10 @@ async def test_shopping_query_performance():
 
 
 @pytest.mark.asyncio
-async def test_memory_usage():
+async def test_memory_usage() -> None:
     """Test memory usage of database operations"""
 
-    async def _memory_test_operations():
+    async def _memory_test_operations() -> None:
         async with AsyncSessionLocal() as session:
             for i in range(100):
                 conv = Conversation(
@@ -128,7 +131,7 @@ async def test_memory_usage():
     assert (after - baseline) < 50  # MB
 
 
-async def _get_process_memory():
+async def _get_process_memory() -> None:
     """Get current process memory usage in MB"""
     import psutil
 

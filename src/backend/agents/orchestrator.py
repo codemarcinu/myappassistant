@@ -34,7 +34,7 @@ class Orchestrator:
         agent_router: Optional[AgentRouter] = None,
         memory_manager: Optional[MemoryManager] = None,
         response_generator: Optional[ResponseGenerator] = None,
-    ):
+    ) -> None:
         self.db = db_session
         self.profile_manager = profile_manager
         self.intent_detector = intent_detector
@@ -54,7 +54,7 @@ class Orchestrator:
         self._agents: Dict[AgentType, "BaseAgent"] = {}
         self._fallback_agent: Optional["BaseAgent"] = None
 
-    def _initialize_default_agents(self):
+    def _initialize_default_agents(self) -> None:
         """Placeholder for backward compatibility - not actually used"""
         logger.info("Default agent initialization skipped - using dependency injection instead")
         # W nowej wersji agenty są wstrzykiwane przez AgentFactory
@@ -72,7 +72,7 @@ class SimpleCircuitBreaker:
     STATE_OPEN = "open"
     STATE_HALF_OPEN = "half-open"
     
-    def __init__(self, name: str, fail_max: int = 3, reset_timeout: int = 60):
+    def __init__(self, name: str, fail_max: int = 3, reset_timeout: int = 60) -> None:
         """Inicjalizacja Circuit Breaker"""
         self.name = name
         self.fail_max = fail_max
@@ -80,9 +80,10 @@ class SimpleCircuitBreaker:
         self.current_state = self.STATE_CLOSED
         self.failures = 0
         self.last_failure_time = 0
+        self.profile_manager = None
         logger.info(f"Initialized SimpleCircuitBreaker({name}) with fail_max={fail_max}, reset_timeout={reset_timeout}")
     
-    async def call_async(self, func, *args, **kwargs):
+    async def call_async(self, func, *args, **kwargs) -> None:
         """Wykonaj funkcję asynchroniczną z zabezpieczeniem circuit breaker"""
         current_time = datetime.now().timestamp()
         
@@ -394,18 +395,6 @@ class SimpleCircuitBreaker:
                 stream_callback({"text": error_response.error or "", "success": False})
             return error_response
 
-    def register_agent(self, agent_type: AgentType, agent: "BaseAgent") -> None:
-        """Register an agent implementation"""
-        if not isinstance(agent, BaseAgent):
-            raise ValueError("Agent must implement BaseAgent interface")
-        self.agent_router.register_agent(agent_type, agent)
-        logger.info(f"Registered agent for type: {agent_type.value}")
-
-    def set_fallback_agent(self, agent: "BaseAgent") -> None:
-        """Set fallback agent for unknown intents"""
-        self.agent_router.set_fallback_agent(agent)
-        logger.info("Fallback agent set")
-
     async def shutdown(self) -> None:
         """Clean shutdown of all components"""
         try:
@@ -413,36 +402,6 @@ class SimpleCircuitBreaker:
             pass
         except Exception as e:
             logger.error(f"Error during orchestrator shutdown: {e}")
-
-    def _route_by_intent(self, intent_type: str, context: MemoryContext) -> "BaseAgent":
-        """Route to appropriate agent based on intent type"""
-        agent_type_map = {
-            "weather": self.weather_agent,
-            "search": self.search_agent,
-            "cooking": self.chef_agent,
-            "rag": self.rag_agent,
-            "ocr": self.ocr_agent,
-        }
-        return agent_type_map.get(intent_type, self._fallback_agent)
-
-    def _detect_intent(self, command: str, context: MemoryContext) -> str:
-        """Detect intent from user command"""
-        command_lower = command.lower()
-
-        if any(word in command_lower for word in ["weather", "pogoda", "temperature"]):
-            return "weather"
-        elif any(word in command_lower for word in ["search", "find", "szukaj"]):
-            return "search"
-        elif any(
-            word in command_lower for word in ["cook", "recipe", "gotuj", "przepis"]
-        ):
-            return "cooking"
-        elif any(word in command_lower for word in ["document", "file", "dokument"]):
-            return "rag"
-        elif any(word in command_lower for word in ["image", "photo", "zdjęcie"]):
-            return "ocr"
-        else:
-            return "base"
 
     def _determine_command_complexity(self, command: str) -> str:
         """Determine command complexity for model selection"""

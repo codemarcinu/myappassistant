@@ -8,14 +8,14 @@ from backend.core.vector_store import VectorStore
 class AgentContainer:
     """Dependency Injection container for agent dependencies"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._services: Dict[str, Any] = {}
 
     def register(self, name: str, service: Any) -> None:
         """Register a service in the container"""
         self._services[name] = service
 
-    def get(self, name: str) -> Any:
+    def get(self, name: str) -> None:
         """Get a registered service"""
         return self._services.get(name)
 
@@ -41,7 +41,3 @@ class AgentContainer:
         self.register(IErrorHandler, ErrorHandler("global"))
         self.register(IAlertService, AlertService("global"))
         self.register(IFallbackProvider, FallbackManager())
-
-        # Initialize vector store if needed
-        if hasattr(self, "vector_store") and self.vector_store is None:
-            self.vector_store = VectorStore()

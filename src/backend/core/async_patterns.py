@@ -9,7 +9,8 @@ import time
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Callable, List, Optional, TypeVar
+from functools import wraps
+from typing import Any, Callable, Coroutine, List, Optional, Tuple, Type, TypeVar, Union, Dict
 
 logger = logging.getLogger(__name__)
 
@@ -30,21 +31,21 @@ class CircuitBreakerConfig:
 
     failure_threshold: int = 5
     recovery_timeout: float = 60.0
-    expected_exception: type = Exception
+    expected_exception: Union[Type[Exception], Tuple[Type[Exception], ...]] = Exception
     name: str = "default"
 
 
 class CircuitBreaker:
     """Circuit breaker pattern implementation"""
 
-    def __init__(self, config: CircuitBreakerConfig):
+    def __init__(self, config: CircuitBreakerConfig) -> None:
         self.config = config
         self.state = CircuitState.CLOSED
         self.failure_count = 0
         self.last_failure_time = 0.0
         self._lock = asyncio.Lock()
 
-    async def call(self, func: Callable, *args, **kwargs) -> Any:
+    async def call(self, func: Callable, *args, **kwargs) -> None:
         """Execute function with circuit breaker protection"""
         async with self._lock:
             if self.state == CircuitState.OPEN:
@@ -71,7 +72,7 @@ class CircuitBreaker:
             await self._on_failure()
             raise
 
-    async def _on_success(self):
+    async def _on_success(self) -> None:
         """Handle successful call"""
         async with self._lock:
             self.failure_count = 0
@@ -79,7 +80,7 @@ class CircuitBreaker:
                 self.state = CircuitState.CLOSED
                 logger.info(f"Circuit {self.config.name} is now CLOSED")
 
-    async def _on_failure(self):
+    async def _on_failure(self) -> None:
         """Handle failed call"""
         async with self._lock:
             self.failure_count += 1
@@ -93,15 +94,15 @@ class CircuitBreaker:
 class BackpressureManager:
     """Backpressure mechanism for high-load scenarios"""
 
-    def __init__(self, max_concurrent: int = 100, max_queue_size: int = 1000):
+    def __init__(self, max_concurrent: int = 100, max_queue_size: int = 1000) -> None:
         self.max_concurrent = max_concurrent
         self.max_queue_size = max_queue_size
         self.semaphore = asyncio.Semaphore(max_concurrent)
-        self.queue = asyncio.Queue(maxsize=max_queue_size)
+        self.queue: asyncio.Queue[Tuple[Callable[..., Any], Tuple[Any, ...], Dict[str, Any]]] = asyncio.Queue(maxsize=max_queue_size)
         self.active_tasks = 0
 
     @asynccontextmanager
-    async def acquire_slot(self):
+    async def acquire_slot(self) -> None:
         """Acquire a processing slot with backpressure"""
         try:
             await self.semaphore.acquire()
@@ -111,7 +112,7 @@ class BackpressureManager:
             self.semaphore.release()
             self.active_tasks -= 1
 
-    async def enqueue_task(self, task: Callable, *args, **kwargs):
+    async def enqueue_task(self, task: Callable, *args, **kwargs) -> None:
         """Enqueue task with backpressure protection"""
         try:
             await self.queue.put((task, args, kwargs))
@@ -119,7 +120,7 @@ class BackpressureManager:
             logger.warning("Task queue is full, dropping task")
             raise Exception("Service overloaded")
 
-    async def process_queue(self):
+    async def process_queue(self) -> None:
         """Process queued tasks"""
         while True:
             try:
@@ -154,7 +155,7 @@ async def parallel_execute(
         return []
 
     # Convert sync functions to async if needed
-    async def execute_task(task):
+    async def execute_task(task) -> None:
         if asyncio.iscoroutinefunction(task):
             return await task()
         else:
@@ -165,7 +166,7 @@ async def parallel_execute(
     if max_concurrent:
         semaphore = asyncio.Semaphore(max_concurrent)
 
-        async def limited_task(task):
+        async def limited_task(task) -> None:
             async with semaphore:
                 return await execute_task(task)
 
@@ -204,7 +205,7 @@ async def batch_process(
     # Split items into batches
     batches = [items[i : i + batch_size] for i in range(0, len(items), batch_size)]
 
-    async def process_batch(batch):
+    async def process_batch(batch) -> None:
         return await parallel_execute(
             [lambda item=item: processor(item) for item in batch]
         )
@@ -220,7 +221,7 @@ async def batch_process(
 
 
 @asynccontextmanager
-async def timeout_context(timeout: float):
+async def timeout_context(timeout: float) -> None:
     """Context manager for timeout handling"""
     try:
         yield
@@ -235,15 +236,15 @@ default_backpressure_manager = BackpressureManager()
 
 
 # Decorators for easy usage
-def with_circuit_breaker(config: Optional[CircuitBreakerConfig] = None):
+def with_circuit_breaker(config: Optional[CircuitBreakerConfig] = None) -> None:
     """Decorator to add circuit breaker to function"""
     circuit = CircuitBreaker(config or CircuitBreakerConfig())
 
-    def decorator(func):
-        async def async_wrapper(*args, **kwargs):
+    def decorator(func) -> None:
+        async def async_wrapper(*args, **kwargs) -> None:
             return await circuit.call(func, *args, **kwargs)
 
-        def sync_wrapper(*args, **kwargs):
+        def sync_wrapper(*args, **kwargs) -> None:
             loop = asyncio.get_event_loop()
             return loop.run_until_complete(circuit.call(func, *args, **kwargs))
 
@@ -252,11 +253,11 @@ def with_circuit_breaker(config: Optional[CircuitBreakerConfig] = None):
     return decorator
 
 
-def with_backpressure(max_concurrent: int = 100):
+def with_backpressure(max_concurrent: int = 100) -> None:
     """Decorator to add backpressure to functions"""
 
-    def decorator(func):
-        async def wrapper(*args, **kwargs):
+    def decorator(func) -> None:
+        async def wrapper(*args, **kwargs) -> None:
             async with BackpressureManager(max_concurrent).acquire_slot():
                 return await func(*args, **kwargs)
 
@@ -320,4 +321,4 @@ async def async_retry(
                 raise last_exception
 
     # This should never be reached, but just in case
-    raise last_exception
+    raise RuntimeError("Retry loop exited unexpectedly")

@@ -32,7 +32,7 @@ class LanguageDetector:
     Wykorzystuje bibliotekę langdetect z fallbackiem do prostej heurystyki.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.available = LANGDETECT_AVAILABLE
         
         # Mapowanie słów kluczowych dla różnych języków
@@ -115,11 +115,13 @@ class LanguageDetector:
         if not scores:
             return "en", 0.5  # Default
             
-        best_lang = max(scores, key=scores.get)
+        best_lang = max(scores, key=lambda k: scores[k])
         
         # Obliczanie pewności (max 0.9 dla tej metody)
         total_keywords = sum(len(keywords) for keywords in self.language_keywords.values())
-        confidence = min(0.9, scores[best_lang] / (total_keywords / len(self.language_keywords)) * 0.9)
+        confidence = min(
+            0.9, scores[best_lang] / (total_keywords / len(self.language_keywords)) * 0.9
+        )
         
         return best_lang, confidence
         

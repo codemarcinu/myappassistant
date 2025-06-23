@@ -1,13 +1,16 @@
+from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from backend.agents.chef_agent import ChefAgent
 from backend.agents.interfaces import AgentResponse
+from typing import Any, Dict, List, Optional, Union, Callable
+from typing import AsyncGenerator, Coroutine
 
 
 @pytest.mark.asyncio
-async def test_chef_agent_streaming():
+async def test_chef_agent_streaming() -> None:
     agent = ChefAgent()
     mock_context = {
         "available_ingredients": ["chicken", "rice"],
@@ -34,7 +37,7 @@ async def test_chef_agent_streaming():
 
 
 @pytest.mark.asyncio
-async def test_chef_agent_error_handling():
+async def test_chef_agent_error_handling() -> None:
     agent = ChefAgent()
     response = await agent.process({"available_ingredients": []})
     assert response.success is False
@@ -43,7 +46,7 @@ async def test_chef_agent_error_handling():
 
 
 @pytest.mark.asyncio
-async def test_chef_agent_input_validation():
+async def test_chef_agent_input_validation() -> None:
     agent = ChefAgent()
 
     # Test valid input
@@ -56,7 +59,7 @@ async def test_chef_agent_input_validation():
 
 
 @pytest.mark.asyncio
-async def test_chef_agent_dietary_restrictions():
+async def test_chef_agent_dietary_restrictions() -> None:
     agent = ChefAgent()
     mock_context = {
         "available_ingredients": ["tofu", "rice"],
@@ -81,7 +84,7 @@ async def test_chef_agent_dietary_restrictions():
 
 
 @pytest.mark.asyncio
-async def test_chef_agent_llm_error():
+async def test_chef_agent_llm_error() -> None:
     agent = ChefAgent()
     mock_context = {
         "available_ingredients": ["chicken", "rice"],

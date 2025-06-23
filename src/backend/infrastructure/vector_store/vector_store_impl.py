@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 
 class EnhancedVectorStoreImpl:
-    def __init__(self, llm_client: LLMClient):
+    def __init__(self, llm_client: LLMClient) -> None:
         self.llm_client = llm_client
         self.vector_store = VectorStore()
 

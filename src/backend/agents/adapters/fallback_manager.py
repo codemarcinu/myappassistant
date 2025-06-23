@@ -125,7 +125,7 @@ class MinimalResponseStrategy(FallbackStrategy):
         return AgentResponse(
             success=False,
             error=f"Przepraszam, nie mogłem przetworzyć Twojego zapytania: {str(error)}",
-            error_severity=ErrorSeverity.MEDIUM,
+            severity=ErrorSeverity.MEDIUM.value,
             message="Wystąpił problem podczas przetwarzania zapytania. Proszę spróbować inaczej sformułować pytanie.",
             metadata={"fallback_tier": "minimal_response"},
         )
@@ -134,7 +134,7 @@ class MinimalResponseStrategy(FallbackStrategy):
 class FallbackManager(IFallbackProvider):
     """Manages fallback strategies execution"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.strategies = [
             PromptRewritingStrategy(),
             SimplifiedModelStrategy(),

@@ -1,3 +1,6 @@
+from __future__ import annotations
+from typing import Any, Dict, List, Optional, Union, Callable
+from typing import AsyncGenerator, Coroutine
 """
 Integration tests for new features with Bielik/Gemma toggle
 
@@ -25,23 +28,23 @@ class TestIntegrationNewFeatures:
     """Integration tests for new features"""
 
     @pytest.fixture
-    def orchestrator(self):
+    def orchestrator(self) -> None:
         """Create an Orchestrator instance for testing (mock dependencies)"""
 
         class Dummy:
-            async def get_or_create_profile(self, session_id):
+            async def get_or_create_profile(self, session_id) -> None:
                 return None
 
-            async def log_activity(self, session_id, typ, val):
+            async def log_activity(self, session_id, typ, val) -> None:
                 return None
 
-            async def get_context(self, session_id):
+            async def get_context(self, session_id) -> None:
                 return None
 
-            async def update_context(self, context, data):
+            async def update_context(self, context, data) -> None:
                 return None
 
-            async def detect_intent(self, query, context):
+            async def detect_intent(self, query, context) -> None:
                 from backend.agents.orchestration_components import IntentData
 
                 return IntentData(type="general_conversation", confidence=0.8)
@@ -56,29 +59,29 @@ class TestIntegrationNewFeatures:
         )
 
     @pytest.fixture
-    def intent_detector(self):
+    def intent_detector(self) -> None:
         """Create an IntentDetector instance for testing"""
         return SimpleIntentDetector()
 
     @pytest.fixture
-    def agent_factory(self):
+    def agent_factory(self) -> None:
         """Create an AgentFactory instance for testing"""
         return AgentFactory()
 
     @pytest.fixture
-    def llm_client(self):
+    def llm_client(self) -> None:
         """Create a HybridLLMClient instance for testing"""
         return HybridLLMClient()
 
     @pytest.fixture
-    def context(self):
+    def context(self) -> None:
         """Create a MemoryContext instance for testing"""
         return MemoryContext(session_id="test_session_123")
 
     @pytest.mark.asyncio
     async def test_complete_flow_with_bielik(
         self, orchestrator, intent_detector, context
-    ):
+    ) -> None:
         """Test complete flow using Bielik model"""
         query = "What is the weather like today?"
 
@@ -116,7 +119,7 @@ class TestIntegrationNewFeatures:
     @pytest.mark.asyncio
     async def test_complete_flow_with_gemma(
         self, orchestrator, intent_detector, context
-    ):
+    ) -> None:
         """Test complete flow using Gemma model"""
         query = "How to cook pasta?"
 
@@ -154,7 +157,7 @@ class TestIntegrationNewFeatures:
     @pytest.mark.asyncio
     async def test_intent_detection_and_agent_routing(
         self, intent_detector, agent_factory, context
-    ):
+    ) -> None:
         """Test intent detection and agent routing for new conversation types"""
         test_cases = [
             ("Kupiłem mleko za 5 zł", GeneralConversationAgent),
@@ -180,7 +183,7 @@ class TestIntegrationNewFeatures:
                 assert isinstance(agent, expected_agent_type)
 
     @pytest.mark.asyncio
-    async def test_model_fallback_mechanism(self, llm_client):
+    async def test_model_fallback_mechanism(self, llm_client) -> None:
         """Test model fallback mechanism"""
         messages = [{"role": "user", "content": "Test query"}]
 
@@ -192,7 +195,7 @@ class TestIntegrationNewFeatures:
     @pytest.mark.asyncio
     async def test_general_conversation_agent_with_rag_and_internet(
         self, agent_factory
-    ):
+    ) -> None:
         """Test GeneralConversationAgent with RAG and internet search"""
         agent = agent_factory.create_agent("general_conversation")
 
@@ -222,7 +225,7 @@ class TestIntegrationNewFeatures:
             assert response.data["use_bielik"] is True
 
     @pytest.mark.asyncio
-    async def test_cooking_agent_with_model_selection(self, agent_factory):
+    async def test_cooking_agent_with_model_selection(self, agent_factory) -> None:
         """Test cooking agent with model selection"""
         agent = agent_factory.create_agent("cooking")
 
@@ -242,7 +245,7 @@ class TestIntegrationNewFeatures:
         )  # Sprawdzam czy text_stream jest ustawiony
 
     @pytest.mark.asyncio
-    async def test_search_agent_with_model_selection(self, agent_factory):
+    async def test_search_agent_with_model_selection(self, agent_factory) -> None:
         """Test search agent with model selection"""
         agent = agent_factory.create_agent("search")
 
@@ -258,7 +261,7 @@ class TestIntegrationNewFeatures:
         assert response.text is not None  # Sprawdzam czy text jest ustawiony
 
     @pytest.mark.asyncio
-    async def test_weather_agent_with_model_selection(self, agent_factory):
+    async def test_weather_agent_with_model_selection(self, agent_factory) -> None:
         """Test weather agent with model selection"""
         agent = agent_factory.create_agent("weather")
 
@@ -274,7 +277,7 @@ class TestIntegrationNewFeatures:
         assert response.text is not None  # Sprawdzam czy text jest ustawiony
 
     @pytest.mark.asyncio
-    async def test_error_handling_integration(self, orchestrator, context):
+    async def test_error_handling_integration(self, orchestrator, context) -> None:
         """Test error handling in integration flow"""
         query = "Test query that will fail"
 
@@ -291,11 +294,11 @@ class TestIntegrationNewFeatures:
     @pytest.mark.asyncio
     async def test_concurrent_requests_with_different_models(
         self, orchestrator, context
-    ):
+    ) -> None:
         """Test concurrent requests with different model selections"""
         import asyncio
 
-        async def process_with_model(use_bielik):
+        async def process_with_model(use_bielik) -> None:
             with patch(
                 "src.backend.core.hybrid_llm_client.hybrid_llm_client.chat"
             ) as mock_llm:

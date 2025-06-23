@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from typing import Any, Dict, List, Optional, Union, Callable
+from typing import AsyncGenerator, Coroutine
 # Import all tools functions from the tools.py module
 from .tools import (
     execute_database_action,

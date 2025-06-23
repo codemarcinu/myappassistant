@@ -33,10 +33,10 @@ class ChefAgent(BaseAgent):
     def __init__(
         self,
         name: str = "ChefAgent",
-        error_handler=None,
-        fallback_manager=None,
-        **kwargs,
-    ):
+        error_handler: Any = None,
+        fallback_manager: Any = None,
+        **kwargs: Any,
+    ) -> None:
         super().__init__(
             name,
             error_handler=error_handler,
@@ -67,7 +67,7 @@ class ChefAgent(BaseAgent):
             return await self._generate_recipe(
                 ingredients=validated_input.available_ingredients,
                 dietary_restrictions=validated_input.dietary_restrictions,
-                model=validated_input.model,
+                model=validated_input.model or "SpeakLeash/bielik-4.5b-v3.0-instruct:Q8_0",
             )
         except Exception as e:
             return AgentResponse(
@@ -117,7 +117,7 @@ class ChefAgent(BaseAgent):
         if dietary_restrictions:
             prompt += f"\n\nUwzględnij następujące ograniczenia dietetyczne: {dietary_restrictions}"
 
-        async def recipe_generator():
+        async def recipe_generator() -> None:
             try:
                 # Call LLM with streaming
                 response = await self.llm_client.chat(
@@ -184,7 +184,7 @@ class ChefAgent(BaseAgent):
             "UŻYTE SKŁADNIKI: [lista nazw użytych składników]"
         )
 
-        async def response_generator():
+        async def response_generator() -> None:
             # Call LLM with specified model and stream the response
             full_response = ""
             async for chunk in await self.llm_client.generate_stream(

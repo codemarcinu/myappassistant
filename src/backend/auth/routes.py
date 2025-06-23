@@ -31,7 +31,7 @@ auth_router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
 # Dependency to get database session
-def get_db():
+def get_db() -> None:
     from ..infrastructure.database.database import AsyncSessionLocal
 
     db = AsyncSessionLocal()

@@ -18,7 +18,7 @@ class AgentCircuitBreaker:
         fail_max: int = 5,
         reset_timeout: int = 30,
         exclude_exceptions: Optional[list[Type[Exception]]] = None,
-    ):
+    ) -> None:
         self.name = name
         self.breaker = pybreaker.CircuitBreaker(
             fail_max=fail_max,
@@ -35,7 +35,7 @@ class AgentCircuitBreaker:
 
     async def run(
         self, func: Callable[..., Coroutine], *args: Any, **kwargs: Any
-    ) -> Any:
+    ) -> None:
         """
         Wykonuje asynchroniczną funkcję, chroniąc ją przez Circuit Breaker.
         """
@@ -58,14 +58,14 @@ class AgentCircuitBreaker:
 
     def _sync_wrapper(
         self, func: Callable[..., Coroutine], *args: Any, **kwargs: Any
-    ) -> Any:
+    ) -> None:
         """
         Synchroniczny wrapper dla asynchronicznej funkcji, używany przez pybreaker.
         """
 
         # Używamy pybreaker.CircuitBreaker jako dekoratora dla wewnętrznej funkcji
         @self.breaker
-        def _execute_sync():
+        def _execute_sync() -> None:
             # Musimy uruchomić asynchroniczną funkcję w istniejącym loopie lub nowym
             # Najlepiej użyć istniejącego loopa, ale to wymaga, by _sync_wrapper był wywoływany w kontekście loopa.
             # asyncio.to_thread odpala w nowym wątku, więc nowy loop jest ok.
@@ -84,4 +84,4 @@ class AgentCircuitBreaker:
 
     def is_open(self) -> bool:
         """Sprawdza, czy obwód jest otwarty."""
-        return self.breaker.current_state == pybreaker.CircuitBreaker.OPEN
+        return self.breaker.current_state == pybreaker.STATE_OPEN

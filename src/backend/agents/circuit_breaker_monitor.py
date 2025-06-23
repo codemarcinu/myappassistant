@@ -4,10 +4,10 @@ from .circuit_breaker_wrapper import AgentCircuitBreaker
 
 
 class CircuitBreakerMonitor:
-    def __init__(self):
+    def __init__(self) -> None:
         self.breakers: Dict[str, AgentCircuitBreaker] = {}
 
-    def register_breaker(self, name: str, breaker: AgentCircuitBreaker):
+    def register_breaker(self, name: str, breaker: AgentCircuitBreaker) -> None:
         """Rejestruje Circuit Breaker do monitorowania."""
         self.breakers[name] = breaker
 

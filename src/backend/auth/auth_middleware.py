@@ -3,7 +3,7 @@ Authentication middleware for FastAPI
 """
 
 import logging
-from typing import Optional
+from typing import Optional, Any
 
 from fastapi import HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -19,7 +19,7 @@ security = HTTPBearer()
 class AuthMiddleware(BaseHTTPMiddleware):
     """Authentication middleware"""
 
-    def __init__(self, app, exclude_paths: Optional[list] = None):
+    def __init__(self, app, exclude_paths: Optional[list] = None) -> None:
         super().__init__(app)
         self.exclude_paths = exclude_paths or [
             "/docs",
@@ -33,7 +33,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
             "/api/v2/weather",  # Weather endpoint doesn't require authentication
         ]
 
-    async def dispatch(self, request: Request, call_next):
+    async def dispatch(self, request: Request, call_next) -> None:
         """Process request with authentication"""
 
         # Skip authentication for excluded paths
@@ -99,11 +99,11 @@ def get_current_user_id(request: Request) -> int:
     return request.state.user_id
 
 
-def require_roles(required_roles: list):
+def require_roles(required_roles: list) -> None:
     """Decorator to require specific roles"""
 
-    def decorator(func):
-        async def wrapper(request: Request, *args, **kwargs):
+    def decorator(func) -> None:
+        async def wrapper(request: Request, *args, **kwargs) -> None:
             user_roles = getattr(request.state, "user_roles", [])
 
             if not any(role in user_roles for role in required_roles):
@@ -119,11 +119,11 @@ def require_roles(required_roles: list):
     return decorator
 
 
-def require_permission(permission: str):
+def require_permission(permission: str) -> None:
     """Decorator to require specific permission"""
 
-    def decorator(func):
-        async def wrapper(request: Request, *args, **kwargs):
+    def decorator(func) -> None:
+        async def wrapper(request: Request, *args, **kwargs) -> None:
             user_permissions = getattr(request.state, "user_permissions", [])
 
             if permission not in user_permissions:

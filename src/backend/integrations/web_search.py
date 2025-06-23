@@ -69,7 +69,7 @@ class WebSearchClient:
         cache_dir: str = DEFAULT_CACHE_DIR,
         ttl: int = DEFAULT_TTL,
         sources_config: Optional[List[Dict[str, Any]]] = None,
-    ):
+    ) -> None:
         self.cache_dir = cache_dir
         self.ttl = ttl
         self.sources: List[SourceConfig] = []
@@ -242,7 +242,13 @@ class WebSearchClient:
         attempt = 0
         while attempt < retries:
             try:
-                response = await self.client.get(url, params=params, headers=headers)
+                # Filter out None values from headers
+                filtered_headers = {
+                    k: v for k, v in headers.items() if v is not None
+                }
+                response = await self.client.get(
+                    url, params=params, headers=filtered_headers
+                )
                 response.raise_for_status()
 
                 # Update usage counters
@@ -432,7 +438,7 @@ class WebSearchClient:
 class WebSearch:
     """Main interface for web search functionality"""
 
-    def __init__(self, client: Optional[WebSearchClient] = None):
+    def __init__(self, client: Optional[WebSearchClient] = None) -> None:
         self.client = client or WebSearchClient()
 
     async def search(self, query: str, max_results: int = 5) -> List[Dict[str, Any]]:

@@ -25,7 +25,8 @@ except ImportError:
 
 # Import existing clients
 from backend.core.hybrid_llm_client import hybrid_llm_client
-from backend.core.vector_store import VectorStore
+from backend.core.interfaces import VectorStore
+from backend.infrastructure.vector_store.vector_store_impl import EnhancedVectorStoreImpl
 
 # LangChain imports (optional)
 try:
@@ -39,6 +40,7 @@ try:
     from langchain_community.document_loaders.word_document import (
         UnstructuredWordDocumentLoader,
     )
+    from langchain.document_loaders.base import BaseLoader
 
     LANGCHAIN_AVAILABLE = True
 except ImportError:
@@ -88,16 +90,18 @@ class Stats:
 class RAGDocumentProcessor:
     """RAG Document Processor with proper memory management and cleanup"""
 
+    text_splitter: Optional["RecursiveCharacterTextSplitter"]
+
     def __init__(
         self,
         vector_store: Optional[VectorStore] = None,
         chunk_size: int = 500,
         chunk_overlap: int = 50,
-        embedding_model: str = "SpeakLeash/bielik-4.5b-v3.0-instruct:Q8_0",
+        embedding_model: str = "SpeakLeash/bielik-4.5b-v3.0-instruct: Q8_0",
         use_local_embeddings: bool = False,
         pinecone_api_key: Optional[str] = None,
         pinecone_index: Optional[str] = None,
-    ):
+    ) -> None:
         """
         Initialize the RAG document processor
 
@@ -110,7 +114,7 @@ class RAGDocumentProcessor:
             pinecone_api_key: API key for Pinecone (if using Pinecone)
             pinecone_index: Index name for Pinecone (if using Pinecone)
         """
-        self.vector_store = vector_store or VectorStore()
+        self.vector_store = vector_store or EnhancedVectorStoreImpl(llm_client=hybrid_llm_client)
 
         # Memory management
         self._processed_documents: Dict[str, weakref.ref[Dict[str, Any]]] = {}
@@ -247,6 +251,24 @@ class RAGDocumentProcessor:
 
         return emb_array
 
+    def _get_loader_for_file(self, file_path: str) -> Optional[BaseLoader]:
+        """Returns the appropriate loader based on the file extension."""
+        path = Path(file_path)
+        suffix = path.suffix.lower()
+
+        if suffix == ".pdf":
+            return PyPDFLoader(str(path))
+        elif suffix in [".doc", ".docx"]:
+            return UnstructuredWordDocumentLoader(str(path))
+        elif suffix in [".eml", ".msg"]:
+            return UnstructuredEmailLoader(str(path))
+        elif suffix in [".ppt", ".pptx"]:
+            return UnstructuredPowerPointLoader(str(path))
+        elif suffix in [".md", ".markdown"]:
+            return UnstructuredMarkdownLoader(str(path))
+        else:
+            return None
+
     def load_document(
         self, file_path: Union[str, Path]
     ) -> List[Union[str, Dict[str, Any]]]:
@@ -266,11 +288,11 @@ class RAGDocumentProcessor:
                 return []
 
         path = Path(file_path) if isinstance(file_path, str) else file_path
-        suffix = path.suffix.lower()
-
+        
         try:
-            if suffix == ".pdf":
-                loader = PyPDFLoader(str(path))
+            loader = self._get_loader_for_file(str(path))
+
+            if isinstance(loader, PyPDFLoader):
                 documents = loader.load()
                 return [
                     {
@@ -284,34 +306,21 @@ class RAGDocumentProcessor:
                     }
                     for doc in documents
                 ]
-            elif suffix in [".doc", ".docx"]:
-                loader = UnstructuredWordDocumentLoader(str(path))
-            elif suffix == ".html":
-                # Treating it as a local file, not a URL
-                with open(path, "r", encoding="utf-8", errors="replace") as f:
-                    content = f.read()
-                return [content]
-            elif suffix in [".eml", ".msg"]:
-                loader = UnstructuredEmailLoader(str(path))
-            elif suffix in [".ppt", ".pptx"]:
-                loader = UnstructuredPowerPointLoader(str(path))
-            elif suffix in [".md", ".markdown"]:
-                loader = UnstructuredMarkdownLoader(str(path))
-            else:
-                # Default case, treat as text file
-                with open(path, "r", encoding="utf-8", errors="replace") as f:
-                    content = f.read()
-                return [content]
 
-            # Load the document
-            documents = loader.load()
-            return [
-                {
-                    "content": doc.page_content,
-                    "metadata": doc.metadata,
-                }
-                for doc in documents
-            ]
+            if loader:
+                documents = loader.load()
+                return [
+                    {
+                        "content": doc.page_content,
+                        "metadata": doc.metadata,
+                    }
+                    for doc in documents
+                ]
+
+            # Fallback for unhandled types, including .html
+            with open(path, "r", encoding="utf-8", errors="replace") as f:
+                content = f.read()
+            return [content]
 
         except Exception as e:
             logger.error(f"Failed to load document {path}: {e}")
@@ -488,59 +497,26 @@ class RAGDocumentProcessor:
             base_metadata.update(metadata)
 
         # Load document
-        contents = self.load_document(path)
+        loaded_content = self.load_document(path)
 
-        if not contents:
-            return {
-                "source_id": source_id,
-                "success": False,
-                "error": "Failed to load document or document is empty",
-                "chunks_processed": 0,
-            }
+        if not loaded_content:
+            raise ValueError(f"Could not load document from {path}")
 
-        # Process each content section
-        all_chunks = []
+        # The first part of the loaded content should be the main text
+        main_content = loaded_content[0]
+        if not isinstance(main_content, str):
+            raise TypeError(f"Expected string content, but got {type(main_content)}")
 
-        for i, content in enumerate(contents):
-            # Update metadata with section information
-            section_metadata = base_metadata.copy()
-
-            # Get content metadata if available (from PDF loader etc)
-            content_metadata: Dict[str, Any] = {}
-            if isinstance(content, dict) and "metadata" in content:
-                content_metadata = content["metadata"]
-                # Ensure numeric metadata values are strings
-                for k, v in content_metadata.items():
-                    if isinstance(v, (int, float)):
-                        content_metadata[k] = str(v)
-
-            section_metadata.update(
-                {
-                    "section_index": str(i),  # Convert to string
-                    "total_sections": str(len(contents)),  # Convert to string
-                    **content_metadata,
-                }
-            )
-
-            # Extract text if content is dict
-            section_text = (
-                content["content"]
-                if isinstance(content, dict) and "content" in content
-                else content
-            )
-
-            # Process this section
-            section_chunks = await self.process_document(
-                section_text, f"{source_id}#section{i}", section_metadata
-            )
-
-            all_chunks.extend(section_chunks)
+        # Process document
+        processing_result = await self.process_document(
+            main_content, source_id, base_metadata
+        )
 
         return {
             "source_id": source_id,
             "success": True,
-            "chunks_processed": len(all_chunks),
-            "chunks": all_chunks,
+            "chunks_processed": len(processing_result),
+            "chunks": processing_result,
         }
 
     async def process_url(
@@ -708,7 +684,7 @@ class RAGDocumentProcessor:
             flattened_results.extend(result_list)
         return flattened_results
 
-    def _cleanup_callback(self, weak_ref):
+    def _cleanup_callback(self, weak_ref) -> None:
         """Callback when document is garbage collected"""
         for doc_id, ref in list(self._processed_documents.items()):
             if ref is weak_ref:
@@ -867,7 +843,7 @@ class RAGDocumentProcessor:
             logger.info("Cleared all documents from processor")
 
     @asynccontextmanager
-    async def context_manager(self):
+    async def context_manager(self) -> None:
         """Async context manager for processor lifecycle"""
         try:
             yield self
@@ -876,11 +852,11 @@ class RAGDocumentProcessor:
             await self._cleanup_old_documents()
             logger.debug("RAG document processor context manager exited")
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> None:
         """Async context manager entry"""
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
         """Async context manager exit with cleanup"""
         await self.clear_all()
 

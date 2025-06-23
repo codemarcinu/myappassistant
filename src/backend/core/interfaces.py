@@ -1,7 +1,9 @@
 from abc import ABC, abstractmethod
 from datetime import datetime
 from enum import Enum
-from typing import Any, AsyncGenerator, Dict, List, Optional, Type, TypeVar, Union
+from typing import Any, AsyncGenerator, Dict, List, Optional, Type, TypeVar, Union, Tuple
+from pathlib import Path
+import numpy as np
 
 from pydantic import BaseModel, ConfigDict
 
@@ -120,7 +122,7 @@ class IntentData:
 
     def __init__(
         self, type: str, entities: Optional[Dict] = None, confidence: float = 1.0
-    ):
+    ) -> None:
         self.type = type
         self.entities = entities if entities is not None else {}
         self.confidence = confidence
@@ -129,7 +131,7 @@ class IntentData:
 class MemoryContext:
     """Context for maintaining conversation state and memory"""
 
-    def __init__(self, session_id: str, history: Optional[List[Dict]] = None):
+    def __init__(self, session_id: str, history: Optional[List[Dict]] = None) -> None:
         self.session_id = session_id
         self.history = history if history is not None else []
         self.active_agents: Dict[str, BaseAgent] = {}
@@ -147,7 +149,7 @@ class IAgentRouter(ABC):
         """Routes the intent to the appropriate agent and returns its response."""
 
     @abstractmethod
-    def register_agent(self, agent_type: AgentType, agent: BaseAgent):
+    def register_agent(self, agent_type: AgentType, agent: BaseAgent) -> None:
         """Register an agent implementation for a specific type"""
 
     @abstractmethod
@@ -207,7 +209,7 @@ class AgentPlugin(ABC):
     """Interface for agent plugins"""
 
     @abstractmethod
-    def initialize(self, agent: BaseAgent):
+    def initialize(self, agent: BaseAgent) -> None:
         pass
 
     @abstractmethod
@@ -342,13 +344,13 @@ class RateLimitConfig(BaseModel):
 class AgentMetrics:
     """Class for tracking agent metrics"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.request_count = 0
         self.success_count = 0
         self.total_processing_time = 0.0
         self.error_count = 0
 
-    def record_request(self, success: bool, processing_time: float):
+    def record_request(self, success: bool, processing_time: float) -> None:
         """Record a request and its outcome"""
         self.request_count += 1
         if success:
@@ -367,7 +369,7 @@ class AgentMetrics:
 class AgentHealthCheck:
     """Class for tracking agent health"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.last_check_time: Optional[datetime] = None
         self.is_healthy: bool = True
         self.error_message: Optional[str] = None
@@ -378,7 +380,7 @@ class AgentHealthCheck:
         is_healthy: bool,
         error_message: Optional[str] = None,
         response_time: Optional[float] = None,
-    ):
+    ) -> None:
         """Update the health status"""
         self.last_check_time = datetime.now()
         self.is_healthy = is_healthy
@@ -390,3 +392,54 @@ class AgentHealthCheck:
         if self.last_check_time is None:
             return True
         return (datetime.now() - self.last_check_time).total_seconds() > max_age_seconds
+
+
+class DocumentChunk(ABC):
+    """Abstract base class for a document chunk."""
+    id: str
+    content: str
+    metadata: Dict[str, Any]
+    embedding: Optional[np.ndarray]
+
+
+class VectorStore(ABC):
+    """Abstract base class for a vector store."""
+
+    @abstractmethod
+    async def add_documents(self, documents: List[DocumentChunk]) -> None:
+        """Add documents to the vector store."""
+        pass
+
+    @abstractmethod
+    async def search(self, query_embedding: np.ndarray, k: int = 5) -> List[Tuple[DocumentChunk, float]]:
+        """Search for similar documents."""
+        pass
+
+    @abstractmethod
+    async def get_document(self, doc_id: str) -> Optional[DocumentChunk]:
+        """Get a document by its ID."""
+        pass
+
+    @abstractmethod
+    async def remove_document(self, doc_id: str) -> bool:
+        """Remove a document by its ID."""
+        pass
+
+
+class DocumentProcessor(ABC):
+    """Abstract base class for a document processor."""
+
+    @abstractmethod
+    async def process_file(self, file_path: Union[str, Path], metadata: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """Process a file and add it to the vector store."""
+        pass
+
+    @abstractmethod
+    async def process_document(self, content: str, source_id: str, metadata: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+        """Process text content and add it to the vector store."""
+        pass
+
+    @abstractmethod
+    async def process_url(self, url: str, metadata: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """Process content from a URL."""
+        pass

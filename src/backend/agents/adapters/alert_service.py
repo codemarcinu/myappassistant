@@ -9,7 +9,7 @@ from ..interfaces import IAlertService
 class AlertService(IAlertService):
     """Service for handling critical error alerts"""
 
-    def __init__(self, name: str, alert_config: Optional[Dict[str, Any]] = None):
+    def __init__(self, name: str, alert_config: Optional[Dict[str, Any]] = None) -> None:
         self.name = name
         self.alert_config = alert_config or {
             "enabled": True,
@@ -48,13 +48,13 @@ class AlertService(IAlertService):
         return True
 
     async def send_alert(
-        self, subject: str, error_info: Dict[str, Any], severity: ErrorSeverity
+        self, message: str, severity: ErrorSeverity, error_info: Optional[Dict[str, Any]] = None
     ) -> None:
         """Send alert notification"""
-        if not self.should_alert(error_info.get("error", ""), severity):
+        if not self.should_alert(message, severity):
             return
 
-        logging.warning(f"AGENT ALERT: {subject} ({severity})")
+        logging.warning(f"AGENT ALERT: {message} ({severity})")
 
         # In production would send email/Slack alerts here
         # Example implementation:

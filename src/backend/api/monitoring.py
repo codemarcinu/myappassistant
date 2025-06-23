@@ -1,3 +1,6 @@
+from __future__ import annotations
+from typing import Any, Dict, List, Optional, Union, Callable
+from typing import AsyncGenerator, Coroutine
 """
 API endpoints for monitoring, health, and status checks.
 """
@@ -13,13 +16,13 @@ logger = structlog.get_logger()
 
 
 @router.get("/health", tags=["Health"])
-async def health_check():
+async def health_check() -> None:
     """Basic health check."""
     return {"status": "ok"}
 
 
 @router.get("/ready", tags=["Health"])
-async def ready_check():
+async def ready_check() -> None:
     """Readiness check for services like database."""
     db_ok, db_status = await check_database_health()
 
@@ -31,7 +34,7 @@ async def ready_check():
 
 
 @router.get("/metrics", tags=["Monitoring"])
-async def metrics_endpoint():
+async def metrics_endpoint() -> None:
     """Prometheus metrics endpoint."""
     # This would typically be handled by a Prometheus client library middleware
     # returning the metrics in the correct format.
@@ -40,7 +43,7 @@ async def metrics_endpoint():
 
 
 @router.get("/status", tags=["Monitoring"])
-async def detailed_status():
+async def detailed_status() -> None:
     """Get detailed status of the application components."""
     # In a real app, this would check orchestrator pool, model status, etc.
     return {
@@ -56,33 +59,33 @@ async def detailed_status():
 
 
 @router.get("/alerts", tags=["Monitoring"])
-async def get_alerts():
+async def get_alerts() -> None:
     """Get currently active alerts."""
     return alert_manager.get_active_alerts()
 
 
 @router.get("/alerts/history", tags=["Monitoring"])
-async def get_alert_history(hours: int = 24):
+async def get_alert_history(hours: int = 24) -> None:
     """Get alert history for the last N hours."""
     return alert_manager.get_alert_history(hours=hours)
 
 
 @router.post("/alerts/{rule_name}/acknowledge", tags=["Monitoring"])
-async def acknowledge_alert(rule_name: str, user: str = "admin"):
+async def acknowledge_alert(rule_name: str, user: str = "admin") -> None:
     """Acknowledge an active alert."""
     success = alert_manager.acknowledge_alert(rule_name, user)
     return {"status": "acknowledged" if success else "alert_not_found"}
 
 
 @router.post("/alerts/{rule_name}/resolve", tags=["Monitoring"])
-async def resolve_alert(rule_name: str):
+async def resolve_alert(rule_name: str) -> None:
     """Manually resolve an active alert."""
     success = alert_manager.resolve_alert(rule_name)
     return {"status": "resolved" if success else "alert_not_found"}
 
 
 @router.post("/alerts/rules", tags=["Monitoring"])
-async def add_alert_rule(rule_data: dict):
+async def add_alert_rule(rule_data: dict) -> None:
     """Add a new alerting rule."""
     try:
         alert_manager.add_rule(
@@ -100,7 +103,7 @@ async def add_alert_rule(rule_data: dict):
 
 
 @router.delete("/alerts/rules/{rule_name}", tags=["Monitoring"])
-async def remove_alert_rule(rule_name: str):
+async def remove_alert_rule(rule_name: str) -> None:
     """Remove an alerting rule."""
     success = alert_manager.remove_rule(rule_name)
     return {"status": "rule_removed" if success else "rule_not_found"}

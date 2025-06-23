@@ -23,14 +23,14 @@ class OrchestratorInstance:
 
 
 class OrchestratorPool:
-    def __init__(self, max_failures: int = 3, health_check_interval: int = 30):
+    def __init__(self, max_failures: int = 3, health_check_interval: int = 30) -> None:
         self.instances: List[OrchestratorInstance] = []
         self.current_index = 0
         self.max_failures = max_failures
         self.health_check_interval = health_check_interval
         self._health_check_task: Optional[asyncio.Task] = None
 
-    async def add_instance(self, orchestrator_id: str, orchestrator: Any):
+    async def add_instance(self, orchestrator_id: str, orchestrator: Any) -> None:
         """Dodaje instancję orkiestratora do puli."""
         instance = OrchestratorInstance(
             id=orchestrator_id,
@@ -88,14 +88,14 @@ class OrchestratorPool:
         self.current_index = (self.current_index + 1) % len(healthy_instances)
         return orchestrator_to_return
 
-    async def _run_health_checks(self):
+    async def _run_health_checks(self) -> None:
         """Cykl przeprowadzania testów zdrowia dla wszystkich instancji."""
         while True:
             for instance in self.instances:
                 await self._check_instance_health(instance)
             await asyncio.sleep(self.health_check_interval)
 
-    async def _check_instance_health(self, instance: OrchestratorInstance):
+    async def _check_instance_health(self, instance: OrchestratorInstance) -> None:
         """Sprawdza zdrowie pojedynczej instancji orkiestratora."""
         try:
             logger.debug(
@@ -131,14 +131,14 @@ class OrchestratorPool:
             )
             await self._mark_failed(instance, f"Health check threw exception: {str(e)}")
 
-    async def _mark_healthy(self, instance: OrchestratorInstance):
+    async def _mark_healthy(self, instance: OrchestratorInstance) -> None:
         if instance.state != OrchestratorState.HEALTHY:
             logger.info(f"Orchestrator '{instance.id}' is now HEALTHY.")
         instance.failure_count = 0
         instance.state = OrchestratorState.HEALTHY
         instance.last_health_check = asyncio.get_event_loop().time()
 
-    async def _mark_failed(self, instance: OrchestratorInstance, reason: str):
+    async def _mark_failed(self, instance: OrchestratorInstance, reason: str) -> None:
         instance.failure_count += 1
         current_time = asyncio.get_event_loop().time()
 
@@ -159,13 +159,13 @@ class OrchestratorPool:
             )
         instance.last_health_check = current_time
 
-    async def start_health_checks(self):
+    async def start_health_checks(self) -> None:
         """Uruchamia zadanie w tle do regularnych testów zdrowia."""
         if not self._health_check_task or self._health_check_task.done():
             self._health_check_task = asyncio.create_task(self._run_health_checks())
             logger.info("Orchestrator health checks started.")
 
-    async def shutdown(self):
+    async def shutdown(self) -> None:
         """Zatrzymuje zadanie testów zdrowia i zamyka orkiestratory."""
         if self._health_check_task:
             self._health_check_task.cancel()

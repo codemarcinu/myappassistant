@@ -10,10 +10,10 @@ class CategorizationAgent(BaseAgent):
     def __init__(
         self,
         name: str = "CategorizationAgent",
-        error_handler=None,
-        fallback_manager=None,
-        **kwargs
-    ):
+        error_handler: Any = None,
+        fallback_manager: Any = None,
+        **kwargs: Any,
+    ) -> None:
         super().__init__(
             name=name, error_handler=error_handler, fallback_manager=fallback_manager
         )

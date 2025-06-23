@@ -1,3 +1,4 @@
+from __future__ import annotations
 import asyncio
 import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -6,15 +7,17 @@ import pytest
 
 from backend.agents.interfaces import AgentResponse
 from backend.agents.rag_agent import RAGAgent
+from typing import Any, Dict, List, Optional, Union, Callable
+from typing import AsyncGenerator, Coroutine
 
 
 class TestRAGAgent:
     @pytest.fixture
-    def agent(self):
+    def agent(self) -> None:
         return RAGAgent(name="test_rag_agent")
 
     @pytest.fixture
-    def mock_hybrid_client(self):
+    def mock_hybrid_client(self) -> None:
         with patch("backend.core.hybrid_llm_client.hybrid_llm_client") as mock:
             # Mock embed method
             mock.embed = AsyncMock(return_value=[0.1, 0.2, 0.3])
@@ -27,7 +30,7 @@ class TestRAGAgent:
             yield mock
 
     @pytest.fixture
-    def mock_vector_store(self):
+    def mock_vector_store(self) -> None:
         with patch("backend.core.vector_store.vector_store") as mock:
             mock.similarity_search = AsyncMock(
                 return_value=[{"content": "Test document"}]
@@ -35,12 +38,12 @@ class TestRAGAgent:
             mock.add_document = AsyncMock(return_value=["chunk_id_1"])
             yield mock
 
-    def test_agent_initialization(self, agent):
+    def test_agent_initialization(self, agent) -> None:
         assert agent.name == "test_rag_agent"
         assert agent.initialized is False
 
     @pytest.mark.asyncio
-    async def test_add_document(self, agent, mock_hybrid_client):
+    async def test_add_document(self, agent, mock_hybrid_client) -> None:
         with patch("backend.core.llm_client.llm_client.embed") as mock_embed:
             mock_embed.return_value = [0.1, 0.2, 0.3]
 
@@ -54,7 +57,7 @@ class TestRAGAgent:
                 assert len(result) > 0
 
     @pytest.mark.asyncio
-    async def test_search(self, agent, mock_hybrid_client):
+    async def test_search(self, agent, mock_hybrid_client) -> None:
         with patch("backend.core.llm_client.llm_client.embed") as mock_embed:
             mock_embed.return_value = [0.1, 0.2, 0.3]
 
@@ -68,7 +71,7 @@ class TestRAGAgent:
                 assert len(results) > 0
 
     @pytest.mark.asyncio
-    async def test_process_query(self, agent, mock_hybrid_client, mock_vector_store):
+    async def test_process_query(self, agent, mock_hybrid_client, mock_vector_store) -> None:
         """Test processing a query with RAG"""
         query = "What is the weather like?"
 
@@ -101,7 +104,7 @@ class TestRAGAgent:
                     assert len(response.text) > 0
 
     @pytest.mark.asyncio
-    async def test_process_document(self, agent, mock_hybrid_client, mock_vector_store):
+    async def test_process_document(self, agent, mock_hybrid_client, mock_vector_store) -> None:
         """Test processing a document for indexing"""
         document = "This is a test document about weather."
 
@@ -121,7 +124,7 @@ class TestRAGAgent:
                 assert response.success is True
 
     @pytest.mark.asyncio
-    async def test_process_empty_query(self, agent):
+    async def test_process_empty_query(self, agent) -> None:
         """Test processing empty query"""
         response = await agent.process({})
 

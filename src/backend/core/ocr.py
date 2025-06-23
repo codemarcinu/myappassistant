@@ -27,7 +27,7 @@ class OCRProcessor:
 
     def __init__(
         self, languages: List[str] = ["pol"], tesseract_config: Optional[str] = None
-    ):
+    ) -> None:
         self.languages = languages
         self.default_config = tesseract_config or r"--oem 3 --psm 4"
 

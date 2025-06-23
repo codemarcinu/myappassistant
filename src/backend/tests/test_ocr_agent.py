@@ -1,13 +1,16 @@
+from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from backend.agents.interfaces import AgentResponse
 from backend.agents.ocr_agent import OCRAgent
+from typing import Any, Dict, List, Optional, Union, Callable
+from typing import AsyncGenerator, Coroutine
 
 
 @pytest.mark.asyncio
-async def test_ocr_agent_success_image():
+async def test_ocr_agent_success_image() -> None:
     agent = OCRAgent()
     mock_input = {"file_bytes": b"test_image_bytes", "file_type": "image"}
 
@@ -21,7 +24,7 @@ async def test_ocr_agent_success_image():
 
 
 @pytest.mark.asyncio
-async def test_ocr_agent_success_pdf():
+async def test_ocr_agent_success_pdf() -> None:
     agent = OCRAgent()
     mock_input = {"file_bytes": b"test_pdf_bytes", "file_type": "pdf"}
 
@@ -35,7 +38,7 @@ async def test_ocr_agent_success_pdf():
 
 
 @pytest.mark.asyncio
-async def test_ocr_agent_input_validation():
+async def test_ocr_agent_input_validation() -> None:
     agent = OCRAgent()
 
     # Test with invalid input (missing required fields)
@@ -45,7 +48,7 @@ async def test_ocr_agent_input_validation():
 
 
 @pytest.mark.asyncio
-async def test_ocr_agent_unsupported_file_type():
+async def test_ocr_agent_unsupported_file_type() -> None:
     agent = OCRAgent()
     mock_input = {"file_bytes": b"test", "file_type": "docx"}
 
@@ -55,7 +58,7 @@ async def test_ocr_agent_unsupported_file_type():
 
 
 @pytest.mark.asyncio
-async def test_ocr_agent_empty_result():
+async def test_ocr_agent_empty_result() -> None:
     agent = OCRAgent()
     mock_input = {"file_bytes": b"test", "file_type": "image"}
 
@@ -68,7 +71,7 @@ async def test_ocr_agent_empty_result():
 
 
 @pytest.mark.asyncio
-async def test_ocr_agent_processing_error():
+async def test_ocr_agent_processing_error() -> None:
     agent = OCRAgent()
     mock_input = {"file_bytes": b"test", "file_type": "image"}
 

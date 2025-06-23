@@ -144,7 +144,7 @@ async def find_item_for_action(
         # Komunikat o błędzie zostanie wypisany w find_purchase_for_action
         return []
 
-    produkty = []
+    produkty: List[Product] = []
     produkt_id_data = entities.get("produkt_identyfikator", {})
     for paragon in znalezione_paragony:
         produkt_query = select(Product).where(Product.trip_id == paragon.id)
@@ -617,12 +617,12 @@ async def update_user_topics(db: AsyncSession, user_id: str, topics: List[str]) 
         return False
 
 
-def get_products_paginated(session, limit: int = 100, offset: int = 0):
+def get_products_paginated(session, limit: int = 100, offset: int = 0) -> None:
     stmt = select(Product).order_by(Product.id.desc()).limit(limit).offset(offset)
     return session.execute(stmt)
 
 
-def get_shopping_trips_paginated(session, limit: int = 100, offset: int = 0):
+def get_shopping_trips_paginated(session, limit: int = 100, offset: int = 0) -> None:
     stmt = (
         select(ShoppingTrip)
         .order_by(ShoppingTrip.id.desc())
@@ -634,7 +634,7 @@ def get_shopping_trips_paginated(session, limit: int = 100, offset: int = 0):
 
 def get_messages_paginated(
     session, conversation_id: int, limit: int = 100, offset: int = 0
-):
+) -> None:
     stmt = (
         select(Message)
         .where(Message.conversation_id == conversation_id)

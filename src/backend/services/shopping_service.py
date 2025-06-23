@@ -20,12 +20,12 @@ async def create_shopping_trip(
         store_name=trip.store_name,
         total_amount=trip.total_amount,
     )
-    await db.add(db_trip)
+    db.add(db_trip)
     await db.flush()
 
     for product_data in trip.products:
         db_product = Product(**product_data.model_dump(), trip_id=db_trip.id)
-        await db.add(db_product)
+        db.add(db_product)
 
     await db.commit()
 

@@ -1,24 +1,22 @@
+from __future__ import annotations
 import asyncio
+import time
+from typing import Any, Dict, List, Optional, Union, Callable, AsyncGenerator, Coroutine
 
 import pytest
 
-from backend.agents.mixins.rate_limiter import (
-    RateLimiter,
-    RateLimitExceeded,
-    TokenBucket,
-    rate_limited,
-)
+from backend.agents.mixins.rate_limiter import RateLimiter, RateLimitExceeded
 
 
 class TestTokenBucket:
     @pytest.mark.asyncio
-    async def test_consume_tokens(self):
+    async def test_consume_tokens(self) -> None:
         bucket = TokenBucket(capacity=10, refill_rate=1)
         assert await bucket.consume(5) is True
         assert bucket.tokens == 5
 
     @pytest.mark.asyncio
-    async def test_refill_tokens(self):
+    async def test_refill_tokens(self) -> None:
         bucket = TokenBucket(capacity=10, refill_rate=1)
         await bucket.consume(10)
         assert bucket.tokens == 0
@@ -28,7 +26,7 @@ class TestTokenBucket:
         assert await bucket.consume(1) is True
 
     @pytest.mark.asyncio
-    async def test_rate_limit_exceeded(self):
+    async def test_rate_limit_exceeded(self) -> None:
         bucket = TokenBucket(capacity=5, refill_rate=0.1)
         for _ in range(5):
             assert await bucket.consume() is True
@@ -37,25 +35,25 @@ class TestTokenBucket:
 
 class TestRateLimiter:
     @pytest.fixture
-    def limiter(self):
+    def limiter(self) -> None:
         return RateLimiter()
 
     @pytest.mark.asyncio
-    async def test_global_limit(self, limiter):
+    async def test_global_limit(self, limiter) -> None:
         await limiter.set_global_limit("test_agent", 2, 0.1)
         assert await limiter.check_limit("test_agent") is True
         assert await limiter.check_limit("test_agent") is True
         assert await limiter.check_limit("test_agent") is False
 
     @pytest.mark.asyncio
-    async def test_user_limit(self, limiter):
+    async def test_user_limit(self, limiter) -> None:
         await limiter.set_user_limit("test_agent", "user1", 1, 0.1)
         assert await limiter.check_limit("test_agent", "user1") is True
         assert await limiter.check_limit("test_agent", "user1") is False
         assert await limiter.check_limit("test_agent", "user2") is True
 
     @pytest.mark.asyncio
-    async def test_combined_limits(self, limiter):
+    async def test_combined_limits(self, limiter) -> None:
         await limiter.set_global_limit("test_agent", 2, 0.1)
         await limiter.set_user_limit("test_agent", "user1", 1, 0.1)
 
@@ -70,13 +68,13 @@ class TestRateLimiter:
 
 class TestRateLimitedDecorator:
     @pytest.mark.asyncio
-    async def test_rate_limited_method(self):
+    async def test_rate_limited_method(self) -> None:
         class TestAgent:
-            def __init__(self):
+            def __init__(self) -> None:
                 self.rate_limiter = RateLimiter()
 
             @rate_limited("test_agent", "user_id")
-            async def test_method(self, user_id):
+            async def test_method(self, user_id) -> None:
                 return "success"
 
         agent = TestAgent()

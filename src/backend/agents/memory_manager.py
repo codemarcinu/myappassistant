@@ -8,11 +8,17 @@ import logging
 import weakref
 from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, TypedDict
 
 from backend.agents.interfaces import BaseAgent, IMemoryManager
 
 logger = logging.getLogger(__name__)
+
+
+class MemoryStats(TypedDict):
+    total_contexts: int
+    last_cleanup: Optional[datetime]
+    cleanup_count: int
 
 
 class MemoryContext:
@@ -28,7 +34,7 @@ class MemoryContext:
         "__weakref__",  # Allow weak references
     ]
 
-    def __init__(self, session_id: str, history: Optional[List[Dict]] = None):
+    def __init__(self, session_id: str, history: Optional[List[Dict]] = None) -> None:
         self.session_id = session_id
         self.history = history if history is not None else []
         self.active_agents: Dict[str, BaseAgent] = {}
@@ -40,18 +46,18 @@ class MemoryContext:
 class MemoryManager(IMemoryManager):
     """Implementation of memory management for conversation context with proper cleanup"""
 
-    def __init__(self):
+    def __init__(
+        self, max_contexts: int = 1000, cleanup_threshold_ratio: float = 0.8
+    ) -> None:
         # Use weak references to avoid memory leaks
-        self._contexts: Dict[str, weakref.ref[MemoryContext]] = {}
-        self._max_contexts: int = 1000
-        self._cleanup_threshold: int = 800
+        self._contexts: Dict[str, weakref.ReferenceType[MemoryContext]] = {}
+        self._max_contexts = max_contexts
+        self._cleanup_threshold = int(max_contexts * cleanup_threshold_ratio)
         self._cleanup_lock = asyncio.Lock()
-
-        # Track memory usage
-        self._memory_stats = {
+        self._memory_stats: MemoryStats = {
             "total_contexts": 0,
-            "last_cleanup": None,
-            "cleanup_count": 0,
+            "last_cleanup": None,  # Timestamp of last cleanup
+            "cleanup_count": 0,  # How many times cleanup ran
         }
 
     async def store_context(self, context: MemoryContext) -> None:
@@ -67,7 +73,7 @@ class MemoryManager(IMemoryManager):
         self._memory_stats["total_contexts"] = len(self._contexts)
         logger.debug(f"Stored context for session: {context.session_id}")
 
-    def _cleanup_callback(self, weak_ref):
+    def _cleanup_callback(self, weak_ref) -> None:
         """Callback when context is garbage collected"""
         # Remove from tracking when context is GC'd
         for session_id, ref in list(self._contexts.items()):
@@ -233,7 +239,7 @@ class MemoryManager(IMemoryManager):
             logger.info("Cleaned up all contexts")
 
     @asynccontextmanager
-    async def context_manager(self, session_id: str):
+    async def context_manager(self, session_id: str) -> None:
         """Async context manager for memory context lifecycle"""
         context = await self.get_context(session_id)
         try:
@@ -244,10 +250,15 @@ class MemoryManager(IMemoryManager):
             await self.update_context(context, None)
             logger.debug(f"Context manager exited for session: {session_id}")
 
-    async def __aenter__(self):
-        """Async context manager entry"""
-        return self
+    async def __aenter__(self) -> MemoryContext:
+        """Enter async context"""
+        return self.context
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        """Async context manager exit with cleanup"""
-        await self.cleanup_all()
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+        """Exit async context with cleanup"""
+        if exc_type is not None:
+            logger.error(f"Error in memory context: {exc_val}")
+        await self.memory_manager.update_context(self.context)
+
+    def get_memory_stats(self) -> "MemoryStats":
+        return self._memory_stats

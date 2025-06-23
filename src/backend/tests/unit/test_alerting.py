@@ -1,3 +1,6 @@
+from __future__ import annotations
+from typing import Any, Dict, List, Optional, Union, Callable
+from typing import AsyncGenerator, Coroutine
 """
 Tests dla Alerting System
 Zgodnie z regułami MDC dla testowania i monitoringu
@@ -23,12 +26,12 @@ class TestAlerting:
     """Testy dla alerting system"""
 
     @pytest.fixture
-    def alert_manager(self):
+    def alert_manager(self) -> None:
         """Fixture dla AlertManager"""
         return AlertManager()
 
     @pytest.fixture
-    def sample_rule(self):
+    def sample_rule(self) -> None:
         """Fixture dla sample alert rule"""
         return AlertRule(
             name="test_rule",
@@ -40,14 +43,14 @@ class TestAlerting:
             duration=60,
         )
 
-    def test_alert_manager_initialization(self, alert_manager):
+    def test_alert_manager_initialization(self, alert_manager) -> None:
         """Test AlertManager initialization"""
         assert len(alert_manager.rules) > 0  # Should have default rules
         assert len(alert_manager.active_alerts) == 0
         assert len(alert_manager.alert_history) == 0
         assert len(alert_manager.handlers) > 0  # Should have default handlers
 
-    def test_add_remove_rule(self, alert_manager, sample_rule):
+    def test_add_remove_rule(self, alert_manager, sample_rule) -> None:
         """Test adding and removing alert rules"""
         # Add rule
         alert_manager.add_rule(sample_rule)
@@ -57,14 +60,14 @@ class TestAlerting:
         alert_manager.remove_rule(sample_rule.name)
         assert sample_rule.name not in alert_manager.rules
 
-    def test_record_metric(self, alert_manager):
+    def test_record_metric(self, alert_manager) -> None:
         """Test recording metrics"""
         alert_manager.record_metric("test_metric", 15.0)
         assert "test_metric" in alert_manager.metric_values
         assert len(alert_manager.metric_values["test_metric"]) == 1
         assert alert_manager.metric_values["test_metric"][0][0] == 15.0
 
-    def test_metric_value_cleanup(self, alert_manager):
+    def test_metric_value_cleanup(self, alert_manager) -> None:
         """Test that old metric values are cleaned up"""
         # Add more than 1000 values
         for i in range(1100):
@@ -74,7 +77,7 @@ class TestAlerting:
         assert len(alert_manager.metric_values["test_metric"]) == 1000
         assert alert_manager.metric_values["test_metric"][-1][0] == 1099.0
 
-    def test_evaluate_rule_threshold_exceeded(self, alert_manager, sample_rule):
+    def test_evaluate_rule_threshold_exceeded(self, alert_manager, sample_rule) -> None:
         """Test rule evaluation when threshold is exceeded"""
         alert_manager.add_rule(sample_rule)
 
@@ -89,7 +92,7 @@ class TestAlerting:
         assert alert.value == 15.0
         assert alert.status == AlertStatus.ACTIVE
 
-    def test_evaluate_rule_threshold_not_exceeded(self, alert_manager, sample_rule):
+    def test_evaluate_rule_threshold_not_exceeded(self, alert_manager, sample_rule) -> None:
         """Test rule evaluation when threshold is not exceeded"""
         alert_manager.add_rule(sample_rule)
 
@@ -101,7 +104,7 @@ class TestAlerting:
 
         assert alert is None
 
-    def test_evaluate_rule_with_duration_window(self, alert_manager, sample_rule):
+    def test_evaluate_rule_with_duration_window(self, alert_manager, sample_rule) -> None:
         """Test rule evaluation with duration window"""
         alert_manager.add_rule(sample_rule)
 
@@ -114,7 +117,7 @@ class TestAlerting:
         assert alert is None
 
     @pytest.mark.asyncio
-    async def test_check_alerts(self, alert_manager, sample_rule):
+    async def test_check_alerts(self, alert_manager, sample_rule) -> None:
         """Test checking all alerts"""
         alert_manager.add_rule(sample_rule)
         alert_manager.record_metric("test_metric", 15.0)
@@ -127,7 +130,7 @@ class TestAlerting:
         assert len(alert_manager.active_alerts) == 1
         assert len(alert_manager.alert_history) == 1
 
-    def test_acknowledge_alert(self, alert_manager, sample_rule):
+    def test_acknowledge_alert(self, alert_manager, sample_rule) -> None:
         """Test acknowledging an alert"""
         alert_manager.add_rule(sample_rule)
         alert_manager.record_metric("test_metric", 15.0)
@@ -142,7 +145,7 @@ class TestAlerting:
         assert alert.status == AlertStatus.ACKNOWLEDGED
         assert alert.acknowledged_by == "test_user"
 
-    def test_resolve_alert(self, alert_manager, sample_rule):
+    def test_resolve_alert(self, alert_manager, sample_rule) -> None:
         """Test resolving an alert"""
         alert_manager.add_rule(sample_rule)
         alert_manager.record_metric("test_metric", 15.0)
@@ -158,7 +161,7 @@ class TestAlerting:
         assert alert.resolved_at is not None
         assert sample_rule.name not in alert_manager.active_alerts
 
-    def test_get_active_alerts(self, alert_manager, sample_rule):
+    def test_get_active_alerts(self, alert_manager, sample_rule) -> None:
         """Test getting active alerts"""
         alert_manager.add_rule(sample_rule)
         alert_manager.record_metric("test_metric", 15.0)
@@ -171,7 +174,7 @@ class TestAlerting:
         assert len(active_alerts) == 1
         assert active_alerts[0].rule.name == sample_rule.name
 
-    def test_get_alert_history(self, alert_manager, sample_rule):
+    def test_get_alert_history(self, alert_manager, sample_rule) -> None:
         """Test getting alert history"""
         alert_manager.add_rule(sample_rule)
         alert_manager.record_metric("test_metric", 15.0)
@@ -185,7 +188,7 @@ class TestAlerting:
         assert len(history) == 1
         assert history[0].rule.name == sample_rule.name
 
-    def test_get_alert_stats(self, alert_manager, sample_rule):
+    def test_get_alert_stats(self, alert_manager, sample_rule) -> None:
         """Test getting alert statistics"""
         alert_manager.add_rule(sample_rule)
         alert_manager.record_metric("test_metric", 15.0)
@@ -202,7 +205,7 @@ class TestAlerting:
         assert "severity_distribution" in stats
         assert "last_check" in stats
 
-    def test_alert_cooldown(self, alert_manager, sample_rule):
+    def test_alert_cooldown(self, alert_manager, sample_rule) -> None:
         """Test alert cooldown mechanism"""
         sample_rule.cooldown = 300  # 5 minutes
         alert_manager.add_rule(sample_rule)
@@ -216,7 +219,7 @@ class TestAlerting:
         alert2 = alert_manager._evaluate_rule(sample_rule)
         assert alert2 is None
 
-    def test_record_system_metrics(self):
+    def test_record_system_metrics(self) -> None:
         """Test recording system metrics"""
         with patch("psutil.Process") as mock_process:
             mock_process.return_value.memory_info.return_value.rss = 1024 * 1024
@@ -230,7 +233,7 @@ class TestAlerting:
                 # Should not raise exception
                 record_system_metrics()
 
-    def test_alert_rule_operators(self, alert_manager):
+    def test_alert_rule_operators(self, alert_manager) -> None:
         """Test different alert rule operators"""
         operators = [">", ">=", "<", "<=", "=="]
 

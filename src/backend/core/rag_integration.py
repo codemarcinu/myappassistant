@@ -25,7 +25,7 @@ class RAGDatabaseIntegration:
     Integrates database data with RAG system by converting records to searchable documents
     """
 
-    def __init__(self, rag_processor: RAGDocumentProcessor):
+    def __init__(self, rag_processor: RAGDocumentProcessor) -> None:
         self.rag_processor = rag_processor
 
     async def sync_receipts_to_rag(self, db: AsyncSession) -> Dict[str, Any]:

@@ -17,7 +17,7 @@ class ProcessQueryUseCase:
         food_item_repository: FoodItemRepository,
         llm_client: LLMClient,
         vector_store: EnhancedVectorStoreImpl,
-    ):
+    ) -> None:
         self.user_repository = user_repository
         self.food_item_repository = food_item_repository
         self.llm_client = llm_client

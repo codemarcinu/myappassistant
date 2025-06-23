@@ -1,3 +1,6 @@
+from __future__ import annotations
+from typing import Any, Dict, List, Optional, Union, Callable
+from typing import AsyncGenerator, Coroutine
 """
 Tests for updated Hybrid LLM Client with Bielik and Gemma support
 
@@ -17,17 +20,17 @@ class TestHybridLLMClientNew:
     """Test suite for updated Hybrid LLM Client"""
 
     @pytest.fixture
-    def client(self):
+    def client(self) -> None:
         """Create a HybridLLMClient instance for testing"""
         return HybridLLMClient()
 
     @pytest.fixture
-    def mock_messages(self):
+    def mock_messages(self) -> None:
         """Mock messages for testing"""
         return [{"role": "user", "content": "Hello, how are you?"}]
 
     @pytest.mark.asyncio
-    async def test_chat_with_bielik_default(self, client):
+    async def test_chat_with_bielik_default(self, client) -> None:
         """Test chat with Bielik as default model"""
         messages = [{"role": "user", "content": "Hello, how are you?"}]
 
@@ -39,7 +42,7 @@ class TestHybridLLMClientNew:
         assert "content" in response["message"]
 
     @pytest.mark.asyncio
-    async def test_chat_with_bielik_explicit(self, client):
+    async def test_chat_with_bielik_explicit(self, client) -> None:
         """Test chat with Bielik explicitly specified"""
         messages = [{"role": "user", "content": "Hello, how are you?"}]
 
@@ -51,7 +54,7 @@ class TestHybridLLMClientNew:
         assert "content" in response["message"]
 
     @pytest.mark.asyncio
-    async def test_chat_with_gemma(self, client):
+    async def test_chat_with_gemma(self, client) -> None:
         """Test chat with Gemma model"""
         messages = [{"role": "user", "content": "Hello, how are you?"}]
 
@@ -63,7 +66,7 @@ class TestHybridLLMClientNew:
         assert "content" in response["message"]
 
     @pytest.mark.asyncio
-    async def test_chat_with_perplexity(self, client):
+    async def test_chat_with_perplexity(self, client) -> None:
         """Test chat with Perplexity"""
         messages = [{"role": "user", "content": "Hello, how are you?"}]
 
@@ -79,7 +82,7 @@ class TestHybridLLMClientNew:
             pass
 
     @pytest.mark.asyncio
-    async def test_chat_with_bielik_fallback_on_error(self, client):
+    async def test_chat_with_bielik_fallback_on_error(self, client) -> None:
         """Test fallback when Bielik fails"""
         messages = [{"role": "user", "content": "Hello, how are you?"}]
 
@@ -91,7 +94,7 @@ class TestHybridLLMClientNew:
         assert "content" in response["message"]
 
     @pytest.mark.asyncio
-    async def test_chat_with_gemma_fallback_on_error(self, client):
+    async def test_chat_with_gemma_fallback_on_error(self, client) -> None:
         """Test fallback when Gemma fails"""
         messages = [{"role": "user", "content": "Hello, how are you?"}]
 
@@ -103,7 +106,7 @@ class TestHybridLLMClientNew:
         assert "content" in response["message"]
 
     @pytest.mark.asyncio
-    async def test_chat_with_all_models_failing(self, client):
+    async def test_chat_with_all_models_failing(self, client) -> None:
         """Test behavior when all models fail"""
         messages = [{"role": "user", "content": "Hello, how are you?"}]
 
@@ -117,7 +120,7 @@ class TestHybridLLMClientNew:
             pass
 
     @pytest.mark.asyncio
-    async def test_chat_with_perplexity_fallback(self, client):
+    async def test_chat_with_perplexity_fallback(self, client) -> None:
         """Test fallback to Perplexity"""
         messages = [{"role": "user", "content": "Hello, how are you?"}]
 
@@ -133,7 +136,7 @@ class TestHybridLLMClientNew:
             pass
 
     @pytest.mark.asyncio
-    async def test_chat_with_custom_parameters(self, client):
+    async def test_chat_with_custom_parameters(self, client) -> None:
         """Test chat with custom parameters"""
         messages = [{"role": "user", "content": "Hello, how are you?"}]
         options = {"temperature": 0.7, "max_tokens": 100}
@@ -146,7 +149,7 @@ class TestHybridLLMClientNew:
         assert "content" in response["message"]
 
     @pytest.mark.asyncio
-    async def test_chat_with_streaming(self, client):
+    async def test_chat_with_streaming(self, client) -> None:
         """Test chat with streaming enabled"""
         messages = [{"role": "user", "content": "Hello, how are you?"}]
 
@@ -163,7 +166,7 @@ class TestHybridLLMClientNew:
         assert len(content) > 0
 
     @pytest.mark.asyncio
-    async def test_chat_with_system_message(self, client):
+    async def test_chat_with_system_message(self, client) -> None:
         """Test chat with system message"""
         messages = [{"role": "user", "content": "Hello, how are you?"}]
         system_prompt = "You are a helpful assistant."
@@ -176,7 +179,7 @@ class TestHybridLLMClientNew:
         assert "content" in response["message"]
 
     @pytest.mark.asyncio
-    async def test_chat_with_empty_messages(self, client):
+    async def test_chat_with_empty_messages(self, client) -> None:
         """Test chat with empty messages"""
         messages = []
 
@@ -190,7 +193,7 @@ class TestHybridLLMClientNew:
             pass
 
     @pytest.mark.asyncio
-    async def test_chat_with_invalid_message_format(self, client):
+    async def test_chat_with_invalid_message_format(self, client) -> None:
         """Test chat with invalid message format"""
         messages = [{"invalid": "format"}]
 
@@ -204,7 +207,7 @@ class TestHybridLLMClientNew:
             pass
 
     @pytest.mark.asyncio
-    async def test_get_available_models(self, client):
+    async def test_get_available_models(self, client) -> None:
         """Test getting available models"""
         models = client.get_available_models()
 
@@ -218,7 +221,7 @@ class TestHybridLLMClientNew:
             assert model in models
 
     @pytest.mark.asyncio
-    async def test_get_model_info(self, client):
+    async def test_get_model_info(self, client) -> None:
         """Test getting model information"""
         bielik_info = client.get_model_info(
             "SpeakLeash/bielik-11b-v2.3-instruct:Q5_K_M"
@@ -239,13 +242,13 @@ class TestHybridLLMClientNew:
         assert perplexity_info["default"] is False
 
     @pytest.mark.asyncio
-    async def test_get_model_info_unknown_model(self, client):
+    async def test_get_model_info_unknown_model(self, client) -> None:
         """Test getting info for unknown model"""
         with pytest.raises(ValueError, match="Unknown model: unknown_model"):
             client.get_model_info("unknown_model")
 
     @pytest.mark.asyncio
-    async def test_client_initialization(self, client):
+    async def test_client_initialization(self, client) -> None:
         """Test client initialization"""
         assert client.default_model == "SpeakLeash/bielik-11b-v2.3-instruct:Q5_K_M"
         assert client.fallback_model == "gemma3:12b"

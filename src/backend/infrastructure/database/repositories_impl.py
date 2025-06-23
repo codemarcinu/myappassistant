@@ -1,13 +1,16 @@
+from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.domain.repositories import FoodItemRepository, UserRepository
 from backend.models.shopping import Product
 from backend.models.user_profile import UserProfile
+from typing import Any, Dict, List, Optional, Union, Callable
+from typing import AsyncGenerator, Coroutine
 
 
 class SQLAlchemyUserRepository(UserRepository):
-    def __init__(self, session: AsyncSession):
+    def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
     async def get_by_id(self, user_id: int) -> dict | None:
@@ -25,7 +28,7 @@ class SQLAlchemyUserRepository(UserRepository):
 
 
 class SQLAlchemyFoodItemRepository(FoodItemRepository):
-    def __init__(self, session: AsyncSession):
+    def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
     async def get_by_id(self, item_id: int) -> dict | None:

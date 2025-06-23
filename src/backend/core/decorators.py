@@ -35,7 +35,7 @@ def handle_exceptions(
             last_exception = None
             for attempt in range(max_retries + 1):
                 try:
-                    return await func(*args, **kwargs)
+                    return await func(*args, **kwargs)  # type: ignore[misc]
                 except retry_exceptions as e:
                     last_exception = e
                     if attempt < max_retries:
@@ -81,7 +81,7 @@ def handle_exceptions(
 
             raise last_exception if last_exception else RuntimeError("Unexpected error")
 
-        return async_wrapper if asyncio.iscoroutinefunction(func) else sync_wrapper
+        return async_wrapper if asyncio.iscoroutinefunction(func) else sync_wrapper  # type: ignore[return-value]
 
     return decorator
 

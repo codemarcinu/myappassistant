@@ -10,9 +10,9 @@ logger = logging.getLogger(__name__)
 class TokenBucket:
     """Implementation of token bucket algorithm for rate limiting"""
 
-    def __init__(self, capacity: int, refill_rate: float):
+    def __init__(self, capacity: int, refill_rate: float) -> None:
         self.capacity = capacity
-        self.tokens = capacity
+        self.tokens: float = float(capacity)
         self.refill_rate = refill_rate  # tokens per second
         self.last_refill = time.time()
         self.lock = asyncio.Lock()
@@ -26,7 +26,7 @@ class TokenBucket:
                 return True
             return False
 
-    def _refill(self):
+    def _refill(self) -> None:
         now = time.time()
         elapsed = now - self.last_refill
         refill_amount = elapsed * self.refill_rate
@@ -37,21 +37,21 @@ class TokenBucket:
 class RateLimiter:
     """Rate limiter for agents with multi-level limits"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.global_limits: Dict[str, TokenBucket] = {}
         self.user_limits: Dict[str, Dict[str, TokenBucket]] = defaultdict(dict)
         self.lock = asyncio.Lock()
 
     async def set_global_limit(
         self, agent_type: str, capacity: int, refill_rate: float
-    ):
+    ) -> None:
         """Set global rate limit for agent type"""
         async with self.lock:
             self.global_limits[agent_type] = TokenBucket(capacity, refill_rate)
 
     async def set_user_limit(
         self, agent_type: str, user_id: str, capacity: int, refill_rate: float
-    ):
+    ) -> None:
         """Set user-specific rate limit for agent type"""
         async with self.lock:
             self.user_limits[agent_type][user_id] = TokenBucket(capacity, refill_rate)
@@ -83,11 +83,11 @@ class RateLimiter:
         return True
 
 
-def rate_limited(agent_type: str, user_id_key: Optional[str] = None):
+def rate_limited(agent_type: str, user_id_key: Optional[str] = None) -> Callable[[Callable], Callable]:
     """Decorator for rate limiting agent methods"""
 
     def decorator(func: Callable) -> Callable:
-        async def wrapper(self, *args, **kwargs) -> Any:
+        async def wrapper(self, *args, **kwargs) -> None:
             # Extract user_id from kwargs or args
             user_id = None
             if user_id_key:

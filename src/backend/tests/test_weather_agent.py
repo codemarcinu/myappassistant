@@ -1,13 +1,16 @@
+from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from backend.agents.interfaces import AgentResponse
 from backend.agents.weather_agent import WeatherAgent, WeatherRequest
+from typing import Any, Dict, List, Optional, Union, Callable
+from typing import AsyncGenerator, Coroutine
 
 
 @pytest.mark.asyncio
-async def test_weather_agent_success():
+async def test_weather_agent_success() -> None:
     agent = WeatherAgent()
     mock_input = {
         "location": "Warsaw",
@@ -40,7 +43,7 @@ async def test_weather_agent_success():
 
 
 @pytest.mark.asyncio
-async def test_weather_agent_no_api_key():
+async def test_weather_agent_no_api_key() -> None:
     agent = WeatherAgent()
     response = await agent.process({"location": "Warsaw", "query": "test"})
     assert isinstance(response, AgentResponse)
@@ -51,7 +54,7 @@ async def test_weather_agent_no_api_key():
 
 
 @pytest.mark.asyncio
-async def test_weather_agent_input_validation():
+async def test_weather_agent_input_validation() -> None:
     agent = WeatherAgent()
 
     with patch.object(agent, "_extract_location") as mock_extract:
@@ -69,7 +72,7 @@ async def test_weather_agent_input_validation():
 
 
 @pytest.mark.asyncio
-async def test_weather_agent_error_handling():
+async def test_weather_agent_error_handling() -> None:
     agent = WeatherAgent()
 
     with patch.object(agent, "_extract_location") as mock_extract:
@@ -84,7 +87,7 @@ async def test_weather_agent_error_handling():
 
 
 @pytest.mark.asyncio
-async def test_weather_request_model():
+async def test_weather_request_model() -> None:
     # Test valid request
     valid = WeatherRequest(location="Warsaw")
     assert valid.location == "Warsaw"

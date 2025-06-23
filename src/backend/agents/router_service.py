@@ -11,7 +11,7 @@ logger.setLevel(logging.DEBUG)
 
 
 class AgentRouter:
-    def __init__(self, agent_factory: AgentFactory, agent_registry: AgentRegistry):
+    def __init__(self, agent_factory: AgentFactory, agent_registry: AgentRegistry) -> None:
         self.agent_factory = agent_factory
         self.agent_registry = agent_registry
 
@@ -32,21 +32,21 @@ class AgentRouter:
         self.agent_registry.register_intent_to_agent_mapping("analytics", "Analytics")
         self.agent_registry.register_intent_to_agent_mapping("general", "Chef")
 
-    def register_agent(self, agent_type: str, agent: Any):
+    def register_agent(self, agent_type: str, agent: Any) -> None:
         """Register an agent implementation for a specific type"""
         # This method is required by the orchestrator but not used in this implementation
         # as agents are created dynamically by the factory
         logger.info(f"Agent registration requested for type: {agent_type}")
         pass
 
-    def get_agent(self, agent_type: str):
+    def get_agent(self, agent_type: str) -> None:
         """Get registered agent by type"""
         # This method is required by the orchestrator but not used in this implementation
         # as agents are created dynamically by the factory
         logger.info(f"Agent retrieval requested for type: {agent_type}")
         return None
 
-    def set_fallback_agent(self, agent: Any):
+    def set_fallback_agent(self, agent: Any) -> None:
         """Set fallback agent for unknown intents"""
         # This method is required by the orchestrator but not used in this implementation
         # as agents are created dynamically by the factory

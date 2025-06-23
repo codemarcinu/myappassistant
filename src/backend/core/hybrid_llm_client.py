@@ -77,7 +77,7 @@ class HybridLLMClient:
     use_perplexity_fallback = True
     perplexity_client = None  # do mockowania w testach
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize hybrid LLM client"""
         self.base_client = llm_client
         self.model_configs: Dict[str, ModelConfig] = self._init_model_configs()
@@ -364,7 +364,7 @@ class HybridLLMClient:
         task: Optional[ModelTask] = None,  # Nowy parametr
         contains_images: bool = False,     # Nowy parametr
         **kwargs,
-    ) -> Any:
+    ) -> None:
         """
         Enhanced chat method with automatic model selection and explicit model toggling
         """
@@ -681,7 +681,7 @@ class HybridLLMClient:
         fallback_model: Optional[str] = None,
         max_retries: int = 2,
         stream: bool = False,
-    ) -> Any:
+    ) -> None:
         """Try with primary model, falling back to simpler model if necessary"""
 
         # Get the query for model selection
@@ -770,10 +770,10 @@ class HybridLLMClient:
                 "response": f"Error processing request with all models: {str(e)}",
             }
 
-    def get_available_models(self):
+    def get_available_models(self) -> None:
         return list(self.model_configs.keys()) + ["perplexity"]
 
-    def get_model_info(self, model_name):
+    def get_model_info(self, model_name) -> None:
         if model_name == "perplexity":
             return {"name": "perplexity", "type": "api", "default": False}
         if model_name in self.model_configs:

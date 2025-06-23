@@ -10,11 +10,12 @@ import time
 import tracemalloc
 from contextlib import asynccontextmanager, contextmanager
 from dataclasses import dataclass
-from typing import List, Tuple
+from typing import AsyncGenerator, Dict, List, Tuple
 from weakref import WeakSet
 
 import psutil
 import structlog
+from backend.core.telemetry import get_tracer
 
 logger = structlog.get_logger(__name__)
 
@@ -45,7 +46,7 @@ class PerformanceMetrics:
 class MemoryProfiler:
     """Profiler pamięci z tracemalloc i psutil"""
 
-    def __init__(self, enable_tracemalloc: bool = True):
+    def __init__(self, enable_tracemalloc: bool = True) -> None:
         self.enable_tracemalloc = enable_tracemalloc
         self.process = psutil.Process()
         self.snapshots: List[MemorySnapshot] = []
@@ -55,12 +56,12 @@ class MemoryProfiler:
         if enable_tracemalloc:
             tracemalloc.start(25)  # Track top 25 allocations
 
-    def __enter__(self):
+    def __enter__(self) -> None:
         """Context manager entry"""
         self._active_contexts.add(self)
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         """Context manager exit z cleanup"""
         self._active_contexts.discard(self)
         if self.enable_tracemalloc:
@@ -71,7 +72,6 @@ class MemoryProfiler:
         current, peak = tracemalloc.get_traced_memory()
 
         # Get top allocations
-        top_stats = tracemalloc.get_traced_memory()
         top_allocations = []
 
         if self.enable_tracemalloc:
@@ -81,15 +81,15 @@ class MemoryProfiler:
                 (f"{stat.traceback.format()}", stat.size) for stat in top_stats
             ]
 
-        snapshot = MemorySnapshot(
+        memory_snapshot = MemorySnapshot(
             timestamp=time.time(),
             memory_usage=current,
             peak_memory=peak,
             top_allocations=top_allocations,
         )
 
-        self.snapshots.append(snapshot)
-        return snapshot
+        self.snapshots.append(memory_snapshot)
+        return memory_snapshot
 
     def get_performance_metrics(self) -> PerformanceMetrics:
         """Pobiera metryki wydajności procesu"""
@@ -107,7 +107,7 @@ class MemoryProfiler:
         self.performance_metrics.append(metrics)
         return metrics
 
-    def log_memory_usage(self, context: str = "general"):
+    def log_memory_usage(self, context: str = "general") -> None:
         """Loguje aktualne użycie pamięci"""
         snapshot = self.take_snapshot()
         metrics = self.get_performance_metrics()
@@ -142,7 +142,7 @@ class MemoryProfiler:
 
         return False
 
-    def cleanup(self):
+    def cleanup(self) -> None:
         """Cleanup resources"""
         self.snapshots.clear()
         self.performance_metrics.clear()
@@ -162,7 +162,7 @@ class AsyncMemoryProfiler(MemoryProfiler):
             None, self.get_performance_metrics
         )
 
-    async def log_memory_usage_async(self, context: str = "general"):
+    async def log_memory_usage_async(self, context: str = "general") -> None:
         """Asynchroniczne logowanie pamięci"""
         await asyncio.get_event_loop().run_in_executor(
             None, self.log_memory_usage, context
@@ -170,7 +170,7 @@ class AsyncMemoryProfiler(MemoryProfiler):
 
 
 @contextmanager
-def memory_profiling_context(context_name: str = "operation"):
+def memory_profiling_context(context_name: str = "operation") -> None:
     """Context manager dla memory profiling"""
     profiler = MemoryProfiler()
     try:
@@ -184,7 +184,7 @@ def memory_profiling_context(context_name: str = "operation"):
 
 
 @asynccontextmanager
-async def async_memory_profiling_context(context_name: str = "async_operation"):
+async def async_memory_profiling_context(context_name: str = "async_operation") -> None:
     """Async context manager dla memory profiling"""
     profiler = AsyncMemoryProfiler()
     try:
@@ -200,7 +200,7 @@ async def async_memory_profiling_context(context_name: str = "async_operation"):
 class MemoryMonitor:
     """Globalny monitor pamięci dla aplikacji"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.profilers: Dict[str, MemoryProfiler] = {}
         self.monitoring_enabled = (
             os.getenv("ENABLE_MEMORY_MONITORING", "true").lower() == "true"
@@ -212,7 +212,7 @@ class MemoryMonitor:
             self.profilers[name] = MemoryProfiler()
         return self.profilers[name]
 
-    def log_all_components(self):
+    def log_all_components(self) -> None:
         """Loguje pamięć dla wszystkich komponentów"""
         if not self.monitoring_enabled:
             return
@@ -220,7 +220,7 @@ class MemoryMonitor:
         for name, profiler in self.profilers.items():
             profiler.log_memory_usage(name)
 
-    def cleanup_all(self):
+    def cleanup_all(self) -> None:
         """Cleanup wszystkich profilerów"""
         for profiler in self.profilers.values():
             profiler.cleanup()
@@ -236,7 +236,7 @@ def get_memory_profiler(name: str) -> MemoryProfiler:
     return memory_monitor.get_profiler(name)
 
 
-def log_memory_usage(context: str = "general"):
+def log_memory_usage(context: str = "general") -> None:
     """Helper function do logowania pamięci"""
     if memory_monitor.monitoring_enabled:
         profiler = get_memory_profiler(context)

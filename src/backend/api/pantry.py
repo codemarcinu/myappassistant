@@ -12,5 +12,5 @@ DUMMY_PRODUCTS = [
 
 
 @router.get("/pantry/products", response_model=List[Dict])
-async def get_pantry_products():
+async def get_pantry_products() -> None:
     return DUMMY_PRODUCTS

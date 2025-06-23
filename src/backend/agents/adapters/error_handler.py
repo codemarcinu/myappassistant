@@ -10,7 +10,7 @@ from ..interfaces import IErrorHandler
 class ErrorHandler(IErrorHandler):
     """Handler for error processing and recovery with alerting capabilities"""
 
-    def __init__(self, name: str, alert_config: Optional[Dict[str, Any]] = None):
+    def __init__(self, name: str, alert_config: Optional[Dict[str, Any]] = None) -> None:
         self.name = name
         self.alert_config = alert_config or {
             "enabled": True,
@@ -26,7 +26,7 @@ class ErrorHandler(IErrorHandler):
         fallback_handler: Optional[Callable[..., Any]] = None,
         error_severity: ErrorSeverity = ErrorSeverity.MEDIUM,
         **kwargs,
-    ) -> Any:
+    ) -> None:
         """
         Execute a function with automatic fallback and error handling
         Returns the result of the operation or fallback.

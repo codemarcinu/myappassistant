@@ -1,10 +1,10 @@
-from typing import Dict, Type
+from typing import Dict, Optional, Type
 
 from .interfaces import BaseAgent
 
 
 class AgentRegistry:
-    def __init__(self):
+    def __init__(self) -> None:
         self._agents: Dict[str, Type[BaseAgent]] = {}
         self._intent_mappings: Dict[str, str] = {}
         # Register intent to agent mappings
@@ -24,11 +24,11 @@ class AgentRegistry:
             "general": "GeneralConversation",  # Default mapping
         }
 
-    def register_agent_class(self, agent_type: str, agent_class: Type[BaseAgent]):
+    def register_agent_class(self, agent_type: str, agent_class: Type[BaseAgent]) -> None:
         """Rejestruje klasę agenta pod danym typem."""
         self._agents[agent_type] = agent_class
 
-    def register_intent_to_agent_mapping(self, intent: str, agent_type: str):
+    def register_intent_to_agent_mapping(self, intent: str, agent_type: str) -> None:
         """Mapuje intencję do zarejestrowanego typu agenta."""
         if agent_type not in self._agents:
             raise ValueError(
@@ -36,7 +36,7 @@ class AgentRegistry:
             )
         self._intent_mappings[intent] = agent_type
 
-    def get_agent_class(self, agent_type: str) -> Type[BaseAgent]:
+    def get_agent_class(self, agent_type: str) -> Optional[Type[BaseAgent]]:
         """Zwraca klasę agenta na podstawie jego typu."""
         return self._agents.get(agent_type)
 

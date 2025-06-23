@@ -14,7 +14,7 @@ if parent_dir not in sys.path:
 
 import asyncio
 import logging
-from typing import Dict
+from typing import Dict, Optional, Any, cast
 
 from fastapi import (
     APIRouter,
@@ -31,8 +31,6 @@ from backend.core.container import Container
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
-
-from typing import Any, cast
 
 from fastapi import APIRouter, BackgroundTasks, Depends
 from fastapi.responses import StreamingResponse
@@ -94,7 +92,7 @@ llm_circuit_breaker = CircuitBreakerConfig(
 @with_circuit_breaker(llm_circuit_breaker)
 @with_backpressure(max_concurrent=50)
 @with_backpressure(max_concurrent=20)  # Ograniczenie dla memory chat
-async def chat_response_generator(prompt: str, model: str):
+async def chat_response_generator(prompt: str, model: str) -> None:
     """
     Asynchroniczny generator. Pobiera kawałki odpowiedzi od klienta
     Ollama i od razu przesyła je dalej (yield).
@@ -115,7 +113,7 @@ async def chat_response_generator(prompt: str, model: str):
 
 
 @router.post("/chat")
-async def chat_with_model(request: ChatRequest):
+async def chat_with_model(request: ChatRequest) -> None:
     """
     Endpoint do prowadzenia rozmowy z modelem LLM.
     Dzięki StreamingResponse, odpowiedź jest wysyłana do klienta
@@ -131,7 +129,7 @@ import json
 
 
 @with_backpressure(max_concurrent=20)  # Ograniczenie dla memory chat
-async def memory_chat_generator(request: MemoryChatRequest, db: AsyncSession):
+async def memory_chat_generator(request: MemoryChatRequest, db: AsyncSession) -> None:
     """
     Generator for streaming responses from the orchestrator.
     Każdy yield to linia NDJSON: {"text": ...}
@@ -197,7 +195,7 @@ async def memory_chat_generator(request: MemoryChatRequest, db: AsyncSession):
             chunks = []
 
             # Define the callback function
-            def handle_chunk(chunk):
+            def handle_chunk(chunk) -> None:
                 chunks.append(chunk)
 
             # Process the command with streaming
@@ -283,19 +281,18 @@ async def memory_chat_generator(request: MemoryChatRequest, db: AsyncSession):
 @router.post("/memory_chat")
 async def chat_with_memory(
     request: MemoryChatRequest,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
-    background_tasks: BackgroundTasks = None,
-):
+) -> StreamingResponse:
     """
-    Endpoint for conversing with an agent that remembers conversation history.
-    Każda linia odpowiedzi to poprawny JSON (NDJSON).
+    Endpoint for chat with memory, streaming NDJSON response.
     """
     generator = memory_chat_generator(request, db)
     return StreamingResponse(generator, media_type="application/x-ndjson")
 
 
 @router.post("/test_simple_chat")
-async def test_simple_chat():
+async def test_simple_chat() -> None:
     """
     Simple test endpoint for basic chat functionality
     """

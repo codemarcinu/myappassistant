@@ -16,10 +16,10 @@ class MealPlannerAgent(BaseAgent):
     def __init__(
         self,
         name: str = "MealPlannerAgent",
-        error_handler=None,
-        fallback_manager=None,
-        **kwargs,
-    ):
+        error_handler: Any = None,
+        fallback_manager: Any = None,
+        **kwargs: Any,
+    ) -> None:
         super().__init__(
             name=name, error_handler=error_handler, fallback_manager=fallback_manager
         )
@@ -52,7 +52,7 @@ class MealPlannerAgent(BaseAgent):
 
             prompt = get_meal_plan_prompt(products_list)
 
-            async def response_generator():
+            async def response_generator() -> None:
                 full_response = ""
                 try:
                     async for chunk in await llm_client.generate_stream(

@@ -5,7 +5,7 @@ Middleware dla obsługi błędów i logowania
 import logging
 import time
 import uuid
-from typing import Callable
+from typing import Callable, Any, Optional
 
 from fastapi import HTTPException, Request, Response
 from fastapi.responses import JSONResponse
@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 class ErrorHandlingMiddleware(BaseHTTPMiddleware):
     """Middleware for centralized error handling and logging"""
 
-    def __init__(self, app: ASGIApp):
+    def __init__(self, app: ASGIApp) -> None:
         super().__init__(app)
         self.logger = logging.getLogger(__name__)
 
@@ -33,7 +33,11 @@ class ErrorHandlingMiddleware(BaseHTTPMiddleware):
 
         except HTTPException as http_exc:
             # Already formatted HTTP exceptions
-            return http_exc
+            return JSONResponse(
+                status_code=http_exc.status_code,
+                content={"detail": http_exc.detail},
+                headers=http_exc.headers,
+            )
 
         except BaseCustomException as custom_exc:
             # Convert custom exceptions to HTTP responses
@@ -50,7 +54,7 @@ class ErrorHandlingMiddleware(BaseHTTPMiddleware):
 
         except Exception as exc:
             # Convert all other exceptions
-            custom_exc = convert_system_exception(exc)
+            converted_exc = convert_system_exception(exc)
             self.logger.error(
                 f"Unhandled exception in {request.url.path}",
                 exc_info=True,
@@ -62,20 +66,19 @@ class ErrorHandlingMiddleware(BaseHTTPMiddleware):
                     }
                 },
             )
-
             return JSONResponse(
                 status_code=500,
                 content={
                     "error": {
                         "code": "internal_error",
-                        "message": getattr(custom_exc, "message", str(custom_exc)),
-                        "details": getattr(custom_exc, "details", None),
+                        "message": getattr(converted_exc, "message", str(exc)),
+                        "details": getattr(converted_exc, "details", None),
                     }
                 },
             )
 
 
-def setup_error_middleware(app: ASGIApp) -> None:
+def setup_error_middleware(app: Any) -> None:
     """Add error handling middleware to FastAPI app"""
     app.add_middleware(ErrorHandlingMiddleware)
 
@@ -83,7 +86,7 @@ def setup_error_middleware(app: ASGIApp) -> None:
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
     """Middleware do szczegółowego logowania żądań"""
 
-    def __init__(self, app, log_body: bool = False, log_headers: bool = True):
+    def __init__(self, app, log_body: bool = False, log_headers: bool = True) -> None:
         super().__init__(app)
         self.log_body = log_body
         self.log_headers = log_headers
@@ -103,7 +106,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 
         return response
 
-    async def _log_request_details(self, request: Request, request_id: str):
+    async def _log_request_details(self, request: Request, request_id: str) -> None:
         """Loguje szczegóły żądania"""
         log_data = {
             "request_id": request_id,
@@ -130,7 +133,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 
     async def _log_response_details(
         self, request: Request, response: Response, request_id: str
-    ):
+    ) -> None:
         """Loguje szczegóły odpowiedzi"""
         processing_time = time.time() - time.time()
 
@@ -149,7 +152,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 class MemoryMonitoringMiddleware(BaseHTTPMiddleware):
     """Middleware do monitoringu pamięci dla FastAPI"""
 
-    def __init__(self, app, enable_memory_profiling: bool = True):
+    def __init__(self, app, enable_memory_profiling: bool = True) -> None:
         super().__init__(app)
         self.enable_memory_profiling = enable_memory_profiling
 
@@ -224,7 +227,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 class CORSMiddleware(BaseHTTPMiddleware):
     """Middleware do obsługi CORS"""
 
-    def __init__(self, app, allowed_origins: list = None, allowed_methods: list = None):
+    def __init__(self, app, allowed_origins: Optional[list] = None, allowed_methods: Optional[list] = None) -> None:
         super().__init__(app)
         self.allowed_origins = allowed_origins or ["*"]
         self.allowed_methods = allowed_methods or [

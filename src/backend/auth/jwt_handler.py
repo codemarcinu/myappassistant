@@ -4,7 +4,7 @@ JWT Handler for FoodSave AI authentication
 
 import logging
 from datetime import datetime, timedelta
-from typing import Dict, Optional, Union
+from typing import Dict, Optional, Union, Any
 
 import jwt
 from passlib.context import CryptContext
@@ -20,7 +20,7 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 class JWTHandler:
     """JWT token handler for authentication"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.secret_key = settings.SECRET_KEY
         self.algorithm = "HS256"
         self.access_token_expire_minutes = settings.ACCESS_TOKEN_EXPIRE_MINUTES
@@ -28,7 +28,7 @@ class JWTHandler:
 
     def create_access_token(
         self,
-        data: Dict[str, Union[str, int]],
+        data: Dict[str, Any],
         expires_delta: Optional[timedelta] = None,
     ) -> str:
         """
@@ -58,7 +58,7 @@ class JWTHandler:
 
     def create_refresh_token(
         self,
-        data: Dict[str, Union[str, int]],
+        data: Dict[str, Any],
         expires_delta: Optional[timedelta] = None,
     ) -> str:
         """
@@ -84,7 +84,7 @@ class JWTHandler:
         logger.info(f"Created refresh token for user {data.get('sub', 'unknown')}")
         return encoded_jwt
 
-    def verify_token(self, token: str) -> Optional[Dict[str, Union[str, int]]]:
+    def verify_token(self, token: str) -> Optional[Dict[str, Any]]:
         """
         Verify and decode JWT token
 
@@ -100,11 +100,11 @@ class JWTHandler:
         except jwt.ExpiredSignatureError:
             logger.warning("Token expired")
             return None
-        except jwt.JWTError as e:
+        except jwt.PyJWTError as e:
             logger.warning(f"Invalid token: {e}")
             return None
 
-    def decode_token(self, token: str) -> Optional[Dict[str, Union[str, int]]]:
+    def decode_token(self, token: str) -> Optional[Dict[str, Any]]:
         """
         Decode JWT token without verification (for debugging)
 
@@ -117,7 +117,7 @@ class JWTHandler:
         try:
             payload = jwt.decode(token, options={"verify_signature": False})
             return payload
-        except jwt.JWTError as e:
+        except jwt.PyJWTError as e:
             logger.warning(f"Failed to decode token: {e}")
             return None
 
@@ -164,7 +164,7 @@ class JWTHandler:
         if not exp:
             return True
 
-        return datetime.utcnow() > datetime.fromtimestamp(exp)
+        return datetime.utcnow() > datetime.fromtimestamp(float(exp))
 
 
 # Global instance

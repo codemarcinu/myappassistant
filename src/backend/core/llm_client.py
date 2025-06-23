@@ -39,7 +39,7 @@ import ollama
 class LLMCache:
     """Simple cache for LLM responses to avoid duplicate API calls"""
 
-    def __init__(self, max_size: int = 100, ttl: int = 3600):
+    def __init__(self, max_size: int = 100, ttl: int = 3600) -> None:
         """Initialize LLM cache with max size and TTL (in seconds)"""
         self.cache: Dict[str, Dict[str, Any]] = {}
         self.max_size = max_size
@@ -91,7 +91,7 @@ class LLMCache:
 class EnhancedLLMClient:
     """Enhanced LLM client with caching and improved error handling"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize enhanced LLM client"""
         self.cache = LLMCache(max_size=1000, ttl=3600)  # 1 hour cache
         self.embedding_cache = LLMCache(max_size=5000, ttl=86400)  # 24 hour cache
@@ -301,10 +301,12 @@ class EnhancedLLMClient:
         Returns:
             Async generator yielding response chunks
         """
-        async for chunk in self.chat(
+        response = self.chat(
             model=model, messages=messages, stream=True, options=options
-        ):
-            yield chunk
+        )
+        if isinstance(response, AsyncGenerator):
+            async for chunk in response:
+                yield chunk
 
 
 # Create a global instance

@@ -30,7 +30,7 @@ async def recognize_intent(prompt: str) -> str:
             stream=False,
             options={"temperature": 0.0},
         )
-        if response and response.get("message"):
+        if isinstance(response, dict) and response.get("message"):
             content = response["message"]["content"]
             # Use extract_json_from_text to handle markdown and other formats
             json_str = extract_json_from_text(content)
@@ -64,7 +64,7 @@ async def extract_entities(prompt: str) -> str:
             stream=False,
             options={"temperature": 0.0},
         )
-        if response and response.get("message"):
+        if isinstance(response, dict) and response.get("message"):
             content = response["message"]["content"]
             # Use extract_json_from_text to handle markdown and other formats
             json_str = extract_json_from_text(content)
@@ -101,7 +101,7 @@ async def find_database_object(
 
 async def execute_database_action(
     db: AsyncSession, intent: str, target_object: Any, entities: Dict
-) -> Any:
+) -> None:
     """
     Narzędzie, które wykonuje operację zapisu (UPDATE/DELETE/CREATE) lub analizy w bazie.
     """

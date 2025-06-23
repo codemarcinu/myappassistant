@@ -20,7 +20,7 @@ class QueuedRequest:
 
 
 class RequestQueue:
-    def __init__(self, max_queue_size: int = 1000, max_retries: int = 3):
+    def __init__(self, max_queue_size: int = 1000, max_retries: int = 3) -> None:
         self.queue: asyncio.Queue[QueuedRequest] = asyncio.Queue(maxsize=max_queue_size)
         self.max_retries = max_retries
         self.dead_letter_queue: asyncio.Queue[QueuedRequest] = asyncio.Queue()
@@ -72,7 +72,7 @@ class RequestQueue:
             logger.error(f"Error dequeuing request: {e}", exc_info=True)
             return None
 
-    async def requeue_request(self, request: QueuedRequest, error_reason: str):
+    async def requeue_request(self, request: QueuedRequest, error_reason: str) -> None:
         """Ponownie dodaje żądanie do kolejki, jeśli próba przetwarzania się nie powiodła."""
         request.retry_count += 1
         if request.retry_count <= self.max_retries:
@@ -94,4 +94,4 @@ class RequestQueue:
 
 
 # Global instance of the request queue
-request_queue = RequestQueue()
+request_queue: RequestQueue = RequestQueue()

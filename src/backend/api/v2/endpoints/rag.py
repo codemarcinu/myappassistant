@@ -13,7 +13,9 @@ import os
 import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Any
+import time
+import asyncio
 
 from fastapi import (
     APIRouter,
@@ -57,32 +59,32 @@ async def upload_document_to_rag(
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Upload a document to the RAG system for knowledge base enhancement.
-
-    Supported file types: PDF, TXT, DOCX, MD
+    Upload document to RAG system
     """
     try:
+        if not file.filename:
+            raise BadRequestError("File has no name")
         # Sprawdzenie typu pliku
         allowed_extensions = {".pdf", ".txt", ".docx", ".md", ".rtf"}
         file_extension = os.path.splitext(file.filename)[1].lower()
 
         if file_extension not in allowed_extensions:
             raise BadRequestError(
-                message="Unsupported file type",
+                message="Invalid file type",
                 details={
-                    "file_extension": file_extension,
-                    "supported_extensions": list(allowed_extensions),
+                    "filename": file.filename,
+                    "allowed_extensions": list(allowed_extensions),
                 },
             )
 
-        # Generowanie unikalnego ID dokumentu
+        # Zapisz plik tymczasowo
         document_id = str(uuid.uuid4())
+        temp_dir = Path("/tmp/foodsave_uploads")
+        temp_dir.mkdir(parents=True, exist_ok=True)
+        temp_file_path = str(temp_dir / f"{document_id}_{file.filename}")
 
-        # Zapisywanie pliku tymczasowo
-        temp_file_path = f"/tmp/{document_id}_{file.filename}"
-        with open(temp_file_path, "wb") as buffer:
-            content = await file.read()
-            buffer.write(content)
+        with open(temp_file_path, "wb") as f:
+            f.write(await file.read())
 
         # Przetwarzanie dokumentu w tle
         background_tasks.add_task(
@@ -90,24 +92,23 @@ async def upload_document_to_rag(
             temp_file_path,
             document_id,
             file.filename,
-            description,
+            description or "",
             tags or [],
             directory_path,
         )
 
         return RAGUploadResponse(
             success=True,
+            message="Document upload started.",
             document_id=document_id,
             filename=file.filename,
-            message="Document uploaded successfully. Processing in background.",
-            status="processing",
         )
 
-    except BadRequestError:
+    except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error uploading document: {e}")
-        raise BadRequestError(
+        logger.error(f"Failed to upload document: {e}")
+        raise UnprocessableEntityError(
             message="Failed to upload document", details={"error": str(e)}
         )
 
@@ -119,7 +120,7 @@ async def process_document_background(
     description: Optional[str],
     tags: List[str],
     directory_path: Optional[str],
-):
+) -> None:
     """Background task to process uploaded document"""
     try:
         # Przygotowanie metadanych
@@ -222,12 +223,14 @@ async def search_documents(
             filter_metadata = {"type": filter_type}
 
         # Search vector store
+        start_time = time.time()
         results = await vector_store.search(
             query=query,
             k=k,
             filter_metadata=filter_metadata,
             min_similarity=min_similarity,
         )
+        end_time = time.time()
 
         # Format results
         formatted_results = []
@@ -250,6 +253,7 @@ async def search_documents(
                     "query": query,
                     "results": formatted_results,
                     "total_results": len(formatted_results),
+                    "time_taken": end_time - start_time,
                 },
             },
         )
@@ -268,7 +272,7 @@ async def search_documents(
 
 
 @router.get("/stats", response_model=None)
-async def get_rag_stats():
+async def get_rag_stats() -> None:
     """
     Get RAG system statistics
     """
@@ -307,7 +311,7 @@ async def get_rag_stats():
 
 
 @router.delete("/documents/{source_id}", response_model=None)
-async def delete_document(source_id: str):
+async def delete_document(source_id: str) -> None:
     """
     Delete a document from RAG system by source ID
     """
@@ -468,7 +472,7 @@ async def delete_rag_document(document_id: str, db: AsyncSession = Depends(get_d
 
 
 @router.get("/directories", response_model=None)
-async def list_rag_directories():
+async def list_rag_directories() -> None:
     """
     List all RAG directories and their document counts.
     Returns a list of objects: {"path": str, "document_count": int}
@@ -762,10 +766,10 @@ async def delete_rag_directory(
         from backend.models.rag_document import RAGDocument
 
         # Find documents in this directory
-        documents = await db.execute(
+        result = await db.execute(
             select(RAGDocument).where(RAGDocument.directory_path == normalized_path)
         )
-        documents = documents.scalars().all()
+        documents = result.scalars().all()
 
         # Move documents to default directory (set directory_path to None)
         moved_count = 0
@@ -845,10 +849,10 @@ async def rename_rag_directory(
         # Get all documents in the old directory
         from backend.models.rag_document import RAGDocument
 
-        documents = await db.execute(
+        result = await db.execute(
             select(RAGDocument).where(RAGDocument.directory_path == old_normalized)
         )
-        documents = documents.scalars().all()
+        documents = result.scalars().all()
 
         # Update documents to new directory
         renamed_count = 0
@@ -904,20 +908,20 @@ async def get_directory_stats(
         # Get documents in this directory
         from backend.models.rag_document import RAGDocument
 
-        documents = await db.execute(
+        result = await db.execute(
             select(RAGDocument).where(RAGDocument.directory_path == normalized_path)
         )
-        documents = documents.scalars().all()
+        documents = result.scalars().all()
 
         # Calculate statistics
         total_documents = len(documents)
-        total_chunks = sum(doc.chunks_count for doc in documents)
+        total_chunks = sum(doc.chunks_count for doc in documents if doc.chunks_count) # handle None
         total_tags = len(set(tag for doc in documents for tag in doc.tags))
 
         # Get unique file types
         file_extensions = set()
         for doc in documents:
-            if "." in doc.filename:
+            if doc.filename and "." in doc.filename:
                 ext = doc.filename.split(".")[-1].lower()
                 file_extensions.add(ext)
 
@@ -927,7 +931,7 @@ async def get_directory_stats(
             doc
             for doc in documents
             if doc.uploaded_at
-            and datetime.fromisoformat(doc.uploaded_at.replace("Z", "+00:00"))
+            and isinstance(doc.uploaded_at, str) and datetime.fromisoformat(doc.uploaded_at.replace("Z", "+00:00"))
             > thirty_days_ago
         ]
 
@@ -961,3 +965,54 @@ async def get_directory_stats(
                 "details": {"error": str(e)},
             },
         )
+
+
+async def test_upload_and_search(db: AsyncSession = Depends(get_db)): # type: ignore
+    """Test full RAG pipeline"""
+    # 1. Upload a test file
+    # This needs a real file to upload, so we'll simulate
+    document_id = str(uuid.uuid4())
+    filename = "test_document.txt"
+    file_content = "This is a test document about food safety and AI."
+    temp_file_path = f"/tmp/{filename}"
+    with open(temp_file_path, "w") as f:
+        f.write(file_content)
+
+    await process_document_background(
+        temp_file_path, document_id, filename, "Test document", ["test"], "test_dir"
+    )
+
+    # 2. Search for the content
+    results = await vector_store.search(query="food safety", k=1) # type: ignore
+
+    # 3. Verify
+    if results and results[0]["metadata"]["document_id"] == document_id: # type: ignore
+        return {"status": "success", "message": "Test passed"}
+    else:
+        return {"status": "failed", "message": "Test failed"}
+
+
+async def test_full_rag_pipeline( # type: ignore
+    db: AsyncSession = Depends(get_db),
+    file: UploadFile = File(...),
+    query: str = Query(...),
+):
+    """Test full RAG pipeline from upload to query"""
+    # Upload
+    upload_response = await upload_document_to_rag( # type: ignore
+        background_tasks=BackgroundTasks(), file=file, db=db
+    )
+    document_id = upload_response.document_id # type: ignore
+
+    # Allow time for processing
+    await asyncio.sleep(5)
+
+    # Query
+    query_response = await query_rag( # type: ignore
+        request=RAGQueryRequest(question=query, max_results=1), db=db
+    )
+
+    return {
+        "upload_response": upload_response.dict(), # type: ignore
+        "query_response": query_response.dict(), # type: ignore
+    }

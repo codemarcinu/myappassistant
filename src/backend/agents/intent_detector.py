@@ -1,3 +1,4 @@
+from __future__ import annotations
 import json
 import logging
 
@@ -6,12 +7,14 @@ import httpx
 from backend.agents.interfaces import IntentData, MemoryContext
 from backend.core.hybrid_llm_client import hybrid_llm_client
 from backend.core.utils import extract_json_from_text
+from typing import Any, Dict, List, Optional, Union, Callable
+from typing import AsyncGenerator, Coroutine
 
 logger = logging.getLogger(__name__)
 
 
 class SimpleIntentDetector:
-    def __init__(self):
+    def __init__(self) -> None:
         self.ollama_available = self._check_ollama_availability()
 
     def _check_ollama_availability(self) -> bool:

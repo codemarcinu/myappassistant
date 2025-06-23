@@ -15,16 +15,16 @@ logger = logging.getLogger(__name__)
 
 
 class IntentDataset(torch.utils.data.Dataset):
-    def __init__(self, encodings, labels):
+    def __init__(self, encodings, labels) -> None:
         self.encodings = encodings
         self.labels = labels
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx) -> None:
         item = {key: torch.tensor(val[idx]) for key, val in self.encodings.items()}
         item["labels"] = torch.tensor(self.labels[idx])
         return item
 
-    def __len__(self):
+    def __len__(self) -> None:
         return len(self.labels)
 
 
@@ -34,7 +34,7 @@ class IntentTrainer:
         tokenizer,
         model_name: str = "distilbert-base-uncased",
         num_labels: int = 2,
-    ):
+    ) -> None:
         self.tokenizer = tokenizer
         self.model = AutoModelForSequenceClassification.from_pretrained(
             model_name, num_labels=num_labels
@@ -48,7 +48,7 @@ class IntentTrainer:
             raise ValueError("CSV must contain 'text' and 'intent' columns.")
         return df
 
-    def prepare_data(self, df: pd.DataFrame, label_map: Dict[str, int]):
+    def prepare_data(self, df: pd.DataFrame, label_map: Dict[str, int]) -> None:
         """Przygotowuje dane do treningu (tokenizacja, mapowanie etykiet)."""
         texts = df["text"].tolist()
         labels = [label_map[intent] for intent in df["intent"].tolist()]
@@ -57,7 +57,7 @@ class IntentTrainer:
 
         return IntentDataset(encodings, labels)
 
-    async def train(self, train_dataset, val_dataset, output_dir: str = "./results"):
+    async def train(self, train_dataset, val_dataset, output_dir: str = "./results") -> None:
         """Trenuje model klasyfikacji intencji."""
         logging_args = TrainingArguments(
             output_dir=output_dir,
@@ -68,7 +68,7 @@ class IntentTrainer:
             weight_decay=0.01,  # siła weight decay
             logging_dir=f"{output_dir}/logs",  # katalog do logów TensorBoard
             logging_steps=100,
-            evaluation_strategy="epoch",
+            eval_strategy="epoch",
             save_strategy="epoch",
             load_best_model_at_end=True,
             metric_for_best_model="eval_loss",

@@ -1,10 +1,11 @@
+from backend.core.hybrid_llm_client import hybrid_llm_client
 import logging
 import os
 from datetime import datetime, timedelta
-from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
+from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple, Type
 
 import httpx
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 from ..config import settings
 from ..core.cache_manager import cache_manager
@@ -36,7 +37,7 @@ class WeatherProvider(BaseModel):
     last_success: Optional[datetime] = None
     last_error: Optional[str] = None
     error_count: int = 0
-    model_config: dict = {"extra": "allow"}
+    model_config = ConfigDict(extra="allow")
 
     @property
     def is_enabled(self) -> bool:
@@ -86,14 +87,14 @@ class WeatherAgent(BaseAgent):
         fallback_manager=None,
         alert_service=None,
         **kwargs,
-    ):
+    ) -> None:
         super().__init__(
             name=name,
             error_handler=error_handler,
             fallback_manager=fallback_manager,
             **kwargs,
         )
-        self.input_model = WeatherRequest
+        self.input_model: Type[WeatherRequest] = WeatherRequest  # type: ignore
         self.providers: List[WeatherProvider] = self._init_providers()
         self.http_client = httpx.AsyncClient(timeout=20.0)
         self.cache: Dict[str, Tuple[WeatherData, datetime]] = {}
@@ -144,7 +145,8 @@ class WeatherAgent(BaseAgent):
                         f"OpenWeatherMap API key not configured or using placeholder"
                     )
             else:
-                provider.api_key = os.environ.get(provider.api_key_env_var)
+                if provider.api_key_env_var:
+                    provider.api_key = os.environ.get(provider.api_key_env_var)
 
             if not provider.api_key:
                 provider.enabled = False
@@ -302,7 +304,7 @@ class WeatherAgent(BaseAgent):
 
         try:
             url = f"{provider.base_url}/forecast.json"
-            params = {
+            params: Dict[str, Any] = {
                 "key": provider.api_key,
                 "q": location,
                 "days": days,
@@ -372,7 +374,7 @@ class WeatherAgent(BaseAgent):
                 logger.error(
                     f"WeatherAPI authentication failed (401): Invalid API key for {provider.name}"
                 )
-                provider.is_enabled = False
+                provider.enabled = False
                 provider.last_error = "Invalid API key - provider disabled"
                 raise ConfigurationError(
                     f"Invalid API key for {provider.name}",
@@ -469,7 +471,7 @@ class WeatherAgent(BaseAgent):
 
             # Parse forecast (daily averages)
             forecast = []
-            daily_data = {}
+            daily_data: Dict[str, Dict[str, List[Any]]] = {}
 
             for item in forecast_data.get("list", []):
                 date = item.get("dt_txt", "").split(" ")[0]
@@ -512,7 +514,7 @@ class WeatherAgent(BaseAgent):
                 logger.error(
                     f"OpenWeatherMap authentication failed (401): Invalid API key for {provider.name}"
                 )
-                provider.is_enabled = False
+                provider.enabled = False
                 provider.last_error = "Invalid API key - provider disabled"
                 raise ConfigurationError(
                     f"Invalid API key for {provider.name}",
@@ -703,8 +705,8 @@ class WeatherAgent(BaseAgent):
         await self.http_client.aclose()
 
     @handle_exceptions(max_retries=1)
-    def get_dependencies(self, *args, **kwargs) -> list[str]:
-        return ["hybrid_llm_client"]
+    def get_dependencies(self) -> list[type]:
+        return [type(hybrid_llm_client)]
 
     def get_metadata(self) -> dict:
         """Return metadata about this agent"""
@@ -769,7 +771,7 @@ class WeatherAgent(BaseAgent):
             forecast.append(day_forecast)
 
         # Generate mock alerts (empty for now)
-        alerts = []
+        alerts: List[WeatherAlert] = []
 
         return WeatherData(
             location=location,

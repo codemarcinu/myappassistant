@@ -1,6 +1,8 @@
+from __future__ import annotations
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
+from typing import Any, Dict, List, Optional, Union, Callable, AsyncGenerator, Coroutine
 
 from backend.agents.ocr_agent import OCRAgent, OCRAgentInput
 from backend.agents.receipt_analysis_agent import ReceiptAnalysisAgent

@@ -1,3 +1,6 @@
+from __future__ import annotations
+from typing import Any, Dict, List, Optional, Union, Callable
+from typing import AsyncGenerator, Coroutine
 """
 Tests for updated Intent Detector with new conversation types
 
@@ -21,17 +24,17 @@ class TestIntentDetectorNew:
     """Test suite for updated Intent Detector"""
 
     @pytest.fixture
-    def detector(self):
+    def detector(self) -> None:
         """Create a SimpleIntentDetector instance for testing"""
         return SimpleIntentDetector()
 
     @pytest.fixture
-    def context(self):
+    def context(self) -> None:
         """Create a MemoryContext instance for testing"""
         return MemoryContext(session_id="test_session")
 
     @pytest.mark.asyncio
-    async def test_shopping_conversation_detection(self, detector, context):
+    async def test_shopping_conversation_detection(self, detector, context) -> None:
         """Test detection of shopping-related conversations"""
         shopping_queries = [
             "Kupiłem dzisiaj mleko za 5 zł",
@@ -53,7 +56,7 @@ class TestIntentDetectorNew:
                 assert intent.confidence >= 0.8
 
     @pytest.mark.asyncio
-    async def test_food_conversation_detection(self, detector, context):
+    async def test_food_conversation_detection(self, detector, context) -> None:
         """Test detection of food-related conversations"""
         food_queries = [
             "Jak ugotować spaghetti?",
@@ -77,7 +80,7 @@ class TestIntentDetectorNew:
                 assert intent.confidence > 0
 
     @pytest.mark.asyncio
-    async def test_information_query_detection(self, detector, context):
+    async def test_information_query_detection(self, detector, context) -> None:
         """Test detection of information queries"""
         info_queries = [
             "Co to jest sztuczna inteligencja?",
@@ -101,7 +104,7 @@ class TestIntentDetectorNew:
                 assert intent.confidence > 0
 
     @pytest.mark.asyncio
-    async def test_general_conversation_detection(self, detector, context):
+    async def test_general_conversation_detection(self, detector, context) -> None:
         """Test detection of general conversations"""
         general_queries = [
             "Cześć, jak się masz?",
@@ -125,7 +128,7 @@ class TestIntentDetectorNew:
                 assert intent.confidence > 0
 
     @pytest.mark.asyncio
-    async def test_weather_intent_detection(self, detector, context):
+    async def test_weather_intent_detection(self, detector, context) -> None:
         """Test detection of weather-related queries"""
         weather_queries = [
             "Jaka będzie pogoda w Warszawie?",
@@ -149,7 +152,7 @@ class TestIntentDetectorNew:
                 assert intent.confidence > 0
 
     @pytest.mark.asyncio
-    async def test_cooking_intent_detection(self, detector, context):
+    async def test_cooking_intent_detection(self, detector, context) -> None:
         """Test detection of cooking-related queries"""
         cooking_queries = [
             "Jak ugotować ryż?",
@@ -173,7 +176,7 @@ class TestIntentDetectorNew:
                 assert intent.confidence > 0
 
     @pytest.mark.asyncio
-    async def test_search_intent_detection(self, detector, context):
+    async def test_search_intent_detection(self, detector, context) -> None:
         """Test detection of search-related queries"""
         search_queries = [
             "Znajdź informacje o Pythonie",
@@ -197,7 +200,7 @@ class TestIntentDetectorNew:
                 assert intent.confidence > 0
 
     @pytest.mark.asyncio
-    async def test_ocr_intent_detection(self, detector, context):
+    async def test_ocr_intent_detection(self, detector, context) -> None:
         """Test detection of OCR-related queries"""
         ocr_queries = [
             "Przetwórz załączony paragon",
@@ -221,7 +224,7 @@ class TestIntentDetectorNew:
                 assert intent.confidence > 0
 
     @pytest.mark.asyncio
-    async def test_fallback_to_general_conversation(self, detector, context):
+    async def test_fallback_to_general_conversation(self, detector, context) -> None:
         """Test fallback to general conversation for unclear queries"""
         unclear_queries = [
             "Hmm...",
@@ -245,7 +248,7 @@ class TestIntentDetectorNew:
                 assert intent.confidence > 0
 
     @pytest.mark.asyncio
-    async def test_llm_response_parsing(self, detector, context):
+    async def test_llm_response_parsing(self, detector, context) -> None:
         """Test parsing of LLM responses"""
         test_cases = [
             ({"intent": "shopping_conversation"}, "shopping_conversation"),
@@ -265,7 +268,7 @@ class TestIntentDetectorNew:
                 assert intent.confidence == 1.0
 
     @pytest.mark.asyncio
-    async def test_error_handling(self, detector, context):
+    async def test_error_handling(self, detector, context) -> None:
         """Test error handling in intent detection"""
         with patch("src.backend.core.llm_client.llm_client.chat") as mock_chat:
             mock_chat.side_effect = Exception("LLM error")

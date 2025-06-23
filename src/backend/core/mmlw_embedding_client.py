@@ -24,7 +24,7 @@ class MMLWEmbeddingClient:
     Specjalizowany dla języka polskiego i zadań wyszukiwania informacji
     """
 
-    def __init__(self, model_name: str = "sdadas/mmlw-retrieval-roberta-base"):
+    def __init__(self, model_name: str = "sdadas/mmlw-retrieval-roberta-base") -> None:
         self.model_name = model_name
         self.tokenizer = None
         self.model = None
@@ -33,7 +33,7 @@ class MMLWEmbeddingClient:
         self._initialization_lock = asyncio.Lock()
         self._initialization_task = None
 
-    async def _ensure_initialized(self):
+    async def _ensure_initialized(self) -> None:
         """Zapewnia, że model jest zainicjalizowany (lazy loading)"""
         if self.is_initialized:
             return True
@@ -52,7 +52,7 @@ class MMLWEmbeddingClient:
             await self._initialization_task
             return self.is_initialized
 
-    async def _initialize_model(self):
+    async def _initialize_model(self) -> None:
         """Wewnętrzna metoda inicjalizacji modelu"""
         if not TRANSFORMERS_AVAILABLE:
             logger.error("Transformers not available. Cannot initialize MMLW.")
@@ -87,7 +87,7 @@ class MMLWEmbeddingClient:
             self.is_initialized = False
             return False
 
-    async def initialize(self):
+    async def initialize(self) -> None:
         """Inicjalizacja modelu MMLW (deprecated - użyj _ensure_initialized)"""
         return await self._ensure_initialized()
 
@@ -102,8 +102,8 @@ class MMLWEmbeddingClient:
             Lista floatów reprezentująca embedding (768 wymiarów)
         """
         # Lazy loading - zainicjalizuj model jeśli potrzebny
-        if not await self._ensure_initialized():
-            logger.error("MMLW model not initialized")
+        if not await self._ensure_initialized() or not self.tokenizer or not self.model:
+            logger.error("MMLW model not initialized or tokenizer/model is None")
             return []
 
         try:
@@ -141,8 +141,8 @@ class MMLWEmbeddingClient:
             Lista list floatów reprezentujących embeddingi
         """
         # Lazy loading - zainicjalizuj model jeśli potrzebny
-        if not await self._ensure_initialized():
-            logger.error("MMLW model not initialized")
+        if not await self._ensure_initialized() or not self.tokenizer or not self.model:
+            logger.error("MMLW model not initialized or tokenizer/model is None")
             return [[] for _ in texts]
 
         embeddings = []

@@ -1,9 +1,12 @@
+from __future__ import annotations
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from backend.agents.interfaces import AgentResponse, IntentData
 from backend.agents.orchestrator import Orchestrator
+from typing import Any, Dict, List, Optional, Union, Callable
+from typing import AsyncGenerator, Coroutine
 
 PROMPTS = [
     # Chef Agent
@@ -26,7 +29,7 @@ PROMPTS = [
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("prompt,expected_agent", PROMPTS)
-async def test_agent_prompt_routing(prompt, expected_agent):
+async def test_agent_prompt_routing(prompt, expected_agent) -> None:
     """Testuje routing promptów do odpowiednich agentów"""
     mock_db = AsyncMock()
     mock_profile_manager = AsyncMock()

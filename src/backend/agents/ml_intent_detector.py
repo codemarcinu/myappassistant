@@ -20,7 +20,7 @@ class BERTIntentDetector:
         self,
         model_name: str = "distilbert-base-uncased",
         labels: Optional[List[str]] = None,
-    ):
+    ) -> None:
         self.model_name = model_name
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
         self.classifier = None
@@ -41,7 +41,7 @@ class BERTIntentDetector:
         )
         self._is_initialized = False
 
-    async def initialize(self):
+    async def initialize(self) -> None:
         """Inicjalizuje model i klasyfikator."""
         if self._is_initialized:
             return
@@ -85,6 +85,9 @@ class BERTIntentDetector:
         processed_text = self._preprocess_text(text, context)
 
         try:
+            if not self.classifier:
+                raise RuntimeError("Classifier is not initialized.")
+
             predictions = self.classifier(processed_text)[
                 0
             ]  # pipeline zwraca listę list, bierzemy pierwszy wynik
@@ -108,13 +111,12 @@ class BERTIntentDetector:
                 return self._fallback_detection_simple(text)
 
             # TODO: Dodaj ekstrakcję encji, jeśli model BERT jest przystosowany do NER
-            entities = {}
+            entities: Dict[str, Any] = {}
 
             return IntentData(
                 type=best_intent_type,
                 entities=entities,
                 confidence=max_confidence,
-                all_scores=intent_scores,  # Opcjonalnie, dla debugowania
             )
 
         except Exception as e:
