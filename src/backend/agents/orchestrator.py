@@ -59,73 +59,6 @@ class Orchestrator:
         logger.info("Default agent initialization skipped - using dependency injection instead")
         # W nowej wersji agenty są wstrzykiwane przez AgentFactory
 
-
-# Prosty CircuitBreaker bez zewnętrznych zależności
-class SimpleCircuitBreaker:
-    """
-    Prosty CircuitBreaker do zabezpieczenia wywołań asynchronicznych
-    bez używania problematycznej biblioteki pybreaker
-    """
-    
-    # Stałe dla stanu
-    STATE_CLOSED = "closed"
-    STATE_OPEN = "open"
-    STATE_HALF_OPEN = "half-open"
-    
-    def __init__(self, name: str, fail_max: int = 3, reset_timeout: int = 60) -> None:
-        """Inicjalizacja Circuit Breaker"""
-        self.name = name
-        self.fail_max = fail_max
-        self.reset_timeout = reset_timeout
-        self.current_state = self.STATE_CLOSED
-        self.failures = 0
-        self.last_failure_time = 0
-        self.profile_manager = None
-        logger.info(f"Initialized SimpleCircuitBreaker({name}) with fail_max={fail_max}, reset_timeout={reset_timeout}")
-    
-    async def call_async(self, func, *args, **kwargs) -> None:
-        """Wykonaj funkcję asynchroniczną z zabezpieczeniem circuit breaker"""
-        current_time = datetime.now().timestamp()
-        
-        # Sprawdź, czy obwód jest otwarty i czy minął czas na reset
-        if self.current_state == self.STATE_OPEN:
-            if current_time - self.last_failure_time > self.reset_timeout:
-                logger.info(f"CircuitBreaker({self.name}) reset timeout expired, moving to half-open")
-                self.current_state = self.STATE_HALF_OPEN
-            else:
-                logger.warning(f"CircuitBreaker({self.name}) is OPEN, rejecting call")
-                raise pybreaker.CircuitBreakerError(
-                    f"CircuitBreaker {self.name} is OPEN. Try again later."
-                )
-                
-        try:
-            # Wywołaj funkcję
-            result = await func(*args, **kwargs)
-            
-            # Sukces - zresetuj licznik błędów
-            if self.current_state in [self.STATE_CLOSED, self.STATE_HALF_OPEN]:
-                self.failures = 0
-                self.current_state = self.STATE_CLOSED
-                
-            return result
-            
-        except Exception as e:
-            # Obsługa błędu
-            self.failures += 1
-            self.last_failure_time = current_time
-            
-            logger.warning(
-                f"CircuitBreaker({self.name}) recorded failure {self.failures}/{self.fail_max}: {str(e)}"
-            )
-            
-            # Jeśli przekroczono limit błędów, otwórz obwód
-            if self.failures >= self.fail_max:
-                self.current_state = self.STATE_OPEN
-                logger.error(f"CircuitBreaker({self.name}) is now OPEN")
-                
-            # Przekaż błąd dalej
-            raise
-
     def _format_error_response(self, error: Exception) -> AgentResponse:
         """Format a standardized error response using AgentResponse"""
         if isinstance(error, (OrchestratorError, ValueError)):
@@ -251,7 +184,7 @@ class SimpleCircuitBreaker:
 
             # 2. Log activity
             await self.profile_manager.log_activity(
-                session_id, InteractionType.TEXT_QUERY, user_command
+                session_id, InteractionType.QUERY, user_command
             )
 
             # 3. Detect intent
@@ -321,6 +254,73 @@ class SimpleCircuitBreaker:
         Initializes all registered agents.
         """
         # Implementation of _initialize_agents method
+
+
+# Prosty CircuitBreaker bez zewnętrznych zależności
+class SimpleCircuitBreaker:
+    """
+    Prosty CircuitBreaker do zabezpieczenia wywołań asynchronicznych
+    bez używania problematycznej biblioteki pybreaker
+    """
+    
+    # Stałe dla stanu
+    STATE_CLOSED = "closed"
+    STATE_OPEN = "open"
+    STATE_HALF_OPEN = "half-open"
+    
+    def __init__(self, name: str, fail_max: int = 3, reset_timeout: int = 60) -> None:
+        """Inicjalizacja Circuit Breaker"""
+        self.name = name
+        self.fail_max = fail_max
+        self.reset_timeout = reset_timeout
+        self.current_state = self.STATE_CLOSED
+        self.failures = 0
+        self.last_failure_time = 0
+        self.profile_manager = None
+        logger.info(f"Initialized SimpleCircuitBreaker({name}) with fail_max={fail_max}, reset_timeout={reset_timeout}")
+    
+    async def call_async(self, func, *args, **kwargs) -> None:
+        """Wykonaj funkcję asynchroniczną z zabezpieczeniem circuit breaker"""
+        current_time = datetime.now().timestamp()
+        
+        # Sprawdź, czy obwód jest otwarty i czy minął czas na reset
+        if self.current_state == self.STATE_OPEN:
+            if current_time - self.last_failure_time > self.reset_timeout:
+                logger.info(f"CircuitBreaker({self.name}) reset timeout expired, moving to half-open")
+                self.current_state = self.STATE_HALF_OPEN
+            else:
+                logger.warning(f"CircuitBreaker({self.name}) is OPEN, rejecting call")
+                raise pybreaker.CircuitBreakerError(
+                    f"CircuitBreaker {self.name} is OPEN. Try again later."
+                )
+                
+        try:
+            # Wywołaj funkcję
+            result = await func(*args, **kwargs)
+            
+            # Sukces - zresetuj licznik błędów
+            if self.current_state in [self.STATE_CLOSED, self.STATE_HALF_OPEN]:
+                self.failures = 0
+                self.current_state = self.STATE_CLOSED
+                
+            return result
+            
+        except Exception as e:
+            # Obsługa błędu
+            self.failures += 1
+            self.last_failure_time = current_time
+            
+            logger.warning(
+                f"CircuitBreaker({self.name}) recorded failure {self.failures}/{self.fail_max}: {str(e)}"
+            )
+            
+            # Jeśli przekroczono limit błędów, otwórz obwód
+            if self.failures >= self.fail_max:
+                self.current_state = self.STATE_OPEN
+                logger.error(f"CircuitBreaker({self.name}) is now OPEN")
+                
+            # Przekaż błąd dalej
+            raise
 
 
 # Export for direct import will be handled elsewhere to avoid circular imports
