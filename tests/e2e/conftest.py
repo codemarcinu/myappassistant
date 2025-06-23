@@ -4,6 +4,24 @@ import pytest_asyncio
 # Tutaj można dodać fixture specyficzne dla testów e2e
 
 
+@pytest_asyncio.fixture
+async def db_session():
+    """
+    Async fixture dla sesji bazodanowej z cleanup.
+    """
+    from src.backend.core.database import AsyncSessionLocal
+
+    async with AsyncSessionLocal() as session:
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
+        finally:
+            await session.close()
+
+
 @pytest.fixture
 def mock_ocr_success(mocker):
     """
