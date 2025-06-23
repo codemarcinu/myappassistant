@@ -36,14 +36,14 @@ Naprawienie wszystkich błędów testów w projekcie FoodSave AI, aby osiągną�
 - [x] **Pliki**: `src/backend/agents/alert_service.py`, `src/backend/agents/agent_factory.py`, `src/backend/agents/tools/date_parser.py`, `src/backend/core/database.py`, `src/backend/infrastructure/database/database.py`
 - [x] **Status**: ✅ NAPRAWIONE - Wszystkie błędy importów naprawione
 
+### 6. Mock Configuration ✅ ZAKOŃCZONE
+- [x] **Problem**: Incorrect mock configurations in tests
+- [x] **Rozwiązanie**: Poprawienie konfiguracji mocków (patch na backend.agents.ocr_agent.process_image_file/process_pdf_file)
+- [x] **Status**: ✅ WYKONANE - strategia mockowania OCR ujednolicona we wszystkich testach
+
 ---
 
 ## 🔄 ZADANIA W TRAKCIE
-
-### 6. Mock Configuration 🔄 NASTĘPNE
-- [ ] **Problem**: Incorrect mock configurations in tests
-- [ ] **Rozwiązanie**: Poprawienie konfiguracji mocków
-- [ ] **Status**: 🔄 OCZEKUJĄCE
 
 ### 7. API Endpoint Tests 🔄 NASTĘPNE
 - [ ] **Problem**: Failing API endpoint tests

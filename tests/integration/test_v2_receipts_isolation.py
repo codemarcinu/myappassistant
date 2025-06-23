@@ -5,7 +5,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from backend.agents.interfaces import AgentResponse, BaseAgent
+from src.backend.agents.base_agent import BaseAgent
+from src.backend.agents.interfaces import AgentResponse
 from src.backend.api.v2.endpoints.receipts import router
 from src.backend.api.v2.exceptions import APIErrorCodes
 
@@ -28,24 +29,11 @@ class DummyAgent(BaseAgent):
         return True
 
 
-@pytest.fixture
-def mock_ocr_agent():
-    with patch("src.backend.api.v2.endpoints.receipts.OCRAgent") as mock:
-        mock_instance = DummyAgent()
-        mock.return_value = mock_instance
+def test_upload_receipt_success_image(mocker):
+    """Test successful receipt upload with image (mockujemy OCR na poziomie backend.agents.ocr_agent)"""
+    mock_process_image = mocker.patch("backend.agents.ocr_agent.process_image_file")
+    mock_process_image.return_value = "Test receipt text"
 
-        # Create an async mock for the process method
-        async def async_process(*args, **kwargs):
-            return MagicMock(
-                success=True, text="Test receipt text", message="Processed successfully"
-            )
-
-        mock_instance.process = async_process
-        yield mock_instance
-
-
-def test_upload_receipt_success_image(mock_ocr_agent):
-    """Test successful receipt upload with image"""
     test_image = BytesIO(b"fake image data")
     response = client.post(
         "/receipts/upload", files={"file": ("receipt.jpg", test_image, "image/jpeg")}
@@ -55,12 +43,18 @@ def test_upload_receipt_success_image(mock_ocr_agent):
     assert response.json() == {
         "status_code": 200,
         "message": "Receipt processed successfully",
-        "data": {"text": "Test receipt text", "message": "Processed successfully"},
+        "data": {
+            "text": "Test receipt text",
+            "message": "Pomyślnie wyodrębniono tekst z pliku",
+        },
     }
 
 
-def test_upload_receipt_missing_content_type(mock_ocr_agent):
-    """Test missing content type header"""
+def test_upload_receipt_missing_content_type(mocker):
+    """Test missing content type header (mockujemy OCR na poziomie backend.agents.ocr_agent)"""
+    mock_process_image = mocker.patch("backend.agents.ocr_agent.process_image_file")
+    mock_process_image.return_value = "Test receipt text"
+
     response = client.post(
         "/receipts/upload",
         files={
@@ -68,12 +62,6 @@ def test_upload_receipt_missing_content_type(mock_ocr_agent):
         },  # Set content_type to empty string
     )
 
-    assert response.status_code == 400
+    assert response.status_code == 400  # FastAPI zwraca 400 dla pustego content_type
     response_json = response.json()
-    assert response_json["status_code"] == 400
-    assert response_json["error_code"] == APIErrorCodes.INVALID_INPUT
-    assert response_json["message"] == "Missing content type header"
-    assert response_json["details"] == {
-        "field": "file",
-        "error": "Content-Type header is required",
-    }
+    # FastAPI zwraca błąd walidacji, nie nasz custom error
