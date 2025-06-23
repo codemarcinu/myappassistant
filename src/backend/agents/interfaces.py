@@ -90,6 +90,10 @@ class AgentType(Enum):
     MEAL_PLANNER = "MealPlanner"
     ANALYTICS = "Analytics"
     GENERAL_CONVERSATION = "GeneralConversation"  # Nowy typ dla swobodnych konwersacji
+    GENERAL = "General"  # Alias dla GENERAL_CONVERSATION
+    COOKING = "Cooking"  # Alias dla CHEF
+    CODE = "Code"  # Dla generowania kodu
+    SHOPPING = "Shopping"  # Dla zakupów
 
 
 class AgentStatus(Enum):

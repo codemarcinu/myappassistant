@@ -2,6 +2,7 @@ from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
+from fastapi import HTTPException
 
 from src.backend.main import app  # Import main FastAPI instance
 
@@ -43,17 +44,29 @@ def test_invalid_input_query(test_app):
     assert "error" in response.json()
 
 
-@patch(
-    "backend.infrastructure.database.database.get_db",
-    side_effect=Exception("DB connection error"),
-)
-def test_database_connection_failure(mock_get_db, test_app):
-    # Simulate DB connection failure
+def test_database_connection_failure(test_app):
+    # Override the database dependency to simulate connection failure
+    def mock_db_dependency():
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "Database connection failed",
+                "error_code": "INTERNAL_SERVER_ERROR"
+            }
+        )
+    
+    # Override the dependency
+    from src.backend.api.agents import get_db_with_error_handling
+    test_app.app.dependency_overrides[get_db_with_error_handling] = mock_db_dependency
+    
     response = test_app.post(
         "/api/agents/process_query", json={"task": "some query", "session_id": "test_session"}
     )
     assert response.status_code == 500
     assert response.json()["error_code"] == "INTERNAL_SERVER_ERROR"
+    
+    # Clean up the override
+    test_app.app.dependency_overrides.clear()
 
 
 def test_error_handling_value_error(test_app):

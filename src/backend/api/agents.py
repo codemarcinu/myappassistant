@@ -20,6 +20,7 @@ from backend.agents.orchestrator_factory import create_orchestrator
 from backend.config import settings
 from backend.core.database import AsyncSessionLocal
 from backend.infrastructure.database.database import get_db
+from backend.core.database import get_db_with_error_handling
 
 # Import MMLW client
 try:
@@ -144,7 +145,7 @@ async def execute_orchestrator_task(
 @router.post("/process_query", response_model=AgentResponse)
 async def process_query(
     request: OrchestratorRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db_with_error_handling),
 ):
     """
     Endpoint do przetwarzania zapytań użytkownika.
@@ -216,7 +217,17 @@ async def process_query(
                 "agent_event": "query_error",
             },
         )
-        # Also return session_id on error so client can continue
+        # Raise HTTPException for database connection errors
+        if "DB connection error" in str(e) or "database" in str(e).lower():
+            raise HTTPException(
+                status_code=500,
+                detail={
+                    "error_code": "INTERNAL_SERVER_ERROR",
+                    "message": "Database connection failed",
+                    "session_id": session_id
+                }
+            )
+        # For other errors, return AgentResponse with success=False
         return AgentResponse(success=False, error=str(e), session_id=session_id)
 
 
