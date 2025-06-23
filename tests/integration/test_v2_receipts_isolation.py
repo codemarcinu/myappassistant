@@ -29,16 +29,12 @@ class DummyAgent(BaseAgent):
         return True
 
 
-def test_upload_receipt_success_image(mocker):
-    """Test successful receipt upload with image (mockujemy OCR na poziomie backend.agents.ocr_agent)"""
-    mock_process_image = mocker.patch("backend.agents.ocr_agent.process_image_file")
-    mock_process_image.return_value = "Test receipt text"
-
+def test_upload_receipt_success_image(client, mock_ocr_success):
     test_image = BytesIO(b"fake image data")
     response = client.post(
-        "/receipts/upload", files={"file": ("receipt.jpg", test_image, "image/jpeg")}
+        "/api/v2/receipts/upload",
+        files={"file": ("receipt.jpg", test_image, "image/jpeg")},
     )
-
     assert response.status_code == 200
     assert response.json() == {
         "status_code": 200,
@@ -50,18 +46,13 @@ def test_upload_receipt_success_image(mocker):
     }
 
 
-def test_upload_receipt_missing_content_type(mocker):
-    """Test missing content type header (mockujemy OCR na poziomie backend.agents.ocr_agent)"""
-    mock_process_image = mocker.patch("backend.agents.ocr_agent.process_image_file")
-    mock_process_image.return_value = "Test receipt text"
-
+def test_upload_receipt_missing_content_type(client, mock_ocr_success):
     response = client.post(
-        "/receipts/upload",
+        "/api/v2/receipts/upload",
         files={
             "file": ("receipt.jpg", b"fake data", "")
         },  # Set content_type to empty string
     )
-
     assert response.status_code == 400  # FastAPI zwraca 400 dla pustego content_type
     response_json = response.json()
     # FastAPI zwraca błąd walidacji, nie nasz custom error

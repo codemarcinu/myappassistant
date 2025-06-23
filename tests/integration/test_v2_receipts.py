@@ -27,10 +27,10 @@ class DummyAgent(BaseAgent):
         return True
 
 
-def test_upload_receipt_success_image(mocker):
+def test_upload_receipt_success_image(client, mock_ocr_success):
     """Test successful receipt upload with image"""
     # Mock process_image_file function in OCRAgent module
-    mock_process_image = mocker.patch("backend.agents.ocr_agent.process_image_file")
+    mock_process_image = client.patch("backend.agents.ocr_agent.process_image_file")
     mock_process_image.return_value = "Test receipt text"
 
     test_image = BytesIO(b"fake image data")
@@ -50,18 +50,12 @@ def test_upload_receipt_success_image(mocker):
     }
 
 
-def test_upload_receipt_success_pdf(mocker):
-    """Test successful receipt upload with PDF"""
-    # Mock process_pdf_file function in OCRAgent module
-    mock_process_pdf = mocker.patch("backend.agents.ocr_agent.process_pdf_file")
-    mock_process_pdf.return_value = "Test PDF receipt"
-
+def test_upload_receipt_success_pdf(client, mock_ocr_pdf_success):
     test_pdf = BytesIO(b"fake pdf data")
     response = client.post(
         "/api/v2/receipts/upload",
         files={"file": ("receipt.pdf", test_pdf, "application/pdf")},
     )
-
     assert response.status_code == 200
     assert response.json()["data"]["text"] == "Test PDF receipt"
 
@@ -88,36 +82,22 @@ def test_upload_receipt_unsupported_type():
     # Sprawdzamy czy błąd zawiera informację o nieobsługiwanym typie pliku
 
 
-def test_upload_receipt_processing_error(mocker):
-    """Test receipt processing failure"""
-    # Mock process_image_file to return None (failure)
-    mock_process_image = mocker.patch("backend.agents.ocr_agent.process_image_file")
-    mock_process_image.return_value = None
-
+def test_upload_receipt_processing_error(client, mock_ocr_failure):
     test_image = BytesIO(b"fake image data")
     response = client.post(
         "/api/v2/receipts/upload",
         files={"file": ("receipt.jpg", test_image, "image/jpeg")},
     )
-
     assert response.status_code == 422
-    # Sprawdzamy czy błąd zawiera informację o błędzie przetwarzania
 
 
-def test_upload_receipt_internal_error(mocker):
-    """Test unexpected internal error"""
-    # Mock process_image_file to raise exception
-    mock_process_image = mocker.patch("backend.agents.ocr_agent.process_image_file")
-    mock_process_image.side_effect = Exception("Unexpected error")
-
+def test_upload_receipt_internal_error(client, mock_ocr_exception):
     test_image = BytesIO(b"fake image data")
     response = client.post(
         "/api/v2/receipts/upload",
         files={"file": ("receipt.jpg", test_image, "image/jpeg")},
     )
-
     assert response.status_code == 422
-    # Sprawdzamy czy błąd zawiera informację o błędzie przetwarzania
     response_data = response.json()
     assert "Failed to process receipt" in response_data["error"]["message"]
 

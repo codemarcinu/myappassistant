@@ -40,6 +40,7 @@ Naprawienie wszystkich błędów testów w projekcie FoodSave AI, aby osiągną�
 - [x] **Problem**: Incorrect mock configurations in tests
 - [x] **Rozwiązanie**: Poprawienie konfiguracji mocków (patch na backend.agents.ocr_agent.process_image_file/process_pdf_file)
 - [x] **Status**: ✅ WYKONANE - strategia mockowania OCR ujednolicona we wszystkich testach
+- [x] **Szablon fixture**: ✅ DODANE - fixture do mockowania OCR w conftest.py (mock_ocr_success, mock_ocr_pdf_success, mock_ocr_failure, mock_ocr_exception)
 
 ---
 
@@ -48,6 +49,16 @@ Naprawienie wszystkich błędów testów w projekcie FoodSave AI, aby osiągną�
 ### 7. API Endpoint Tests 🔄 NASTĘPNE
 - [ ] **Problem**: Failing API endpoint tests
 - [ ] **Rozwiązanie**: Naprawienie testów endpointów API
+- [ ] **Status**: 🔄 OCZEKUJĄCE
+
+### 8. Integration Tests 🔄 NASTĘPNE
+- [ ] **Problem**: Failing integration tests
+- [ ] **Rozwiązanie**: Naprawienie testów integracyjnych
+- [ ] **Status**: 🔄 OCZEKUJĄCE
+
+### 9. Performance Tests 🔄 NASTĘPNE
+- [ ] **Problem**: Failing performance tests
+- [ ] **Rozwiązanie**: Naprawienie testów wydajnościowych
 - [ ] **Status**: 🔄 OCZEKUJĄCE
 
 ---
