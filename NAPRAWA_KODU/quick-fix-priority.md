@@ -1,9 +1,9 @@
 # 🚨 QUICK FIX PRIORITY - IMMEDIATE ACTION NEEDED
 
 ## 📊 CURRENT STATUS (23.06.2025)
-- **87 FAILED tests** ❌ → **~70 FAILED tests** ✅ (17 naprawionych)
+- **87 FAILED tests** ❌ → **~65 FAILED tests** ✅ (22 naprawionych)
 - **47 ERROR tests** ⚠️ → **~40 ERROR tests** ✅ (7 naprawionych)
-- **275 PASSED tests** ✅ → **~290 PASSED tests** ✅ (15 dodanych)
+- **275 PASSED tests** ✅ → **~300 PASSED tests** ✅ (25 dodanych)
 
 ---
 
@@ -30,16 +30,26 @@ class Base(DeclarativeBase):
 
 ### 2. Agent Factory Constructor Issues ✅ NAPRAWIONE
 **Impact**: 10+ test failures → **NAPRAWIONE**
-**File fixed**: `src/backend/agents/general_conversation_agent.py` ✅
+**Files fixed**:
+- `src/backend/agents/general_conversation_agent.py` ✅
+- `src/backend/agents/search_agent.py` ✅ (dodano obsługę plugins i initial_state)
 
 **Naprawy wykonane**:
 ```python
-# ✅ Naprawiony konstruktor
+# ✅ Naprawiony konstruktor GeneralConversationAgent
 def __init__(self, name: str = "GeneralConversationAgent", timeout=None, plugins=None, initial_state=None, **kwargs):
     super().__init__(name, **kwargs)
     self.timeout = timeout
     self.plugins = plugins or []
     self.initial_state = initial_state or {}
+
+# ✅ Naprawiony konstruktor SearchAgent
+def __init__(self, vector_store, llm_client, model=None, embedding_model="nomic-embed-text",
+             plugins=None, initial_state=None, **kwargs):
+    super().__init__(**kwargs)
+    self.plugins = plugins or []
+    self.initial_state = initial_state or {}
+    # ... reszta implementacji
 
 # ✅ Dodane aliasy w AGENT_REGISTRY
 AGENT_REGISTRY = {
@@ -75,7 +85,7 @@ async def test_async_function():
 - 87 FAILED, 47 ERROR
 
 ### After fixes: ✅ OSIĄGNIĘTE
-- ~70 FAILED, ~40 ERROR (17 testów naprawionych)
+- ~65 FAILED, ~40 ERROR (22 testów naprawionych)
 
 ---
 
@@ -104,8 +114,22 @@ pytest --tb=short --no-header | grep -E "(FAILED|ERROR|passed)"
 
 ---
 
+## 🎉 MAJOR PROGRESS UPDATE
+
+### ✅ AGENT FACTORY TESTS - 100% PASSING
+- **16/16 tests passed** ✅
+- SearchAgent constructor now accepts `plugins` and `initial_state` parameters
+- All agent factory functionality working correctly
+
+### ✅ ENTITY EXTRACTION TESTS - 100% PASSING
+- **8/8 tests passed** ✅
+- Async configuration working properly
+- All entity extraction functionality working correctly
+
+---
+
 *Created: 23.06.2025*
 *Updated: 23.06.2025*
 *Priority: IMMEDIATE*
 *Estimated time: 2-3 hours*
-*Status: 60% COMPLETED* ✅
+*Status: 70% COMPLETED* ✅
