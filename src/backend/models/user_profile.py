@@ -3,7 +3,7 @@ from enum import Enum
 from typing import Dict, List, Optional
 
 import pytz  # Needed for timezone validation
-from pydantic import BaseModel, ConfigDict, Field, field_validator, validator
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -91,15 +91,23 @@ class UserActivity(Base):
     __table_args__ = {"extend_existing": True}
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    user_id: Mapped[str] = mapped_column(String, ForeignKey("user_profiles.user_id"), nullable=False)
+    user_id: Mapped[str] = mapped_column(
+        String, ForeignKey("user_profiles.user_id"), nullable=False
+    )
     interaction_type: Mapped[str] = mapped_column(String, nullable=False)
     content: Mapped[str | None] = mapped_column(String, nullable=True)
-    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.now)
+    timestamp: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.now
+    )
     activity_metadata: Mapped[Dict | None] = mapped_column(
         JSON, nullable=True
     )  # Zmieniono z 'metadata' na 'activity_metadata'
 
-    user: Mapped["UserProfile"] = relationship("UserProfile", back_populates="activities", lazy="selectin")
+    user: Mapped["UserProfile"] = relationship(
+        "backend.models.user_profile.UserProfile",
+        back_populates="activities",
+        lazy="selectin",
+    )
 
 
 class UserProfile(Base):
@@ -109,17 +117,27 @@ class UserProfile(Base):
     __table_args__ = {"extend_existing": True}
 
     user_id: Mapped[str] = mapped_column(String, primary_key=True, index=True)
-    session_id: Mapped[str] = mapped_column(String, unique=True, index=True, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.now)
+    session_id: Mapped[str] = mapped_column(
+        String, unique=True, index=True, nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.now
+    )
     last_active: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=datetime.now, onupdate=datetime.now
     )
-    preferences: Mapped[Dict] = mapped_column(JSON, nullable=False, default=lambda: UserPreferences().model_dump())
-    schedule: Mapped[Dict] = mapped_column(JSON, nullable=False, default=lambda: UserSchedule().model_dump())
-    topics_of_interest: Mapped[List[str]] = mapped_column(JSON, nullable=False, default=list)
+    preferences: Mapped[Dict] = mapped_column(
+        JSON, nullable=False, default=lambda: UserPreferences().model_dump()
+    )
+    schedule: Mapped[Dict] = mapped_column(
+        JSON, nullable=False, default=lambda: UserSchedule().model_dump()
+    )
+    topics_of_interest: Mapped[List[str]] = mapped_column(
+        JSON, nullable=False, default=list
+    )
 
     activities: Mapped[List["UserActivity"]] = relationship(
-        "UserActivity",
+        "backend.models.user_profile.UserActivity",
         back_populates="user",
         cascade="all, delete-orphan",
         lazy="selectin",
@@ -145,7 +163,9 @@ class UserProfile(Base):
         ]:
             if field in schedule_data and schedule_data[field]:
                 # Ensure the value is a string before parsing
-                schedule_data[field] = UserSchedule.parse_time(str(schedule_data[field]))
+                schedule_data[field] = UserSchedule.parse_time(
+                    str(schedule_data[field])
+                )
 
         return UserSchedule.model_validate(schedule_data)
 

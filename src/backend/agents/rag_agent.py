@@ -147,7 +147,7 @@ class RAGAgent(BaseAgent):
     async def _get_embedding(self, text: str) -> List[float]:
         """Get embedding for text using the LLM client"""
         try:
-            return await self.llm_client.embed(text)
+            return await hybrid_llm_client.embed(text)
         except Exception as e:
             logger.error(f"Error getting embedding: {str(e)}")
             return []

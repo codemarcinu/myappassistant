@@ -93,7 +93,12 @@ def test_error_handling_custom_exception(test_app):
 def test_error_handling_http_exception(test_app):
     response = test_app.get("/raise_error?type=http")
     assert response.status_code == 418
-    assert response.json()["detail"] == "I'm a teapot"
+    # Sprawdź rzeczywistą strukturę odpowiedzi z globalnego exception handlera
+    response_data = response.json()
+    assert "error" in response_data
+    assert response_data["error"] == "I'm a teapot"
+    assert "error_code" in response_data
+    assert response_data["error_code"] == "CLIENT_ERROR"
 
 
 def test_error_handling_generic_exception(test_app):

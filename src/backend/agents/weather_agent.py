@@ -1,18 +1,18 @@
-from backend.core.hybrid_llm_client import hybrid_llm_client
 import logging
 import os
 from datetime import datetime, timedelta
 from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple, Type
 
 import httpx
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
+from backend.agents.base_agent import BaseAgent
+from backend.agents.interfaces import AgentResponse
 from backend.config import settings
 from backend.core.cache_manager import cache_manager
 from backend.core.decorators import handle_exceptions
 from backend.core.exceptions import ConfigurationError, NetworkError
-from backend.agents.base_agent import BaseAgent
-from backend.agents.interfaces import AgentResponse
+from backend.core.hybrid_llm_client import hybrid_llm_client
 
 logger = logging.getLogger(__name__)
 
@@ -138,10 +138,10 @@ class WeatherAgent(BaseAgent):
                     provider.api_key
                     and provider.api_key != "your_openweather_api_key_here"
                 ):
-                    logger.info(f"OpenWeatherMap API key configured successfully")
+                    logger.info("OpenWeatherMap API key configured successfully")
                 else:
                     logger.warning(
-                        f"OpenWeatherMap API key not configured or using placeholder"
+                        "OpenWeatherMap API key not configured or using placeholder"
                     )
             else:
                 if provider.api_key_env_var:

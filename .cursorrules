@@ -1,117 +1,449 @@
+# FoodSave AI - Cursor Rules for Preventing Technical Issues
 
-## 📏 Project Philosophy
+You are an expert Full-Stack AI assistant for the FoodSave AI project. This application uses Python/FastAPI backend with SQLAlchemy, Next.js 14/TypeScript frontend, and comprehensive testing. Follow these rules to prevent the technical issues identified in previous analysis.
 
-* Focus on maintainability, clarity, and modularity.
-* Keep pull requests small, testable, and logically scoped.
-* Fail fast, fix early – tests should act as your compass.
+## CRITICAL ANTI-PATTERNS - NEVER DO THESE
 
----
+### 🚫 SQLAlchemy Multiple Classes Registry Conflicts
+```python
+# ❌ NEVER USE - Causes mapper initialization errors
+class Message(Base):
+    __tablename__ = 'messages'
+    # This conflicts with other Message classes
 
-## ✅ Code Style & Format
+# ❌ BAD: String-based relationships without module paths
+relationship("Message", back_populates="conversation")
 
-* Use `black` for code formatting.
-* Use `ruff` for linting and code hygiene.
-* Always include type hints (`mypy`-compatible).
-* Avoid wildcard imports (e.g., `from module import *`).
+# ✅ ALWAYS USE: Full module paths for relationships
+relationship("src.backend.models.conversation.Message", back_populates="conversation")
+```
 
----
+### 🚫 Agent Factory Registration Issues
+```python
+# ❌ NEVER LEAVE UNREGISTERED AGENT TYPES
+def create_agent(agent_type: str):
+    if agent_type not in REGISTERED_AGENTS:
+        raise UnsupportedAgentTypeError(f"Agent type {agent_type} not supported")
 
-## 🧪 Testing Rules
+# ✅ ALWAYS: Proper agent registration with fallback
+REGISTERED_AGENTS = {
+    "food_classifier": FoodClassifierAgent,
+    "inventory_manager": InventoryManagerAgent,
+    "donation_coordinator": DonationCoordinatorAgent,
+    # Always include fallback
+    "default": BaseAgent
+}
+```
 
-* All new code **must include unit tests**.
-* Follow the Test-Driven Development (TDD) principle when possible.
-* Each function or class must have at least one happy-path test and one edge-case test.
-* Use `pytest` with clear naming: `test_<function>_<scenario>()`.
-* Skipped or flaky tests must be clearly marked and justified.
+### 🚫 Async Test Configuration Problems
+```python
+# ❌ NEVER: Missing asyncio configuration
+# This causes "RuntimeError: no running event loop"
 
----
+# ✅ ALWAYS: Proper pytest-asyncio setup in pyproject.toml
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+```
 
-## 🧐 Design Principles
+## 🔧 PYTHON BACKEND RULES
 
-* Each module must follow **Single Responsibility Principle (SRP)**.
-* Avoid overengineering – prefer clear and pragmatic solutions.
-* Minimize side-effects in functions – prefer pure functions when feasible.
-* Public functions must have docstrings explaining purpose, args, and return types.
+### SQLAlchemy Best Practices
+- ALWAYS use full module paths in `relationship()` declarations
+- NEVER create models with duplicate class names across modules
+- ALWAYS use `declarative_base()` consistently across all models
+- MUST use proper foreign key constraints with full table names
+- ALWAYS implement `__repr__` methods for all models for debugging
 
----
+### FastAPI Structure
+```python
+# ✅ REQUIRED: Type hints for all functions
+@app.post("/food-items/", response_model=schemas.FoodItem)
+async def create_food_item(
+    item: schemas.FoodItemCreate,
+    db: Session = Depends(get_db)
+) -> models.FoodItem:
+    return service.create_food_item(db=db, item=item)
 
-## 📦 Modularity & Architecture
+# ✅ ALWAYS: Use dependency injection for database sessions
+# ✅ ALWAYS: Use Pydantic models for request/response validation
+# ✅ ALWAYS: Return proper HTTP status codes (201 for creation, 404 for not found)
+```
 
-* Break large modules into smaller ones with focused logic.
-* Favor composition over inheritance, unless the latter adds clear value.
-* All agents (e.g. `SearchAgent`, `OCRAgent`) must be **initializable independently** in tests.
+### Agent Pattern Implementation
+- ALWAYS implement `BaseAgent` interface for all agents
+- MUST register all agent types in `AgentFactory`
+- ALWAYS implement health check methods for agents
+- NEVER create agents without proper error handling
+- ALWAYS use dependency injection for agent dependencies
 
----
+### Async/Await Patterns
+```python
+# ✅ REQUIRED: Proper async function signatures
+async def process_food_inventory(
+    inventory_data: Dict[str, Any]
+) -> ProcessingResult:
+    try:
+        result = await some_async_operation()
+        return result
+    except Exception as e:
+        logger.error(f"Processing failed: {e}")
+        raise ProcessingError(f"Failed to process inventory: {e}")
+```
 
-## 🛡️ Error Handling
+## 🎯 TYPESCRIPT FRONTEND RULES
 
-* All API endpoints must return appropriate `HTTPException` responses.
-* Validate all inputs explicitly. Do not rely solely on Pydantic defaults.
-* Always handle potential exceptions in file and DB operations gracefully.
+### Next.js 14 App Router Structure
+- ALWAYS use TypeScript strict mode
+- MUST use server components by default, client components only when needed
+- ALWAYS implement error boundaries for components
+- NEVER use deprecated patterns (Pages Router patterns in App Router)
 
----
+### Type Safety Requirements
+```typescript
+// ✅ REQUIRED: Strict interface definitions
+interface FoodItem {
+  id: string;
+  name: string;
+  category: FoodCategory;
+  expirationDate: Date;
+  quantity: number;
+}
 
-## 🏗️ CI/CD & Tooling
+// ✅ ALWAYS: Use generic types for API responses
+interface ApiResponse<T> {
+  data: T;
+  status: 'success' | 'error';
+  message?: string;
+}
 
-* CI must run `pytest`, `ruff`, `mypy`, and `bandit` on every push and PR.
-* Coverage should be at least **85%** for critical modules (e.g., `orchestrator.py`, `agents/`).
-* No code should reach `main` without passing all checks.
+// ✅ NEVER: Use 'any' type - always provide specific types
+```
 
-### ⚡ DevOps Starter Pack Setup
+### React Query Patterns
+```typescript
+// ✅ REQUIRED: Proper query key structure
+const foodItemsQuery = useQuery({
+  queryKey: ['food-items', { category, status }],
+  queryFn: () => fetchFoodItems({ category, status }),
+  staleTime: 5 * 60 * 1000, // 5 minutes
+});
 
-A `pyproject.toml` file should include configuration for:
+// ✅ ALWAYS: Handle loading and error states
+// ✅ ALWAYS: Use proper query invalidation after mutations
+```
 
-* `black` for formatting
-* `ruff` for linting
-* `mypy` for static typing
-* `pytest` with `pytest-cov` for testing
-* `bandit` for security scanning
-* `pre-commit` hooks integrating all the above
+## 🧪 TESTING REQUIREMENTS
 
-This setup will ensure that every commit is checked, formatted, and validated before merging.
+### Pytest Configuration
+```python
+# ✅ REQUIRED: pytest.ini or pyproject.toml setup
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = "--strict-markers --strict-config --cov=src --cov-report=html"
+markers = [
+    "slow: marks tests as slow",
+    "integration: marks tests as integration tests",
+    "unit: marks tests as unit tests"
+]
+```
 
----
+### Async Test Patterns
+```python
+# ✅ ALWAYS: Use @pytest.mark.asyncio for async tests
+@pytest.mark.asyncio
+async def test_food_processing():
+    # Setup
+    mock_data = create_test_food_data()
+    
+    # Execute
+    result = await food_processor.process(mock_data)
+    
+    # Assert
+    assert result.status == ProcessingStatus.SUCCESS
+    assert len(result.processed_items) > 0
+```
 
-## 📚 Documentation
+### Mock and Fixture Patterns
+```python
+# ✅ REQUIRED: Proper fixtures with cleanup
+@pytest_asyncio.fixture
+async def db_session():
+    async with create_test_session() as session:
+        yield session
+        await session.rollback()
 
-* Every public module and class must be documented.
-* Update `README.md` or module-level `.md` files when adding significant functionality.
+# ✅ ALWAYS: Use spec parameter in mocks to prevent AttributeError
+@pytest.fixture
+def mock_vector_store():
+    mock = Mock(spec=VectorStore)
+    mock.is_empty = False  # Ensure required attributes exist
+    return mock
+```
 
----
+## 🏗️ ARCHITECTURE PATTERNS
 
-## 💡 Cursor Agent Instructions
+### Import Organization
+```python
+# ✅ REQUIRED: Import order and circular import prevention
+# Standard library imports
+from typing import Optional, Dict, List
+import asyncio
+from datetime import datetime
 
-* Always prefer **code simplification** over adding complexity.
-* Refactor before adding new logic if existing code is hard to extend.
-* Suggest and implement test scaffolds when none exist.
-* When adding a new function or class:
+# Third-party imports
+from fastapi import FastAPI, Depends
+from sqlalchemy.orm import Session
 
-  * Create a corresponding test.
-  * Add type hints and docstring.
-* When in doubt – **ask before changing large portions of code.**
+# Local imports - use absolute imports
+from src.backend.models.food_item import FoodItem
+from src.backend.schemas import food_schema
+from src.backend.services.food_service import FoodService
 
----
+# ✅ NEVER: Relative imports that cause circular dependencies
+# ❌ from ..models import FoodItem  # Can cause circular imports
+```
 
-## 🧹 Optional Enhancements
+### Error Handling Patterns
+```python
+# ✅ REQUIRED: Custom exception hierarchy
+class FoodSaveError(Exception):
+    """Base exception for FoodSave application"""
+    pass
 
-* Propose refactors that reduce cyclomatic complexity.
-* Replace repeated logic with shared utility functions (e.g., `utils.py`).
-* Flag deprecated patterns or imports.
-* Recommend splitting large functions >40 lines into smaller parts.
+class ProcessingError(FoodSaveError):
+    """Raised when food processing fails"""
+    pass
 
----
+class AgentError(FoodSaveError):
+    """Raised when agent operations fail"""
+    pass
 
-## ❌ What NOT to do
+# ✅ ALWAYS: Proper error context and logging
+try:
+    result = await process_food_data(data)
+except ProcessingError as e:
+    logger.error(f"Food processing failed: {e}", extra={"data_id": data.id})
+    raise HTTPException(status_code=422, detail=str(e))
+```
 
-* Do not skip tests without justification.
-* Do not bypass type checking or lint rules.
-* Do not mix unrelated concerns in a single file or function.
-* Do not use global state without clear scoping or purpose.
+### Database Session Management
+```python
+# ✅ REQUIRED: Proper session lifecycle management
+async def get_db_session():
+    async with async_session() as session:
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
+        finally:
+            await session.close()
+```
 
----
+## 📋 CODE QUALITY STANDARDS
 
-## ✨ Final Notes
+### Function Design
+- MAXIMUM 20 lines per function (excluding docstrings)
+- ALWAYS use type hints for parameters and return values
+- MUST include docstrings for all public functions
+- ALWAYS use descriptive variable names (no `a`, `b`, `x`, `tmp`)
+- NEVER use mutable default arguments
 
-Cursor AI is your pair programmer, not your boss. Use these rules to guide it to produce clean, modular, and testable code. Stay sharp, commit often, and automate everything you can.
+### Class Design
+```python
+# ✅ REQUIRED: Proper class structure
+class FoodItemProcessor:
+    """Processes food items for inventory management."""
+    
+    def __init__(self, db_session: AsyncSession, config: ProcessingConfig):
+        self.db_session = db_session
+        self.config = config
+        self._cache: Dict[str, Any] = {}
+    
+    async def process_item(self, item: FoodItemData) -> ProcessingResult:
+        """Process a single food item.
+        
+        Args:
+            item: Food item data to process
+            
+        Returns:
+            ProcessingResult with status and metadata
+            
+        Raises:
+            ProcessingError: If processing fails
+        """
+        # Implementation here
+```
 
-Happy coding!
+### Documentation Requirements
+- ALL public APIs must have docstrings
+- ALL complex business logic must have inline comments
+- ALL configuration files must have commented examples
+- ALWAYS document non-obvious code decisions
+
+## 🚀 PERFORMANCE PATTERNS
+
+### Database Optimization
+```python
+# ✅ ALWAYS: Use eager loading to prevent N+1 queries
+items = await session.execute(
+    select(FoodItem)
+    .options(joinedload(FoodItem.category))
+    .options(joinedload(FoodItem.donations))
+)
+
+# ✅ ALWAYS: Use pagination for large result sets
+async def get_food_items(
+    page: int = 1, 
+    size: int = 20
+) -> PaginatedResponse[FoodItem]:
+    offset = (page - 1) * size
+    # Implementation with LIMIT/OFFSET
+```
+
+### Frontend Optimization
+```typescript
+// ✅ REQUIRED: Lazy loading for heavy components
+const HeavyComponent = dynamic(() => import('../components/HeavyComponent'), {
+  loading: () => <div>Loading...</div>,
+  ssr: false
+});
+
+// ✅ ALWAYS: Memoize expensive computations
+const expensiveValue = useMemo(() => {
+  return computeExpensiveValue(data);
+}, [data]);
+```
+
+## 🔍 MONITORING AND DEBUGGING
+
+### Logging Standards
+```python
+# ✅ REQUIRED: Structured logging with context
+logger.info(
+    "Food item processed successfully",
+    extra={
+        "food_item_id": item.id,
+        "processing_time": processing_time,
+        "agent_type": agent.type
+    }
+)
+
+# ✅ ALWAYS: Log errors with full context
+logger.error(
+    "Agent processing failed",
+    extra={
+        "agent_id": agent.id,
+        "error_type": type(e).__name__,
+        "stack_trace": traceback.format_exc()
+    }
+)
+```
+
+### Health Check Implementation
+```python
+# ✅ REQUIRED: Health checks for all services
+@app.get("/health")
+async def health_check():
+    checks = {
+        "database": await check_database_health(),
+        "agents": await check_agents_health(),
+        "external_apis": await check_external_apis_health()
+    }
+    
+    all_healthy = all(checks.values())
+    status_code = 200 if all_healthy else 503
+    
+    return Response(
+        content={"status": "healthy" if all_healthy else "unhealthy", "checks": checks},
+        status_code=status_code
+    )
+```
+
+## 🛡️ SECURITY REQUIREMENTS
+
+### Input Validation
+```python
+# ✅ ALWAYS: Validate and sanitize all inputs
+from pydantic import BaseModel, validator, constr
+
+class FoodItemCreate(BaseModel):
+    name: constr(min_length=1, max_length=100)
+    category_id: int
+    
+    @validator('name')
+    def validate_name(cls, v):
+        if not v.strip():
+            raise ValueError('Name cannot be empty')
+        return v.strip()
+```
+
+### Authentication Patterns
+```typescript
+// ✅ REQUIRED: Proper auth state management
+const useAuth = () => {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  
+  // Implementation with proper error handling
+};
+```
+
+## 📝 COMMIT AND PR STANDARDS
+
+### Commit Messages
+```
+# ✅ REQUIRED: Conventional commit format
+feat(backend): add food expiration tracking
+fix(frontend): resolve inventory display bug
+test(agents): add unit tests for classification agent
+docs(api): update food item endpoints documentation
+```
+
+### Pull Request Checklist
+- [ ] All tests pass (unit, integration, e2e)
+- [ ] Code coverage is maintained (>90%)
+- [ ] Documentation updated
+- [ ] No breaking changes without migration path
+- [ ] Performance impact assessed
+- [ ] Security implications reviewed
+
+## 🎯 SPECIFIC FOODSAVE AI PATTERNS
+
+### Food Classification Rules
+```python
+# ✅ REQUIRED: Proper food category handling
+class FoodCategory(enum.Enum):
+    PRODUCE = "produce"
+    DAIRY = "dairy"
+    MEAT = "meat"
+    BAKERY = "bakery"
+    CANNED = "canned"
+    FROZEN = "frozen"
+
+# ✅ ALWAYS: Use enum values, never raw strings
+```
+
+### Donation Coordination
+```python
+# ✅ REQUIRED: Proper donation status tracking
+class DonationStatus(enum.Enum):
+    PENDING = "pending"
+    APPROVED = "approved"
+    IN_TRANSIT = "in_transit"
+    DELIVERED = "delivered"
+    CANCELLED = "cancelled"
+```
+
+REMEMBER: These rules prevent the specific errors identified in the previous analysis:
+- AttributeError (VectorStore.is_empty missing)
+- Unsupported Agent Type (missing registration)
+- AssertionError (improper test setup)
+- SQLAlchemy Mapper Initialization (class name conflicts)
+- Async Function Support (missing pytest-asyncio config)
+- Multiple Classes conflicts (improper relationship definitions)
+
+Always prioritize type safety, proper error handling, and comprehensive testing.

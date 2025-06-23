@@ -48,7 +48,9 @@ class Message(Base):
         Integer, ForeignKey("conversations.id"), nullable=False
     )
     conversation: Mapped["Conversation"] = relationship(
-        "backend.models.conversation.Conversation", back_populates="messages", lazy="selectin"
+        "backend.models.conversation.Conversation",
+        back_populates="messages",
+        lazy="selectin",
     )
 
 

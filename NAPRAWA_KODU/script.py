@@ -5,8 +5,8 @@ with open("paste.txt", "r", encoding="utf-8") as f:
 # Znajdź wszystkie błędy FAILED i ERROR
 import re
 
-failed_tests = re.findall(r'FAILED ([^-]+) - (.+)', test_logs)
-error_tests = re.findall(r'ERROR ([^-]+) - (.+)', test_logs)
+failed_tests = re.findall(r"FAILED ([^-]+) - (.+)", test_logs)
+error_tests = re.findall(r"ERROR ([^-]+) - (.+)", test_logs)
 
 print("=== ANALIZA BŁĘDÓW TESTÓW ===")
 print(f"Liczba testów FAILED: {len(failed_tests)}")
@@ -32,24 +32,36 @@ for test, error in failed_tests + error_tests:
         error_type = "NameError"
     else:
         error_type = "Other"
-    
+
     error_patterns[error_type] = error_patterns.get(error_type, 0) + 1
 
-for error_type, count in sorted(error_patterns.items(), key=lambda x: x[1], reverse=True):
+for error_type, count in sorted(
+    error_patterns.items(), key=lambda x: x[1], reverse=True
+):
     print(f"{error_type}: {count} wystąpień")
 
 print("\n=== SZCZEGÓŁOWE PRZYKŁADY BŁĘDÓW ===")
 print("1. SQLAlchemy Multiple Classes:")
-sqlalchemy_errors = [error for test, error in failed_tests + error_tests if "Multiple classes found for path" in error]
+sqlalchemy_errors = [
+    error
+    for test, error in failed_tests + error_tests
+    if "Multiple classes found for path" in error
+]
 if sqlalchemy_errors:
     print(f"   - {sqlalchemy_errors[0][:100]}...")
 
 print("\n2. Unsupported Agent Type:")
-agent_errors = [error for test, error in failed_tests + error_tests if "Unsupported agent type" in error]
+agent_errors = [
+    error
+    for test, error in failed_tests + error_tests
+    if "Unsupported agent type" in error
+]
 if agent_errors:
     print(f"   - {agent_errors[0][:100]}...")
 
 print("\n3. AttributeError:")
-attr_errors = [error for test, error in failed_tests + error_tests if "AttributeError" in error]
+attr_errors = [
+    error for test, error in failed_tests + error_tests if "AttributeError" in error
+]
 if attr_errors:
     print(f"   - {attr_errors[0][:100]}...")

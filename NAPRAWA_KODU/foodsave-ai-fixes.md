@@ -10,7 +10,7 @@ class Conversation(Base):
     __tablename__ = 'conversations'
     id = Column(Integer, primary_key=True)
     messages = relationship("Message", back_populates="conversation")
-    
+
 class Message(Base):
     __tablename__ = 'messages'
     id = Column(Integer, primary_key=True)
@@ -32,7 +32,7 @@ class Conversation(Base):
     __tablename__ = 'conversations'
     id = Column(Integer, primary_key=True)
     messages = relationship("src.backend.models.conversations.Message", back_populates="conversation")
-    
+
 class Message(Base):
     __tablename__ = 'messages'
     id = Column(Integer, primary_key=True)
@@ -148,11 +148,11 @@ class VectorStore:
     def is_empty(self) -> bool:
         """Check if vector store is empty"""
         return len(self._vectors) == 0
-        
+
     def add_document(self, document: Document) -> None:
         """Add document to vector store"""
         # ... implementacja
-        
+
     def search(self, query: str, top_k: int = 5) -> List[Document]:
         # ... kod metody
 

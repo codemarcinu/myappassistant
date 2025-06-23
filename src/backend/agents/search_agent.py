@@ -9,7 +9,6 @@ from backend.config import settings
 from backend.core.decorators import handle_exceptions
 from backend.core.hybrid_llm_client import hybrid_llm_client
 from backend.core.llm_client import LLMClient
-from backend.core.perplexity_client import perplexity_client
 from backend.core.vector_store import VectorStore
 
 logger = logging.getLogger(__name__)
@@ -35,6 +34,7 @@ class SearchAgent(BaseAgent):
         self,
         vector_store: VectorStore,
         llm_client: LLMClient,
+        perplexity_client=None,
         model: str | None = None,
         embedding_model: str = "nomic-embed-text",
         plugins: list | None = None,
@@ -47,10 +47,11 @@ class SearchAgent(BaseAgent):
         self.http_client = httpx.AsyncClient(
             timeout=30.0, headers={"User-Agent": settings.USER_AGENT}
         )
-        self.llm_client = hybrid_llm_client  # Dodaję atrybut llm_client dla testów
-        self.web_search = perplexity_client  # Dodaję atrybut web_search dla testów
-        self.plugins = plugins or []  # Dodaję obsługę plugins
-        self.initial_state = initial_state or {}  # Dodaję obsługę initial_state
+        self.llm_client = llm_client
+        from backend.core.perplexity_client import perplexity_client as global_perplexity_client
+        self.web_search = perplexity_client or global_perplexity_client
+        self.plugins = plugins or []
+        self.initial_state = initial_state or {}
 
     @handle_exceptions(max_retries=2)
     async def process(self, input_data: Dict[str, Any]) -> AgentResponse:
@@ -73,9 +74,7 @@ class SearchAgent(BaseAgent):
                 if use_perplexity:
                     logger.info(f"Using Perplexity for search query: {query}")
                     yield "Korzystam z Perplexity...\n"
-                    # Perplexity API nie wspiera streamingu w obecnym kliencie,
-                    # więc wykonujemy pełne zapytanie i zwracamy wynik jako pojedynczy chunk.
-                    search_result = await perplexity_client.search(
+                    search_result = await self.web_search.search(
                         query, model=None, max_results=max_results
                     )
                     if search_result["success"]:
@@ -111,7 +110,7 @@ class SearchAgent(BaseAgent):
             english_query = await self._translate_to_english(query, model)
 
             # Perform search with Perplexity
-            result = await perplexity_client.search(
+            result = await self.web_search.search(
                 query=english_query,
                 model=None,  # Użyj domyślnego modelu
                 max_results=max_results,

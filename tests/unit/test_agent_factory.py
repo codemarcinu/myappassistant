@@ -10,13 +10,16 @@ from backend.agents.weather_agent import WeatherAgent
 
 # sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../..", "src"))  # Usuń jeśli niepotrzebne
 
+
 @pytest.fixture
 def mock_vector_store():
     return Mock()
 
+
 @pytest.fixture
 def mock_llm_client():
     return Mock()
+
 
 class TestAgentFactory:
     """Testy dla Agent Factory - fabryki tworzenia agentów"""
@@ -79,7 +82,11 @@ class TestAgentFactory:
 
     @pytest.mark.asyncio
     async def test_create_agent_success(
-        self, agent_factory_with_services, mock_config, mock_vector_store, mock_llm_client
+        self,
+        agent_factory_with_services,
+        mock_config,
+        mock_vector_store,
+        mock_llm_client,
     ):
         agent_type = "Search"
         agent = agent_factory_with_services.create_agent(
@@ -98,60 +105,100 @@ class TestAgentFactory:
         )
         # Fallback do GeneralConversationAgent
         from backend.agents.general_conversation_agent import GeneralConversationAgent
+
         assert isinstance(agent, GeneralConversationAgent)
 
     @pytest.mark.asyncio
     async def test_create_agent_with_dependencies(
-        self, agent_factory_with_services, mock_config, mock_llm_client, mock_vector_store
+        self,
+        agent_factory_with_services,
+        mock_config,
+        mock_llm_client,
+        mock_vector_store,
     ):
         agent_type = "Weather"
-        dependencies = {"llm_client": mock_llm_client, "vector_store": mock_vector_store}
+        dependencies = {
+            "llm_client": mock_llm_client,
+            "vector_store": mock_vector_store,
+        }
         agent = agent_factory_with_services.create_agent(agent_type, **dependencies)
         assert agent is not None
         assert isinstance(agent, WeatherAgent)
 
     @pytest.mark.asyncio
     async def test_create_agent_with_configuration(
-        self, agent_factory_with_services, mock_config, mock_llm_client, mock_vector_store
+        self,
+        agent_factory_with_services,
+        mock_config,
+        mock_llm_client,
+        mock_vector_store,
     ):
         agent_type = "OCR"
-        config = {"timeout": 30, "language": "pol", "llm_client": mock_llm_client, "vector_store": mock_vector_store}
+        config = {
+            "timeout": 30,
+            "language": "pol",
+            "llm_client": mock_llm_client,
+            "vector_store": mock_vector_store,
+        }
         agent = agent_factory_with_services.create_agent(agent_type, **config)
         assert agent is not None
         assert hasattr(agent, "TIMEOUT")
         assert hasattr(agent, "default_language")
 
     @pytest.mark.asyncio
-    async def test_create_agent_caching_general_conversation(self, agent_factory_with_services):
+    async def test_create_agent_caching_general_conversation(
+        self, agent_factory_with_services
+    ):
         agent_type = "general_conversation"
         agent1 = agent_factory_with_services.create_agent(agent_type)
         agent2 = agent_factory_with_services.create_agent(agent_type)
         assert agent1 is agent2
 
     @pytest.mark.asyncio
-    async def test_create_agent_caching_search(self, agent_factory_with_services, mock_config, mock_llm_client, mock_vector_store):
-        agent_type = "Search"
-        agent1 = agent_factory_with_services.create_agent(agent_type, vector_store=mock_vector_store, llm_client=mock_llm_client)
-        agent2 = agent_factory_with_services.create_agent(agent_type, vector_store=mock_vector_store, llm_client=mock_llm_client)
-        # Cache nie działa, gdy przekazujemy argumenty, więc instancje będą różne
-        assert agent1 is not agent2
-
-    @pytest.mark.asyncio
-    async def test_create_agent_without_caching(
-        self, agent_factory_with_services, mock_config, mock_llm_client, mock_vector_store
+    async def test_create_agent_caching_search(
+        self,
+        agent_factory_with_services,
+        mock_config,
+        mock_llm_client,
+        mock_vector_store,
     ):
         agent_type = "Search"
         agent1 = agent_factory_with_services.create_agent(
             agent_type, vector_store=mock_vector_store, llm_client=mock_llm_client
         )
         agent2 = agent_factory_with_services.create_agent(
-            agent_type, use_cache=False, vector_store=mock_vector_store, llm_client=mock_llm_client
+            agent_type, vector_store=mock_vector_store, llm_client=mock_llm_client
+        )
+        # Cache nie działa, gdy przekazujemy argumenty, więc instancje będą różne
+        assert agent1 is not agent2
+
+    @pytest.mark.asyncio
+    async def test_create_agent_without_caching(
+        self,
+        agent_factory_with_services,
+        mock_config,
+        mock_llm_client,
+        mock_vector_store,
+    ):
+        agent_type = "Search"
+        agent1 = agent_factory_with_services.create_agent(
+            agent_type, vector_store=mock_vector_store, llm_client=mock_llm_client
+        )
+        agent2 = agent_factory_with_services.create_agent(
+            agent_type,
+            use_cache=False,
+            vector_store=mock_vector_store,
+            llm_client=mock_llm_client,
         )
         assert agent1 is not agent2
 
     @pytest.mark.asyncio
     async def test_create_agent_with_custom_modules(
-        self, agent_factory_with_services, mock_config, mock_llm_client, mock_vector_store
+        self,
+        agent_factory_with_services,
+        mock_config,
+        mock_llm_client,
+        mock_vector_store,
     ):
         agent_type = "CustomAgent"
         custom_config = {"module": "custom_agent_module", "class": "CustomAgentClass"}
@@ -168,12 +215,19 @@ class TestAgentFactory:
                 agent_type, vector_store=mock_vector_store, llm_client=mock_llm_client
             )
             # Fallback do GeneralConversationAgent, bo CustomAgent nie istnieje
-            from backend.agents.general_conversation_agent import GeneralConversationAgent
+            from backend.agents.general_conversation_agent import (
+                GeneralConversationAgent,
+            )
+
             assert isinstance(agent, GeneralConversationAgent)
 
     @pytest.mark.asyncio
     async def test_create_agent_with_fallback(
-        self, agent_factory_with_services, mock_config, mock_llm_client, mock_vector_store
+        self,
+        agent_factory_with_services,
+        mock_config,
+        mock_llm_client,
+        mock_vector_store,
     ):
         agent_type = "Search"
         with patch("importlib.import_module") as mock_import:
@@ -189,7 +243,11 @@ class TestAgentFactory:
 
     @pytest.mark.asyncio
     async def test_create_agent_with_initialization_error(
-        self, agent_factory_with_services, mock_config, mock_llm_client, mock_vector_store
+        self,
+        agent_factory_with_services,
+        mock_config,
+        mock_llm_client,
+        mock_vector_store,
     ):
         agent_type = "OCR"
         with patch.object(
@@ -201,12 +259,15 @@ class TestAgentFactory:
             agent = None
             try:
                 agent = agent_factory_with_services.create_agent(
-                    agent_type, vector_store=mock_vector_store, llm_client=mock_llm_client
+                    agent_type,
+                    vector_store=mock_vector_store,
+                    llm_client=mock_llm_client,
                 )
             except Exception:
                 pass
             # Sprawdzamy, że agent jest instancją OCRAgent (fabryka zawsze zwraca instancję OCRAgent)
             from backend.agents.ocr_agent import OCRAgent
+
             assert isinstance(agent, OCRAgent)
 
     @pytest.mark.asyncio
@@ -224,15 +285,22 @@ class TestAgentFactory:
             )
             # Sprawdzamy, że agent jest instancją SearchAgent
             from backend.agents.search_agent import SearchAgent
+
             assert isinstance(agent, SearchAgent)
 
     @pytest.mark.asyncio
     async def test_create_agent_with_async_initialization(
-        self, agent_factory_with_services, mock_config, mock_llm_client, mock_vector_store
+        self,
+        agent_factory_with_services,
+        mock_config,
+        mock_llm_client,
+        mock_vector_store,
     ):
         agent_type = "Search"
+
         async def async_init():
             return "initialized"
+
         with patch.object(
             agent_factory_with_services.agent_registry, "get_agent_class"
         ) as mock_get_class:
@@ -248,7 +316,11 @@ class TestAgentFactory:
 
     @pytest.mark.asyncio
     async def test_create_multiple_agent_types(
-        self, agent_factory_with_services, mock_config, mock_llm_client, mock_vector_store
+        self,
+        agent_factory_with_services,
+        mock_config,
+        mock_llm_client,
+        mock_vector_store,
     ):
         agent_types = ["Search", "Weather", "OCR"]
         for agent_type in agent_types:
@@ -258,22 +330,32 @@ class TestAgentFactory:
             assert agent is not None
 
     @pytest.mark.asyncio
-    async def test_create_agent_with_plugins_general_conversation(self, agent_factory_with_services):
+    async def test_create_agent_with_plugins_general_conversation(
+        self, agent_factory_with_services
+    ):
         agent_type = "general_conversation"
         plugins = [Mock(), Mock()]
         agent = agent_factory_with_services.create_agent(agent_type, plugins=plugins)
         assert hasattr(agent, "plugins")
 
     @pytest.mark.asyncio
-    async def test_create_agent_with_state_general_conversation(self, agent_factory_with_services):
+    async def test_create_agent_with_state_general_conversation(
+        self, agent_factory_with_services
+    ):
         agent_type = "general_conversation"
         initial_state = {"foo": "bar"}
-        agent = agent_factory_with_services.create_agent(agent_type, initial_state=initial_state)
+        agent = agent_factory_with_services.create_agent(
+            agent_type, initial_state=initial_state
+        )
         assert hasattr(agent, "initial_state")
 
     @pytest.mark.asyncio
     async def test_create_agent_performance(
-        self, agent_factory_with_services, mock_config, mock_llm_client, mock_vector_store
+        self,
+        agent_factory_with_services,
+        mock_config,
+        mock_llm_client,
+        mock_vector_store,
     ):
         agent_type = "Search"
         for _ in range(10):

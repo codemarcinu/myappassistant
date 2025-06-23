@@ -83,14 +83,20 @@ pylint = "^3.3.7"
 types-aiofiles = "^24.1.0.20250606"
 textual = "^0.67.1"
 python-on-whales = "^0.72.0"
+pytest-mock = "^3.14.1"
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = "--strict-markers --strict-config --cov=src --cov-report=html"
 markers = [
     "e2e: marks tests as end-to-end",
     "performance: marks tests as performance tests",
-    "memory: marks tests as memory profiling tests"
+    "memory: marks tests as memory profiling tests",
+    "integration: marks tests as integration tests",
+    "unit: marks tests as unit tests",
+    "slow: marks tests as slow"
 ]
 
 [tool.pytest-benchmark]

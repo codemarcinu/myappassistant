@@ -5,7 +5,7 @@
 ### Zidentyfikowane Główne Problemy
 - **AttributeError (59 wystąpień)** - głównie VectorStore.is_empty, problemy z API obiektów
 - **Unsupported Agent Type (24 wystąpienia)** - problemy z Agent Factory
-- **AssertionError (22 wystąpienia)** - testy nie przechodzą z oczekiwanymi wartościami  
+- **AssertionError (22 wystąpienia)** - testy nie przechodzą z oczekiwanymi wartościami
 - **SQLAlchemy Mapper Initialization (17 wystąpień)** - problemy z mapperami bazy danych
 - **Async Function Support (5 wystąpień)** - problemy z testami async
 - **SQLAlchemy Multiple Classes (4 wystąpienia)** - konflikty klas w rejestrze
@@ -20,7 +20,7 @@
 
 **Problem**: Konflikt klas "Message" w rejestrze SQLAlchemy
 ```
-Multiple classes found for path "Message" in the registry of this declarative base. 
+Multiple classes found for path "Message" in the registry of this declarative base.
 Please use a fully module-qualified path.
 ```
 
@@ -35,7 +35,7 @@ Please use a fully module-qualified path.
    ```python
    # PRZED (błędne):
    messages = relationship("Message", back_populates="conversation")
-   
+
    # PO (poprawne):
    messages = relationship("src.backend.models.conversation.Message", back_populates="conversation")
    ```
@@ -113,7 +113,7 @@ Please use a fully module-qualified path.
    @pytest.fixture
    async def db_session():
        # kod
-   
+
    # PO:
    @pytest_asyncio.fixture
    async def db_session():
@@ -141,7 +141,7 @@ Please use a fully module-qualified path.
        def is_empty(self) -> bool:
            """Check if vector store is empty"""
            return len(self._vectors) == 0
-           
+
        def add_document(self, document: str) -> None:
            """Add document to vector store"""
            # implementacja
@@ -187,10 +187,10 @@ Please use a fully module-qualified path.
    # src/backend/core/exceptions.py
    class FoodSaveBaseException(Exception):
        """Base exception for FoodSave AI"""
-       
+
    class AgentError(FoodSaveBaseException):
        """Agent-related errors"""
-       
+
    class DatabaseError(FoodSaveBaseException):
        """Database-related errors"""
    ```
@@ -207,7 +207,7 @@ Please use a fully module-qualified path.
        @abstractmethod
        async def process(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
            pass
-           
+
        @abstractmethod
        def validate_input(self, input_data: Dict[str, Any]) -> bool:
            pass

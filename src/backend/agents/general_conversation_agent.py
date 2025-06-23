@@ -32,7 +32,14 @@ logger = logging.getLogger(__name__)
 class GeneralConversationAgent(BaseAgent):
     """Agent do obsługi swobodnych konwersacji z wykorzystaniem RAG i wyszukiwania internetowego"""
 
-    def __init__(self, name: str = "GeneralConversationAgent", timeout=None, plugins=None, initial_state=None, **kwargs) -> None:
+    def __init__(
+        self,
+        name: str = "GeneralConversationAgent",
+        timeout=None,
+        plugins=None,
+        initial_state=None,
+        **kwargs,
+    ) -> None:
         super().__init__(name, **kwargs)
         self.timeout = timeout
         self.plugins = plugins or []
@@ -91,7 +98,9 @@ class GeneralConversationAgent(BaseAgent):
             # Check if response contains LLM fallback message and replace with test response
             llm_fallback_message = "I'm sorry, but I'm currently unable to process your request. Please try again later."
             if response and llm_fallback_message in response:
-                logger.info("Detected LLM fallback message, using test response instead")
+                logger.info(
+                    "Detected LLM fallback message, using test response instead"
+                )
                 response = f"Test response for: {query}"
 
             # If no response could be generated, return a test response for CI
@@ -206,11 +215,14 @@ class GeneralConversationAgent(BaseAgent):
                     )
             else:
                 # Użyj lokalnego wyszukiwania
-                from .search_agent import SearchAgent
-                from backend.core.vector_store import vector_store
                 from backend.core.hybrid_llm_client import hybrid_llm_client
+                from backend.core.vector_store import vector_store
 
-                search_agent = SearchAgent(vector_store=vector_store, llm_client=hybrid_llm_client)
+                from .search_agent import SearchAgent
+
+                search_agent = SearchAgent(
+                    vector_store=vector_store, llm_client=hybrid_llm_client
+                )
                 search_result = await search_agent.process(
                     {"query": query, "max_results": 3, "use_perplexity": False}
                 )
