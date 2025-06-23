@@ -86,6 +86,7 @@ python-on-whales = "^0.72.0"
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
+asyncio_mode = "auto"
 markers = [
     "e2e: marks tests as end-to-end",
     "performance: marks tests as performance tests",
