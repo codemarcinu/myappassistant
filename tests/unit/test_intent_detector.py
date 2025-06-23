@@ -12,7 +12,7 @@ from backend.agents.tools.tools import recognize_intent
 async def test_detect_recipe_intent():
     detector = SimpleIntentDetector()
     context = MemoryContext(session_id="test")
-    expected_intent = "recipe_request"
+    expected_intent = "food_conversation"
     mock_response = {"message": {"content": json.dumps({"intent": expected_intent})}}
 
     async def mock_chat(*args, **kwargs):
@@ -27,7 +27,7 @@ async def test_detect_recipe_intent():
 async def test_detect_add_to_list_intent():
     detector = SimpleIntentDetector()
     context = MemoryContext(session_id="test")
-    expected_intent = "add_to_list"
+    expected_intent = "shopping_conversation"
     mock_response = {"message": {"content": json.dumps({"intent": expected_intent})}}
 
     async def mock_chat(*args, **kwargs):
@@ -42,7 +42,7 @@ async def test_detect_add_to_list_intent():
 async def test_detect_unknown_intent():
     detector = SimpleIntentDetector()
     context = MemoryContext(session_id="test")
-    expected_intent = "unknown"
+    expected_intent = "rag"
     mock_response = {"message": {"content": json.dumps({"intent": expected_intent})}}
 
     async def mock_chat(*args, **kwargs):

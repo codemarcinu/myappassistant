@@ -29,7 +29,7 @@ class TestOCRAgent:
         expected_text = "Sample receipt text\nMilk 3.99\nBread 4.50\nTotal 8.49"
         
         # Need to patch at the module level where it's imported
-        with patch('backend.core.ocr.process_image_file', return_value=expected_text) as mock_process:
+        with patch('backend.agents.ocr_agent.process_image_file', return_value=expected_text) as mock_process:
             # Process the image
             result = await agent.process(input_data)
             
@@ -40,7 +40,7 @@ class TestOCRAgent:
             assert result.message == "Pomyślnie wyodrębniono tekst z pliku"
             assert result.metadata == {"file_type": "image"}
             # Verify the mock was called with the right parameters
-            mock_process.assert_called_once_with(sample_image_bytes, config=None)
+            mock_process.assert_called_once_with(sample_image_bytes)
 
     @pytest.mark.asyncio
     async def test_ocr_agent_process_pdf(self, sample_pdf_bytes):
@@ -53,7 +53,7 @@ class TestOCRAgent:
         expected_text = "Page 1\nInvoice #12345\nTotal: $123.45\n\nPage 2\nThank you for your business"
         
         # Need to patch at the module level where it's imported
-        with patch('backend.core.ocr.process_pdf_file', return_value=expected_text) as mock_process:
+        with patch('backend.agents.ocr_agent.process_pdf_file', return_value=expected_text) as mock_process:
             # Process the PDF
             result = await agent.process(input_data)
             
@@ -64,7 +64,7 @@ class TestOCRAgent:
             assert result.message == "Pomyślnie wyodrębniono tekst z pliku"
             assert result.metadata == {"file_type": "pdf"}
             # Verify the mock was called with the right parameters
-            mock_process.assert_called_once_with(sample_pdf_bytes, config=None)
+            mock_process.assert_called_once_with(sample_pdf_bytes)
 
     @pytest.mark.asyncio
     async def test_ocr_agent_process_unsupported_file_type(self, sample_image_bytes):
@@ -90,7 +90,7 @@ class TestOCRAgent:
         input_data = OCRAgentInput(file_bytes=sample_image_bytes, file_type="image")
         
         # Mock the process_image_file function to return None (failure)
-        with patch('backend.core.ocr.process_image_file', return_value=None) as mock_process:
+        with patch('backend.agents.ocr_agent.process_image_file', return_value=None) as mock_process:
             # Process the image
             result = await agent.process(input_data)
             
@@ -110,7 +110,7 @@ class TestOCRAgent:
         input_data = OCRAgentInput(file_bytes=sample_image_bytes, file_type="image")
         
         # Mock the process_image_file function to raise an exception
-        with patch('backend.core.ocr.process_image_file', side_effect=Exception("Test error")) as mock_process:
+        with patch('backend.agents.ocr_agent.process_image_file', side_effect=Exception("Test error")) as mock_process:
             # Process the image
             result = await agent.process(input_data)
             
@@ -136,7 +136,7 @@ class TestOCRAgent:
         # Mock the process_image_file function
         expected_text = "Sample receipt text from dictionary input"
         
-        with patch('backend.core.ocr.process_image_file', return_value=expected_text) as mock_process:
+        with patch('backend.agents.ocr_agent.process_image_file', return_value=expected_text) as mock_process:
             # Process with dictionary input
             result = await agent.process(input_dict)
             

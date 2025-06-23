@@ -2,7 +2,7 @@ import logging
 import uuid
 from datetime import datetime
 import asyncio
-from typing import Callable, Dict, Optional
+from typing import Callable, Dict, Optional, Any
 
 import pybreaker
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -36,11 +36,11 @@ class Orchestrator:
         response_generator: Optional[ResponseGenerator] = None,
     ) -> None:
         self.db = db_session
-        self.profile_manager = profile_manager
-        self.intent_detector = intent_detector
-        self.agent_router = agent_router
-        self.memory_manager = memory_manager
-        self.response_generator = response_generator
+        self.profile_manager = profile_manager or ProfileManager(db_session)
+        self.intent_detector = intent_detector or IntentDetector()
+        self.agent_router = agent_router or AgentRouter()
+        self.memory_manager = memory_manager or MemoryManager()
+        self.response_generator = response_generator or ResponseGenerator()
 
         # Initialize default agents
         # self._initialize_default_agents()  # Usuwam to wywołanie, bo ta metoda nie istnieje
@@ -226,177 +226,80 @@ class SimpleCircuitBreaker:
             logger.error(f"Error processing file: {e}")
             return self._format_error_response(e)
 
-    async def process_query(
-        self,
-        query: str,
-        session_id: str,
-        use_bielik: bool = True,
-        use_perplexity: bool = False,
-        **kwargs,
-    ) -> AgentResponse:
-        """Process user query through the agent system (alias for process_command)"""
-        return await self.process_command(
-            user_command=query,
-            session_id=session_id,
-            use_bielik=use_bielik,
-            use_perplexity=use_perplexity,
-            **kwargs,
-        )
+    async def process_query(self, query: str, session_id: str, **kwargs: Any) -> AgentResponse:
+        """Process user query through the agent system."""
+        return await self.process_command(user_command=query, session_id=session_id, **kwargs)
 
     async def process_command(
         self,
         user_command: str,
         session_id: str,
-        file_info: Optional[Dict] = None,
-        agent_states: Optional[Dict[str, bool]] = None,
-        use_perplexity: bool = False,
-        use_bielik: bool = True,
-        stream: bool = False,
-        stream_callback: Optional[Callable[[Dict], None]] = None,
+        **kwargs: Any,
     ) -> AgentResponse:
         """Process user command through the agent system"""
+        request_id = str(uuid.uuid4())
+        logger.info(
+            f"[Request ID: {request_id}] Received command: '{user_command}' for session: {session_id}"
+        )
+
         try:
-            # Special case for health check
-            if user_command == "health_check_internal":
-                return AgentResponse(
-                    success=True,
-                    text="Orchestrator is responsive",
-                    data={"status": "ok", "message": "Orchestrator is responsive"},
-                    request_id=str(uuid.uuid4()),
-                )
-
-            if not user_command:
-                return AgentResponse(
-                    success=False,
-                    error="Empty command",
-                    text="Proszę podać pytanie lub polecenie.",
-                )
-
             # 1. Get user profile and context
-            if self.profile_manager is None:
-                logger.error("Profile manager is None")
-                return self._format_error_response(
-                    OrchestratorError("Profile manager not initialized")
-                )
-
-            # user_profile = await self.profile_manager.get_or_create_profile(session_id)
-
-            if self.memory_manager is None:
-                logger.error("Memory manager is None")
-                return self._format_error_response(
-                    OrchestratorError("Memory manager not initialized")
-                )
-
+            profile = await self.profile_manager.get_or_create_profile(session_id)
             context = await self.memory_manager.get_context(session_id)
+            context.last_command = user_command
+            context.request_id = request_id
 
             # 2. Log activity
             await self.profile_manager.log_activity(
-                session_id, InteractionType.CHAT, user_command[:100]
+                session_id, InteractionType.TEXT_QUERY, user_command
             )
 
             # 3. Detect intent
-            if self.intent_detector is None:
-                logger.error("Intent detector is None")
-                return self._format_error_response(
-                    OrchestratorError("Intent detector not initialized")
-                )
-
-            intent_data = await self.intent_detector.detect_intent(
-                user_command, context
+            intent = await self.intent_detector.detect_intent(
+                user_command, context, profile
             )
 
             # 4. Route to agent with circuit breaker
             try:
-                if self.agent_router is None:
-                    logger.error("Agent router is None")
-                    return self._format_error_response(
-                        OrchestratorError("Agent router not initialized")
-                    )
-
-                # If streaming is requested, use the streaming approach
-                if stream and stream_callback:
-                    # Create a response object to track the complete response
-                    response = AgentResponse(
-                        success=True,
-                        text="",
-                        data={},
-                        request_id=str(uuid.uuid4()),
-                    )
-
-                    # Route to agent with streaming
-                    agent_response = await self.agent_router.route_to_agent(
-                        intent_data,
-                        context,
-                        user_command,
-                        use_perplexity=use_perplexity,
-                        use_bielik=use_bielik,
-                        stream=True,
-                    )
-
-                    # If the agent response is a generator, process it
-                    if hasattr(agent_response, "__aiter__"):
-                        async for chunk in agent_response:
-                            # Update the response with the chunk
-                            if isinstance(chunk, dict) and "text" in chunk:
-                                response.text += chunk["text"]
-
-                                # If there's data in the chunk, merge it
-                                if "data" in chunk and isinstance(chunk["data"], dict):
-                                    response.data.update(chunk["data"])
-
-                                # Call the callback with the chunk
-                                stream_callback(chunk)
-                    else:
-                        # If not a generator, treat as regular response
-                        response = agent_response
-                        if stream_callback:
-                            stream_callback(
-                                {
-                                    "text": response.text or "",
-                                    "data": response.data or {},
-                                }
-                            )
-                else:
-                    # Non-streaming approach
-                    response = await self.circuit_breaker.call_async(
-                        self.agent_router.route_to_agent,
-                        intent_data,
-                        context,
-                        user_command,
-                        use_perplexity=use_perplexity,
-                        use_bielik=use_bielik,
-                    )
-
-                # 5. Update context with response
-                await self.memory_manager.add_to_history(
-                    session_id,
-                    user_command,
-                    response.text or "",
-                    intent_data.type,
+                agent_response = await self.circuit_breaker.call_async(
+                    self.agent_router.route_to_agent,
+                    intent,
+                    context,
                 )
-
-                return response
-
             except pybreaker.CircuitBreakerError as e:
-                logger.error(f"Circuit breaker tripped: {e}")
-                error_response = self._format_error_response(
-                    OrchestratorError("Service temporarily unavailable")
-                )
-                if stream_callback:
-                    stream_callback(
-                        {"text": error_response.error or "", "success": False}
+                logger.error(f"Circuit breaker tripped for intent {intent.type}: {e}")
+                return self._format_error_response(
+                    OrchestratorError(
+                        "Service temporarily unavailable due to repeated errors.",
+                        severity=ErrorSeverity.HIGH.value,
                     )
-                return error_response
+                )
 
+            # 5. Update context with agent's response
+            await self.memory_manager.update_context(
+                context, {"last_response": agent_response}
+            )
+
+            logger.info(
+                f"[Request ID: {request_id}] Successfully processed command with agent response"
+            )
+            return agent_response
+
+        except OrchestratorError as e:
+            logger.error(
+                f"[Request ID: {request_id}] Orchestrator error: {e}", exc_info=True
+            )
+            return self._format_error_response(e)
         except Exception as e:
-            logger.error(f"Error processing command: {e}", exc_info=True)
-            error_response = self._format_error_response(e)
-            if stream_callback:
-                stream_callback({"text": error_response.error or "", "success": False})
-            return error_response
+            logger.error(
+                f"[Request ID: {request_id}] Unhandled error: {e}", exc_info=True
+            )
+            return self._format_error_response(
+                OrchestratorError(f"An unexpected error occurred: {e}")
+            )
 
     async def shutdown(self) -> None:
-        """Clean shutdown of all components"""
+        """Gracefully shutdown the orchestrator and its components"""
         try:
             # Close any resources if needed
             pass
@@ -412,6 +315,12 @@ class SimpleCircuitBreaker:
             return "medium"
         else:
             return "complex"
+
+    def _initialize_agents(self) -> None:
+        """
+        Initializes all registered agents.
+        """
+        # Implementation of _initialize_agents method
 
 
 # Export for direct import will be handled elsewhere to avoid circular imports

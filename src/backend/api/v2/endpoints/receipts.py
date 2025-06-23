@@ -48,11 +48,14 @@ async def upload_receipt(file: UploadFile = File(...)):
 
         # Sprawdzenie czy typ pliku jest dozwolony
         if file.content_type not in ALLOWED_FILE_TYPES:
-            raise BadRequestError(
-                message="Unsupported file type",
-                details={
-                    "content_type": file.content_type,
-                    "supported_types": ALLOWED_FILE_TYPES,
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "message": "Unsupported file type",
+                    "details": {
+                        "content_type": file.content_type,
+                        "supported_types": ALLOWED_FILE_TYPES,
+                    },
                 },
             )
 
@@ -64,11 +67,14 @@ async def upload_receipt(file: UploadFile = File(...)):
         else:
             # Ten kod nie powinien się wykonać ze względu na wcześniejszą walidację,
             # ale dodajemy go dla pewności
-            raise BadRequestError(
-                message="Unsupported file type",
-                details={
-                    "content_type": file.content_type,
-                    "supported_types": ALLOWED_FILE_TYPES,
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "message": "Unsupported file type",
+                    "details": {
+                        "content_type": file.content_type,
+                        "supported_types": ALLOWED_FILE_TYPES,
+                    },
                 },
             )
 
@@ -79,11 +85,14 @@ async def upload_receipt(file: UploadFile = File(...)):
         result = await agent.process(input_data)
 
         if not result.success:
-            raise UnprocessableEntityError(
-                message="Failed to process receipt",
-                details={
-                    "error": result.error,
-                    "error_code": APIErrorCodes.RECEIPT_PROCESSING_ERROR,
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "message": "Failed to process receipt",
+                    "details": {
+                        "error": result.error,
+                        "error_code": "RECEIPT_PROCESSING_ERROR",
+                    },
                 },
             )
 

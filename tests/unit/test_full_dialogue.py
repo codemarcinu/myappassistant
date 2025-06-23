@@ -6,15 +6,14 @@ from typing import Any, List, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from sqlalchemy import select
 
 from backend.agents.interfaces import AgentResponse, BaseAgent
-from src.backend.agents.orchestrator import Orchestrator
-from src.backend.config import settings
-from src.backend.core import crud
-from src.backend.core.database import AsyncSessionLocal
-from src.backend.core.llm_client import llm_client
-from src.backend.models.shopping import Product, ShoppingTrip
+from backend.agents.orchestrator import Orchestrator
+from backend.core import crud
+from backend.models.shopping import Product, ShoppingTrip
+from backend.config import settings
+from backend.core.database import AsyncSessionLocal
+from backend.core.llm_client import llm_client
 
 # --- Funkcje pomocnicze, które już znamy ---
 

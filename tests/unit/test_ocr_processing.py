@@ -78,7 +78,7 @@ class TestOCRProcessing:
         mock_page.get_pixmap.return_value = mock_pixmap
         mock_pixmap.width = 100
         mock_pixmap.height = 100
-        mock_pixmap.samples = b"mock_image_data"
+        mock_pixmap.samples = b"\x00" * (100 * 100 * 3)
         
         # Set the PDF to have 2 pages
         mock_pdf.__len__ = lambda _: 2
@@ -168,7 +168,7 @@ class TestOCRProcessing:
             mock_page.get_pixmap.return_value = mock_pixmap
             mock_pixmap.width = 100
             mock_pixmap.height = 100
-            mock_pixmap.samples = b"mock_image_data"
+            mock_pixmap.samples = b"\x00" * (100 * 100 * 3)
             
             # Set the PDF to have 2 pages
             mock_pdf.__len__ = lambda _: 2

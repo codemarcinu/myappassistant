@@ -5,14 +5,14 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from src.backend.agents.prompts import get_entity_extraction_prompt
-from src.backend.agents.tools import generate_clarification_question_text
-from src.backend.agents.utils import extract_json_from_text
-from src.backend.config import settings
-from src.backend.core import crud
-from src.backend.core.database import AsyncSessionLocal
-from src.backend.core.llm_client import llm_client
-from src.backend.models.shopping import Product, ShoppingTrip
+from backend.agents.prompts import get_entity_extraction_prompt
+from backend.agents.tools import generate_clarification_question_text
+from backend.agents.utils import extract_json_from_text
+from backend.config import settings
+from backend.core import crud
+from backend.core.database import AsyncSessionLocal
+from backend.core.llm_client import llm_client
+from backend.models.shopping import Product, ShoppingTrip
 
 # Ladowanie danych testowych bezposrednio z pliku JSON
 TEST_DATA_PATH = os.path.join(
@@ -72,9 +72,16 @@ async def test_entity_extraction_parametrized(intent: str, user_prompt: str) -> 
             {"role": "user", "content": prompt},
         ]
 
+        # Mock odpowiedzi LLM z poprawnym JSON
+        mock_response = {
+            "message": {
+                "content": '{"product_name": "test", "price": 10.0, "store": "test_store"}'
+            }
+        }
+
         with patch(
-            "src.backend.core.llm_client.llm_client.chat",
-            new=AsyncMock(return_value={"message": {"content": '{"mocked": true}'}}),
+            "backend.core.llm_client.llm_client.chat",
+            new=AsyncMock(return_value=mock_response),
         ):
             response = await llm_client.chat(
                 model=settings.DEFAULT_CHAT_MODEL,

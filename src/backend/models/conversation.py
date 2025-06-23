@@ -21,7 +21,7 @@ class Conversation(Base):
         DateTime(timezone=True), server_default=func.now()
     )
 
-    messages: Mapped[List[Message]] = relationship(
+    messages: Mapped[List["Message"]] = relationship(
         "Message",
         back_populates="conversation",
         cascade="all, delete-orphan",
@@ -35,8 +35,8 @@ class Message(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     content: Mapped[str] = mapped_column(
-        String, nullable=False
-    )  # Large text, load only when needed
+        Text, nullable=False
+    )  # Text dla dużych treści wiadomości
     role: Mapped[str] = mapped_column(
         String, nullable=False, index=True
     )  # "user" or "assistant"
@@ -47,7 +47,7 @@ class Message(Base):
     conversation_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("conversations.id"), nullable=False
     )
-    conversation: Mapped[Conversation] = relationship(
+    conversation: Mapped["Conversation"] = relationship(
         "Conversation", back_populates="messages", lazy="selectin"
     )
 

@@ -9,29 +9,31 @@ from backend.core.hybrid_llm_client import HybridLLMClient
 # sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../..", "src"))  # Usuń jeśli niepotrzebne
 
 
+@pytest.fixture
+def hybrid_client():
+    """Fixture to create a HybridLLMClient instance for testing."""
+    with patch(
+        "backend.core.llm_client.settings.OLLAMA_HOST", "http://mock-ollama:11434"
+    ), patch("backend.core.hybrid_llm_client.llm_client", new_callable=AsyncMock):
+        client = HybridLLMClient()
+        # Mocking clients to avoid real API calls
+        client.base_client = AsyncMock()
+        client.perplexity_client = AsyncMock()
+        yield client
+
+
 class TestHybridLLMClient:
     """Testy dla Hybrid LLM Client - zarządzania lokalnymi modelami LLM"""
 
     @pytest.fixture
-    def hybrid_client(self):
-        """Fixture dla Hybrid LLM Client"""
-        return HybridLLMClient()
-
-    @pytest.fixture
     def mock_local_client(self):
         """Mock lokalnego klienta LLM"""
-        with patch("backend.core.hybrid_llm_client.LocalLLMClient") as mock_client:
-            mock_instance = mock_client.return_value
-            mock_instance.chat = AsyncMock()
-            yield mock_instance
+        return AsyncMock()
 
     @pytest.fixture
     def mock_remote_client(self):
         """Mock zdalnego klienta LLM"""
-        with patch("backend.core.hybrid_llm_client.RemoteLLMClient") as mock_client:
-            mock_instance = mock_client.return_value
-            mock_instance.chat = AsyncMock()
-            yield mock_instance
+        return AsyncMock()
 
     @pytest.fixture
     def mock_performance_monitor(self):
@@ -49,7 +51,7 @@ class TestHybridLLMClient:
         mock_local_client.chat.return_value = {"message": {"content": "Local response"}}
 
         # When
-        response = await hybrid_client.chat(input_data)
+        response = await hybrid_client.chat(messages=input_data["messages"])
 
         # Then
         assert response["message"]["content"] == "Local response"
@@ -68,7 +70,9 @@ class TestHybridLLMClient:
         }
 
         # When
-        response = await hybrid_client.chat(input_data)
+        response = await hybrid_client.chat(
+            messages=input_data["messages"], model=input_data["model"]
+        )
 
         # Then
         assert response["message"]["content"] == "Remote response"
@@ -84,7 +88,9 @@ class TestHybridLLMClient:
         mock_local_client.chat.return_value = {"message": {"content": "Local response"}}
 
         # When
-        response = await hybrid_client.chat(input_data, auto_select=True)
+        response = await hybrid_client.chat(
+            messages=input_data["messages"], auto_select=True
+        )
 
         # Then
         assert response["message"]["content"] == "Local response"
@@ -103,7 +109,7 @@ class TestHybridLLMClient:
         }
 
         # When
-        response = await hybrid_client.chat(input_data)
+        response = await hybrid_client.chat(messages=input_data["messages"])
 
         # Then
         assert response["message"]["content"] == "Fallback response"
@@ -118,7 +124,9 @@ class TestHybridLLMClient:
         input_data = {"messages": [{"role": "user", "content": "Hello"}]}
 
         # When
-        await hybrid_client.chat(input_data, monitor_performance=True)
+        await hybrid_client.chat(
+            messages=input_data["messages"], monitor_performance=True
+        )
 
         # Then
         mock_performance_monitor.measure.assert_called_once()
@@ -136,7 +144,9 @@ class TestHybridLLMClient:
         mock_local_client.chat.return_value = mock_stream()
 
         # When
-        response_stream = await hybrid_client.chat(input_data, stream=True)
+        response_stream = await hybrid_client.chat(
+            messages=input_data["messages"], stream=True
+        )
 
         # Then
         collected_chunks = []
@@ -155,7 +165,7 @@ class TestHybridLLMClient:
         input_data = {"messages": [{"role": "user", "content": long_message}]}
 
         # When
-        await hybrid_client.chat(input_data)
+        await hybrid_client.chat(messages=input_data["messages"])
 
         # Then
         call_args = mock_local_client.chat.call_args
@@ -175,7 +185,11 @@ class TestHybridLLMClient:
         }
 
         # When
-        await hybrid_client.chat(input_data)
+        await hybrid_client.chat(
+            messages=input_data["messages"],
+            temperature=input_data["temperature"],
+            max_tokens=input_data["max_tokens"],
+        )
 
         # Then
         call_args = mock_local_client.chat.call_args
@@ -206,7 +220,9 @@ class TestHybridLLMClient:
         }
 
         # When
-        response = await hybrid_client.chat(input_data)
+        response = await hybrid_client.chat(
+            messages=input_data["messages"], functions=input_data["functions"]
+        )
 
         # Then
         assert "function_call" in response
@@ -226,7 +242,7 @@ class TestHybridLLMClient:
         }
 
         # When
-        await hybrid_client.chat(input_data)
+        await hybrid_client.chat(messages=input_data["messages"])
 
         # Then
         call_args = mock_local_client.chat.call_args
@@ -242,7 +258,9 @@ class TestHybridLLMClient:
         }
 
         # When
-        await hybrid_client.chat(input_data)
+        await hybrid_client.chat(
+            messages=input_data["messages"], model=input_data["model"]
+        )
 
         # Then
         call_args = mock_remote_client.chat.call_args
@@ -260,7 +278,7 @@ class TestHybridLLMClient:
 
         # When
         with pytest.raises(AgentError) as excinfo:
-            await hybrid_client.chat(input_data)
+            await hybrid_client.chat(messages=input_data["messages"])
 
         # Then
         assert "All models failed" in str(excinfo.value)
@@ -276,7 +294,7 @@ class TestHybridLLMClient:
         ]
 
         # When
-        response = await hybrid_client.chat(input_data, retries=2)
+        response = await hybrid_client.chat(messages=input_data["messages"], retries=2)
 
         # Then
         assert response["message"]["content"] == "Retry response"
@@ -289,7 +307,7 @@ class TestHybridLLMClient:
         input_data = {"messages": [{"role": "user", "content": "Hello"}]}
 
         # When
-        await hybrid_client.chat(input_data, track_cost=True)
+        await hybrid_client.chat(messages=input_data["messages"], track_cost=True)
 
         # Then
         assert hybrid_client.total_cost > 0
@@ -304,7 +322,7 @@ class TestHybridLLMClient:
         }
 
         # When
-        await hybrid_client.chat(input_data)
+        await hybrid_client.chat(messages=input_data["messages"])
 
         # Then
         call_args = mock_local_client.chat.call_args
@@ -321,7 +339,7 @@ class TestHybridLLMClient:
         mock_local_client.chat.return_value = {"message": {"content": "Blocked"}}
 
         # When
-        response = await hybrid_client.chat(input_data)
+        response = await hybrid_client.chat(messages=input_data["messages"])
 
         # Then
         assert response["message"]["content"] == "Blocked"
@@ -338,7 +356,7 @@ class TestHybridLLMClient:
         }
 
         # When
-        await hybrid_client.chat(input_data)
+        await hybrid_client.chat(messages=input_data["messages"])
 
         # Then
         call_args = mock_local_client.chat.call_args
@@ -355,7 +373,7 @@ class TestHybridLLMClient:
         mock_remote_client.chat.return_value = {"message": {"content": "Remote answer"}}
 
         # When
-        response = await hybrid_client.chat(input_data, ensemble=True)
+        response = await hybrid_client.chat(messages=input_data["messages"], ensemble=True)
 
         # Then
         assert "Local answer" in response["message"]["content"]
@@ -370,7 +388,7 @@ class TestHybridLLMClient:
 
         # When
         start_time = asyncio.get_event_loop().time()
-        await hybrid_client.chat(input_data)
+        await hybrid_client.chat(messages=input_data["messages"])
         end_time = asyncio.get_event_loop().time()
 
         # Then

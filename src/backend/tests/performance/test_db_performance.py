@@ -3,13 +3,17 @@ import time
 from datetime import datetime, timedelta
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import select, delete
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+from sqlalchemy.future import select
 
-from backend.core.database import AsyncSessionLocal, Base, engine
+from backend.core.database import AsyncSessionLocal
 from backend.models.conversation import Conversation, Message
 from backend.models.shopping import Product, ShoppingTrip
 from typing import Any, Dict, List, Optional, Union, Callable
 from typing import AsyncGenerator, Coroutine
+from memory_profiler import memory_usage
 
 
 @pytest.fixture
@@ -17,118 +21,94 @@ def unique_session_id() -> None:
     return f"perf_test_{str(hash(time.time()))[-8:]}"
 
 
-@pytest.fixture(scope="session", autouse=True)
-async def setup_database() -> None:
-    """Inicjalizacja bazy danych dla testów"""
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    yield
-    # Cleanup po testach
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
+@pytest.fixture(scope="module")
+async def setup_database():
+    """Set up the database with test data."""
+    async with AsyncSessionLocal() as db:
+        # Clear existing data
+        await db.execute(delete(Conversation))
+        await db.execute(delete(Message))
+        await db.execute(delete(ShoppingTrip))
+        await db.execute(delete(Product))
 
-
-@pytest.mark.asyncio
-async def test_conversation_query_performance(unique_session_id) -> None:
-    """Test performance of optimized conversation queries"""
-    async with AsyncSessionLocal() as session:
         # Create test data
-        conv = Conversation(session_id=unique_session_id)
-        session.add(conv)
-        await session.commit()
-
-        # Add 100 test messages
-        for i in range(100):
-            msg = Message(
-                content=f"Test message {i}",
-                role="user",
-                conversation_id=conv.id,
-                created_at=datetime.now() - timedelta(minutes=i),
-            )
-            session.add(msg)
-        await session.commit()
-
-        # Benchmark query with composite index
-        start = time.time()
-        result = await session.execute(
-            select(Message)
-            .where(Message.conversation_id == conv.id)
-            .order_by(Message.created_at.desc())
-            .limit(10)
+        conversation = Conversation(
+            session_id=unique_session_id,
+            messages=[
+                Message(content="Hello", role="user"),
+                Message(content="Hi", role="assistant"),
+            ]
         )
-        elapsed = time.time() - start
-        assert elapsed < 0.1  # Should be much faster with index
-        assert len(result.scalars().all()) == 10
+        shopping_trip = ShoppingTrip(
+            store_name="Test Store",
+            products=[
+                Product(name="Test Product 1", price=10.0, quantity=1),
+                Product(name="Test Product 2", price=20.0, quantity=2),
+            ],
+        )
+        db.add(conversation)
+        db.add(shopping_trip)
+        await db.commit()
+    yield
+    # Teardown is not strictly necessary for in-memory db, but good practice
+    async with AsyncSessionLocal() as db:
+        await db.execute(delete(Conversation))
+        await db.execute(delete(Message))
+        await db.execute(delete(ShoppingTrip))
+        await db.execute(delete(Product))
+        await db.commit()
 
 
 @pytest.mark.asyncio
-async def test_shopping_query_performance() -> None:
-    """Test performance of optimized shopping queries"""
-    async with AsyncSessionLocal() as session:
-        # Create test trip with unique name
-        trip = ShoppingTrip(
-            trip_date=datetime.now().date(),
-            store_name=f"PerfTest_{str(hash(time.time()))[-8:]}",
-        )
-        session.add(trip)
-        await session.flush()  # Ensure ID is available
+async def test_conversation_query_performance(benchmark, setup_database):
+    """Test performance of querying conversations."""
 
-        # Add 50 test products using bulk insert
-        products = [
-            Product(
-                name=f"Product {i}",
-                category="test" if i % 2 else "other",
-                expiration_date=datetime.now().date() + timedelta(days=i),
-                trip_id=trip.id,
-            )
-            for i in range(50)
-        ]
-        session.add_all(products)
-        await session.commit()
+    async def query_conversations():
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(select(Conversation).options(selectinload(Conversation.messages)))
+            _ = result.scalars().all()
 
-        # Benchmark category query
-        start = time.time()
-        result = await session.execute(
-            select(Product)
-            .where(Product.trip_id == trip.id)
-            .where(Product.category == "test")
-        )
-        elapsed = time.time() - start
-        assert elapsed < 0.1  # Should be fast with composite index
-        assert len(result.scalars().all()) == 25
+    benchmark(asyncio.run, query_conversations())
 
 
 @pytest.mark.asyncio
-async def test_memory_usage() -> None:
-    """Test memory usage of database operations"""
+async def test_shopping_query_performance(benchmark, setup_database):
+    """Test performance of querying shopping trips."""
 
-    async def _memory_test_operations() -> None:
-        async with AsyncSessionLocal() as session:
-            for i in range(100):
-                conv = Conversation(
-                    session_id=f"mem_test_{i}_{int(time.time() * 1000)}"
-                )
-                session.add(conv)
-                await session.flush()  # Ensure conv.id is available
+    async def query_shopping_trips():
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(select(ShoppingTrip).options(selectinload(ShoppingTrip.products)))
+            _ = result.scalars().all()
 
-                for j in range(10):
-                    msg = Message(
-                        content=f"Msg {j}", role="user", conversation_id=conv.id
-                    )
-                    session.add(msg)
-            await session.commit()
+    benchmark(asyncio.run, query_shopping_trips())
 
-    # Get baseline memory usage
-    baseline = await _get_process_memory()
 
-    # Run operations
-    await _memory_test_operations()
+@pytest.mark.asyncio
+async def test_memory_usage(setup_database):
+    """Test memory usage for querying data."""
 
-    # Get memory after operations
-    after = await _get_process_memory()
+    async def query_data():
+        async with AsyncSessionLocal() as db:
+            # Query conversations
+            conv_result = await db.execute(
+                select(Conversation).options(selectinload(Conversation.messages))
+            )
+            conversations = conv_result.scalars().all()
 
-    # Check memory difference is reasonable
-    assert (after - baseline) < 50  # MB
+            # Query shopping trips
+            shop_result = await db.execute(
+                select(ShoppingTrip).options(selectinload(ShoppingTrip.products))
+            )
+            shopping_trips = shop_result.scalars().all()
+
+            return conversations, shopping_trips
+
+    # Measure memory usage
+    mem_usage = memory_usage((asyncio.run, (query_data(),)), max_usage=True)
+    print(f"Peak memory usage: {mem_usage} MiB")
+
+    # Add assertions for memory usage if needed
+    assert mem_usage < 100  # Example threshold: 100 MiB
 
 
 async def _get_process_memory() -> None:

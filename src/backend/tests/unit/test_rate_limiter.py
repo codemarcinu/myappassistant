@@ -5,7 +5,12 @@ from typing import Any, Dict, List, Optional, Union, Callable, AsyncGenerator, C
 
 import pytest
 
-from backend.agents.mixins.rate_limiter import RateLimiter, RateLimitExceeded
+from backend.agents.mixins.rate_limiter import (
+    RateLimiter,
+    RateLimitExceeded,
+    TokenBucket,
+    rate_limited,
+)
 
 
 class TestTokenBucket:

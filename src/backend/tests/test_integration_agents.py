@@ -19,7 +19,7 @@ async def test_integration_chat_flow() -> None:
     mock_intent_detector = AsyncMock()
 
     orchestrator = Orchestrator(
-        db=mock_db,
+        db_session=mock_db,
         profile_manager=mock_profile_manager,
         intent_detector=mock_intent_detector,
     )
@@ -52,7 +52,7 @@ async def test_integration_error_handling() -> None:
     mock_intent_detector = AsyncMock()
 
     orchestrator = Orchestrator(
-        db=mock_db,
+        db_session=mock_db,
         profile_manager=mock_profile_manager,
         intent_detector=mock_intent_detector,
     )
@@ -78,7 +78,7 @@ async def test_integration_combined_flow() -> None:
     mock_intent_detector = AsyncMock()
 
     orchestrator = Orchestrator(
-        db=mock_db,
+        db_session=mock_db,
         profile_manager=mock_profile_manager,
         intent_detector=mock_intent_detector,
     )
@@ -114,7 +114,7 @@ async def test_integration_performance() -> None:
     mock_intent_detector = AsyncMock()
 
     orchestrator = Orchestrator(
-        db=mock_db,
+        db_session=mock_db,
         profile_manager=mock_profile_manager,
         intent_detector=mock_intent_detector,
     )
@@ -155,7 +155,7 @@ async def test_integration_fallback_mechanism() -> None:
     mock_intent_detector = AsyncMock()
 
     orchestrator = Orchestrator(
-        db=mock_db,
+        db_session=mock_db,
         profile_manager=mock_profile_manager,
         intent_detector=mock_intent_detector,
     )

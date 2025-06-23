@@ -67,6 +67,9 @@ class AgentFactory:
 
         # Register agent classes with the registry
         self.agent_registry.register_agent_class(
+            "GeneralConversation", self._get_agent_class("GeneralConversationAgent")
+        )
+        self.agent_registry.register_agent_class(
             "OCR", self._get_agent_class("OCRAgent")
         )
         self.agent_registry.register_agent_class(
@@ -133,7 +136,10 @@ class AgentFactory:
             if cache_key in self._agent_cache:
                 return self._agent_cache[cache_key]
 
-        agent_class = self.agent_registry.get_agent_class(agent_type)
+        # Map agent_type to registered agent class using intent_to_agent_mapping
+        mapped_agent_type = self.agent_registry.intent_to_agent_mapping.get(agent_type, "GeneralConversation")
+        agent_class = self.agent_registry.get_agent_class(mapped_agent_type)
+        
         if not agent_class:
             logger.warning(
                 f"Unknown agent type: {agent_type}, using GeneralConversationAgent"
