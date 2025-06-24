@@ -1,5 +1,7 @@
 import asyncio
+import json
 import logging
+import os
 import re
 import time
 from datetime import datetime, timedelta
@@ -8,8 +10,8 @@ from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
 
 from pydantic import BaseModel, ConfigDict
 
-from backend.core.llm_client import LLMCache, llm_client
 from backend.core.language_detector import language_detector
+from backend.core.llm_client import LLMCache, llm_client
 from backend.core.model_selector import ModelTask, model_selector
 
 logger = logging.getLogger(__name__)
@@ -71,7 +73,6 @@ class HybridLLMClient:
     and automatic fallback.
     """
 
-    default_model = "SpeakLeash/bielik-4.5b-v3.0-instruct:Q8_0"
     fallback_model = "SpeakLeash/bielik-11b-v2.3-instruct:Q5_K_M"
     gemma_model = "gemma3:12b"  # Nowy model Gemma 3
     use_perplexity_fallback = True
@@ -100,10 +101,46 @@ class HybridLLMClient:
         # For metrics collection
         self.selection_metrics: List[ModelSelectionMetrics] = []
         self.last_cleanup = datetime.now()
-        
+
         # Inicjalizacja model_selector
         self.model_selector = model_selector
         logger.info("HybridLLMClient initialized with ModelSelector")
+
+    @property
+    def default_model(self) -> str:
+        """Get the default model from config file or fallback to hardcoded value"""
+        try:
+            # Path to the LLM settings file
+            llm_settings_path = os.path.join(
+                os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+                "..",
+                "data",
+                "config",
+                "llm_settings.json",
+            )
+
+            if os.path.exists(llm_settings_path):
+                with open(llm_settings_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    selected_model = data.get("selected_model", "")
+                    if selected_model and selected_model in self.model_configs:
+                        logger.info(
+                            f"Using selected model from config: {selected_model}"
+                        )
+                        return selected_model
+
+            # Fallback to hardcoded default
+            fallback_default = "SpeakLeash/bielik-4.5b-v3.0-instruct:Q8_0"
+            logger.info(
+                f"No valid selected model in config, using fallback: {fallback_default}"
+            )
+            return fallback_default
+
+        except Exception as e:
+            logger.warning(f"Error reading selected model from config: {e}")
+            fallback_default = "SpeakLeash/bielik-4.5b-v3.0-instruct:Q8_0"
+            logger.info(f"Using fallback default model: {fallback_default}")
+            return fallback_default
 
     def _init_model_configs(self) -> Dict[str, ModelConfig]:
         """Initialize model configs with their capabilities"""
@@ -137,20 +174,6 @@ class HybridLLMClient:
                 concurrency_limit=2,
                 supports_embedding=True,
                 description="Polish language specialized model - fallback model",
-            ),
-            "SpeakLeash/bielik-4.5b-v3.0-instruct:Q8_0": ModelConfig(
-                name="SpeakLeash/bielik-4.5b-v3.0-instruct:Q8_0",
-                complexity_levels=[
-                    ModelComplexity.SIMPLE,
-                    ModelComplexity.STANDARD,
-                    ModelComplexity.COMPLEX,
-                ],
-                max_tokens=4096,
-                cost_per_token=0.01,
-                priority=3,  # Niższy priorytet - model zapasowy
-                concurrency_limit=20,
-                supports_embedding=True,
-                description="Główny model dla wszystkich zapytań",
             ),
             "nomic-embed-text": ModelConfig(
                 name="nomic-embed-text",
@@ -192,12 +215,14 @@ class HybridLLMClient:
             (msg.get("content", "") for msg in messages if msg.get("role") == "user"),
             "",
         )
-        
+
         # Wykrywanie języka dla wyboru modelu
         detected_language = "en"
         if query:
             detected_language, _ = language_detector.detect_language(query)
-            logger.info(f"Detected language: {detected_language} for query: {query[:50]}...")
+            logger.info(
+                f"Detected language: {detected_language} for query: {query[:50]}..."
+            )
 
         # Initialize score and features
         complexity_score = 0.0
@@ -317,36 +342,39 @@ class HybridLLMClient:
             if feature.startswith("query_"):
                 query = feature[6:]
                 break
-                
+
         # Map complexity to ModelTask
         task = ModelTask.TEXT_ONLY
         if complexity_level == ModelComplexity.COMPLEX:
             task = ModelTask.CREATIVE
         elif complexity_level == ModelComplexity.CRITICAL:
             task = ModelTask.STRUCTURED_OUTPUT
-            
+
         # Check for available models
         available_models = [
-            name for name, config in self.model_configs.items() 
+            name
+            for name, config in self.model_configs.items()
             if config.is_enabled and self.semaphores[name]._value > 0
         ]
-        
+
         if not available_models:
             # Jeśli wszystkie modele zajęte, używamy domyślnego
-            available_models = [name for name, config in self.model_configs.items() if config.is_enabled]
+            available_models = [
+                name for name, config in self.model_configs.items() if config.is_enabled
+            ]
             if not available_models:
                 logger.warning("No models available, falling back to default")
                 return self.default_model, "No models available"
-        
+
         # Użyj nowego selektora modeli
         best_model = model_selector.select_model(
             query=query,
             task=task,
             complexity=complexity_score,
             contains_images=False,  # Na razie obsługa obrazów nie jest zaimplementowana
-            available_models=available_models
+            available_models=available_models,
         )
-        
+
         reason = f"Selected {best_model} using ModelSelector (task: {task}, complexity: {complexity_score:.2f})"
         logger.info(reason)
         return best_model, reason
@@ -362,9 +390,9 @@ class HybridLLMClient:
         use_bielik: Optional[bool] = None,
         use_perplexity: Optional[bool] = None,
         task: Optional[ModelTask] = None,  # Nowy parametr
-        contains_images: bool = False,     # Nowy parametr
+        contains_images: bool = False,  # Nowy parametr
         **kwargs,
-    ) -> None:
+    ) -> Any:
         """
         Enhanced chat method with automatic model selection and explicit model toggling
         """
@@ -391,50 +419,65 @@ class HybridLLMClient:
         try:
             # Auto-determine model if not explicitly provided
             if not model:
-                # Define task if not provided 
+                # Define task if not provided
                 if not task:
                     if force_complexity:
-                        task = ModelTask.STRUCTURED_OUTPUT if force_complexity == ModelComplexity.CRITICAL else ModelTask.TEXT_ONLY
+                        task = (
+                            ModelTask.STRUCTURED_OUTPUT
+                            if force_complexity == ModelComplexity.CRITICAL
+                            else ModelTask.TEXT_ONLY
+                        )
                     else:
                         # Determine basic task based on message content
                         if any("```" in msg.get("content", "") for msg in messages):
                             task = ModelTask.CODE_GENERATION
                         else:
                             task = ModelTask.TEXT_ONLY
-                
+
                 # Get available models
                 available_models = [
-                    name for name, config in self.model_configs.items() 
+                    name
+                    for name, config in self.model_configs.items()
                     if config.is_enabled
                 ]
-                
+
                 # Select model using new selector
                 complexity = 0.5
                 if force_complexity:
-                    complexity = 1.0 if force_complexity == ModelComplexity.CRITICAL else 0.5
-                
+                    complexity = (
+                        1.0 if force_complexity == ModelComplexity.CRITICAL else 0.5
+                    )
+
                 model = model_selector.select_model(
                     query=query,
                     task=task,
                     complexity=complexity,
                     contains_images=contains_images,
-                    available_models=available_models
+                    available_models=available_models,
                 )
-                
+
                 selection_reason = f"Selected {model} using ModelSelector (task: {task}, complexity: {complexity:.2f}, images: {contains_images})"
                 logger.info(selection_reason)
-                
+
                 # Record selection metrics
                 detected_language, _ = language_detector.detect_language(query)
-                
+
                 self.selection_metrics.append(
                     ModelSelectionMetrics(
                         query_length=len(query),
                         complexity_score=complexity,
                         keyword_score=complexity,  # Simplified
-                        priority_features=[f"task_{task}", f"language_{detected_language}", f"images_{contains_images}"],
+                        priority_features=[
+                            f"task_{task}",
+                            f"language_{detected_language}",
+                            f"images_{contains_images}",
+                        ],
                         selected_model=model,
-                        complexity_level=ModelComplexity.COMPLEX if complexity > 0.7 else ModelComplexity.STANDARD,
+                        complexity_level=(
+                            ModelComplexity.COMPLEX
+                            if complexity > 0.7
+                            else ModelComplexity.STANDARD
+                        ),
                         selection_reason=selection_reason,
                         language=detected_language,
                     )
@@ -444,6 +487,10 @@ class HybridLLMClient:
                 if model not in self.model_configs:
                     logger.warning(f"Unknown model: {model}, falling back to default")
                     model = self.default_model
+
+            # Ensure model is not None at this point
+            if not model:
+                model = self.default_model
 
             # Check model stats for disabled models
             if not self.model_configs[model].is_enabled:
@@ -681,7 +728,7 @@ class HybridLLMClient:
         fallback_model: Optional[str] = None,
         max_retries: int = 2,
         stream: bool = False,
-    ) -> None:
+    ) -> Any:
         """Try with primary model, falling back to simpler model if necessary"""
 
         # Get the query for model selection
@@ -696,20 +743,19 @@ class HybridLLMClient:
             task = ModelTask.TEXT_ONLY
             if any("```" in msg.get("content", "") for msg in messages):
                 task = ModelTask.CODE_GENERATION
-                
+
             available_models = [
-                name for name, config in self.model_configs.items() 
-                if config.is_enabled
+                name for name, config in self.model_configs.items() if config.is_enabled
             ]
-            
+
             primary_model = model_selector.select_model(
                 query=query,
                 task=task,
                 complexity=0.5,
                 contains_images=False,
-                available_models=available_models
+                available_models=available_models,
             )
-            
+
             logger.info(f"Selected primary model {primary_model} using ModelSelector")
 
         # Try primary model
@@ -728,25 +774,28 @@ class HybridLLMClient:
         if not fallback_model:
             # Wykryj język dla wyboru fallbacku
             detected_language, _ = language_detector.detect_language(query)
-            
+
             # Dla polskich zapytań preferuj Bielika jako fallback
             if detected_language == "pl":
                 fallback_model = self.default_model
-                logger.info(f"Using Polish-specific model {fallback_model} as fallback for Polish query")
+                logger.info(
+                    f"Using Polish-specific model {fallback_model} as fallback for Polish query"
+                )
             else:
                 # Wybierz model z wyłączeniem primary_model
                 available_models = [
-                    name for name, config in self.model_configs.items() 
+                    name
+                    for name, config in self.model_configs.items()
                     if config.is_enabled and name != primary_model
                 ]
-                
+
                 if available_models:
                     task = ModelTask.TEXT_ONLY  # Simplified task for fallback
                     fallback_model = model_selector.select_model(
                         query=query,
                         task=task,
                         complexity=0.3,  # Lower complexity for fallback
-                        available_models=available_models
+                        available_models=available_models,
                     )
                 else:
                     fallback_model = self.default_model
@@ -770,10 +819,10 @@ class HybridLLMClient:
                 "response": f"Error processing request with all models: {str(e)}",
             }
 
-    def get_available_models(self) -> None:
+    def get_available_models(self) -> List[str]:
         return list(self.model_configs.keys()) + ["perplexity"]
 
-    def get_model_info(self, model_name) -> None:
+    def get_model_info(self, model_name: str) -> Dict[str, Any]:
         if model_name == "perplexity":
             return {"name": "perplexity", "type": "api", "default": False}
         if model_name in self.model_configs:
