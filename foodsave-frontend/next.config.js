@@ -7,11 +7,23 @@ const nextConfig = {
     outputFileTracingRoot: undefined,
     // optimizeCss: true, // Wyłączone z powodu problemu z critters
     scrollRestoration: true,
+    // Disable static generation
+    workerThreads: false,
+    cpus: 1,
   },
   images: {
     domains: ['localhost'], // Add domains for image hosting if needed
     unoptimized: true, // Dla środowiska Docker
   },
+
+  // Disable static generation completely
+  trailingSlash: false,
+  generateBuildId: async () => {
+    return 'build-' + Date.now();
+  },
+
+  // Disable static optimization
+  staticPageGenerationTimeout: 0,
 
   // Security Headers Configuration
   async headers() {

@@ -43,9 +43,10 @@ RUN adduser --system --uid 1001 nextjs
 # Kopiowanie plików publicznych
 COPY --from=builder /app/public ./public
 
-# Kopiowanie plików buildowanych - poprawiona struktura dla standalone
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+# Kopiowanie plików buildowanych - sprawdzenie czy standalone istnieje
+COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
 
 # Sprawdzenie czy plik server.js istnieje
 RUN ls -la /app/
@@ -58,4 +59,11 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:3000/ || exit 1
 
-CMD ["node", "server.js"]
+# Uruchomienie aplikacji - sprawdzenie czy standalone server.js istnieje
+CMD if [ -f "/app/.next/standalone/server.js" ]; then \
+        echo "Starting with standalone server.js"; \
+        exec node /app/.next/standalone/server.js; \
+    else \
+        echo "Starting with npm start"; \
+        exec npm start; \
+    fi

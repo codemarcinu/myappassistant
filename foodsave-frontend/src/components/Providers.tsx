@@ -10,6 +10,11 @@ interface ProvidersProps {
 }
 
 export function Providers({ children }: ProvidersProps) {
+  // Don't render QueryClientProvider if queryClient is not available (SSR)
+  if (!queryClient) {
+    return <>{children}</>;
+  }
+
   return (
     <QueryClientProvider client={queryClient}>
       {children}
