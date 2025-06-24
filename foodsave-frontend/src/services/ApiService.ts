@@ -1,5 +1,6 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
 import qs from 'qs';
+import { LLMModel, LLMModelSettings, LLMModelListResponse, LLMModelSelectedResponse } from '@/types/api';
 
 const IS_SERVER = typeof window === 'undefined';
 
@@ -497,6 +498,19 @@ class ApiServiceClass {
 
   public async saveReceiptData(receiptData: any) {
     return this.post('/api/v2/receipts/save', receiptData);
+  }
+
+  // LLM Model Settings Methods
+  public async getAvailableLLMModels(signal?: AbortSignal): Promise<LLMModel[]> {
+    return this.get<LLMModel[]>('/api/settings/llm-models', undefined, signal);
+  }
+
+  public async getSelectedLLMModel(signal?: AbortSignal): Promise<LLMModelSelectedResponse> {
+    return this.get<LLMModelSelectedResponse>('/api/settings/llm-model/selected', undefined, signal);
+  }
+
+  public async setSelectedLLMModel(modelName: string, signal?: AbortSignal): Promise<LLMModelSelectedResponse> {
+    return this.post<LLMModelSelectedResponse>(`/api/settings/llm-model/selected?model_name=${encodeURIComponent(modelName)}`, undefined, signal);
   }
 }
 

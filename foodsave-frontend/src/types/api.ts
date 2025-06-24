@@ -66,3 +66,22 @@ export interface Notification {
   type: 'info' | 'success' | 'warning' | 'error';
   timestamp: number;
 }
+
+// LLM Model Settings Types
+export interface LLMModel {
+  name: string;
+  size: string;
+  modified_at: string;
+}
+
+export interface LLMModelSettings {
+  selected_model: string;
+}
+
+export interface LLMModelListResponse {
+  models: LLMModel[];
+}
+
+export interface LLMModelSelectedResponse {
+  selected_model: string;
+}
