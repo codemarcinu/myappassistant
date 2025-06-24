@@ -2,9 +2,8 @@ import json
 import os
 from typing import Dict, List
 
+import httpx
 from fastapi import APIRouter, HTTPException
-
-from backend.core.llm_client import llm_client
 
 router = APIRouter()
 
@@ -18,38 +17,86 @@ LLM_SETTINGS_PATH = os.path.join(
 
 
 @router.get("/llm-models", response_model=List[Dict[str, str]])
-async def get_llm_models() -> List[Dict[str, str]]:
-    """
-    Zwraca listę dostępnych modeli LLM z serwera Ollama.
-    """
+async def get_available_models():
+    """Get list of available LLM models from Ollama."""
     try:
-        models = await llm_client.get_models()
-        # Zwracamy tylko nazwę i rozmiar/model_id
-        return [
-            {"name": m.get("name", ""), "size": str(m.get("size", ""))} for m in models
-        ]
+        async with httpx.AsyncClient() as client:
+            response = await client.get("http://localhost:11434/api/tags")
+            if response.status_code == 200:
+                data = response.json()
+                models = []
+                for model in data.get("models", []):
+                    models.append(
+                        {
+                            "name": model["name"],
+                            "size": model.get("size", "Unknown"),
+                            "modified_at": model.get("modified_at", ""),
+                        }
+                    )
+                return models
+            else:
+                raise HTTPException(
+                    status_code=500, detail="Nie udało się pobrać listy modeli z Ollama"
+                )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Błąd pobierania modeli LLM: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"Błąd podczas pobierania modeli: {e}"
+        )
 
 
-def get_selected_llm_model() -> str:
-    """
-    Odczytuje aktualnie wybrany model LLM z pliku konfiguracyjnego.
-    """
+@router.get("/llm-model/selected")
+async def get_selected_model():
+    """Get currently selected LLM model."""
     try:
-        with open(LLM_SETTINGS_PATH, "r") as f:
-            data = json.load(f)
-            return data.get("selected_model", "")
+        if os.path.exists(LLM_SETTINGS_PATH):
+            with open(LLM_SETTINGS_PATH, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                return data.get("selected_model", "")
+        return ""
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Błąd odczytu wybranego modelu: {e}"
         )
 
 
-@router.get("/llm-selected", response_model=Dict[str, str])
-async def get_llm_selected() -> Dict[str, str]:
-    """
-    Zwraca aktualnie wybrany model LLM.
-    """
-    selected = get_selected_llm_model()
-    return {"selected_model": selected}
+@router.post("/llm-model/selected")
+async def set_selected_model(model_name: str):
+    """Set the selected LLM model with validation."""
+    try:
+        # Validate that the model exists in Ollama
+        async with httpx.AsyncClient() as client:
+            response = await client.get("http://localhost:11434/api/tags")
+            if response.status_code != 200:
+                raise HTTPException(
+                    status_code=500, detail="Nie udało się połączyć z Ollama"
+                )
+
+            data = response.json()
+            available_models = [model["name"] for model in data.get("models", [])]
+
+            if model_name not in available_models:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Model '{model_name}' nie jest dostępny w Ollama. Dostępne modele: {', '.join(available_models)}",
+                )
+
+        # Ensure config directory exists
+        config_dir = os.path.dirname(LLM_SETTINGS_PATH)
+        os.makedirs(config_dir, exist_ok=True)
+
+        # Save the selected model
+        settings_data = {"selected_model": model_name}
+        with open(LLM_SETTINGS_PATH, "w", encoding="utf-8") as f:
+            json.dump(settings_data, f, indent=2, ensure_ascii=False)
+
+        return {
+            "message": f"Model '{model_name}' został ustawiony jako domyślny",
+            "selected_model": model_name,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Błąd podczas ustawiania modelu: {e}"
+        )
