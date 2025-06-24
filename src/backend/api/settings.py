@@ -29,7 +29,7 @@ async def get_available_models():
                     models.append(
                         {
                             "name": model["name"],
-                            "size": model.get("size", "Unknown"),
+                            "size": str(model.get("size", "Unknown")),
                             "modified_at": model.get("modified_at", ""),
                         }
                     )
@@ -94,8 +94,9 @@ async def set_selected_model(model_name: str):
             "selected_model": model_name,
         }
 
-    except HTTPException:
-        raise
+    except HTTPException as http_exc:
+        # FastAPI expects detail for error responses
+        raise HTTPException(status_code=http_exc.status_code, detail=http_exc.detail)
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Błąd podczas ustawiania modelu: {e}"
