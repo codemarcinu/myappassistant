@@ -15,13 +15,16 @@ LLM_SETTINGS_PATH = os.path.join(
     "llm_settings.json",
 )
 
+# Get Ollama URL from environment variables with fallback
+OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
+
 
 @router.get("/llm-models", response_model=List[Dict[str, str]])
 async def get_available_models():
     """Get list of available LLM models from Ollama."""
     try:
         async with httpx.AsyncClient() as client:
-            response = await client.get("http://localhost:11434/api/tags")
+            response = await client.get(f"{OLLAMA_URL}/api/tags")
             if response.status_code == 200:
                 data = response.json()
                 models = []
@@ -65,7 +68,7 @@ async def set_selected_model(model_name: str):
     try:
         # Validate that the model exists in Ollama
         async with httpx.AsyncClient() as client:
-            response = await client.get("http://localhost:11434/api/tags")
+            response = await client.get(f"{OLLAMA_URL}/api/tags")
             if response.status_code != 200:
                 raise HTTPException(
                     status_code=500, detail="Nie udało się połączyć z Ollama"
