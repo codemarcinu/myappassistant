@@ -59,8 +59,12 @@ class OCRAgent(BaseAgent):
                 error=f"Błąd walidacji danych wejściowych: {ve}",
             )
 
-        file_bytes: bytes = input_data.file_bytes
-        file_type: str = input_data.file_type.lower()
+        file_bytes: bytes
+        file_type: str
+
+        # Directly access attributes now that input_data is guaranteed to be OCRAgentInput
+        file_bytes = input_data.file_bytes
+        file_type = input_data.file_type.lower()
 
         try:
             if file_type == "image":

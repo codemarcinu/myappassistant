@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, AsyncGenerator, Callable, Coroutine, Dict, List, Optional, Union
+from typing import (Any, AsyncGenerator, Callable, Coroutine, Dict, List,
+                    Optional, Union)
 
 """
 Tests dla Alerting System
@@ -13,14 +14,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from backend.core.alerting import (
-    Alert,
-    AlertManager,
-    AlertRule,
-    AlertSeverity,
-    AlertStatus,
-    record_system_metrics,
-)
+from backend.core.alerting import (Alert, AlertManager, AlertRule,
+                                   AlertSeverity, AlertStatus,
+                                   record_system_metrics)
 
 
 class TestAlerting:

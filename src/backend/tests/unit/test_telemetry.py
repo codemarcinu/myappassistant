@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, AsyncGenerator, Callable, Coroutine, Dict, List, Optional, Union
+from typing import (Any, AsyncGenerator, Callable, Coroutine, Dict, List,
+                    Optional, Union)
 
 """
 Tests dla OpenTelemetry Integration
@@ -12,14 +13,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from backend.core.telemetry import (
-    SpanContext,
-    create_span,
-    get_tracer,
-    setup_telemetry,
-    traced_async_function,
-    traced_function,
-)
+from backend.core.telemetry import (SpanContext, create_span, get_tracer,
+                                    setup_telemetry, traced_async_function,
+                                    traced_function)
 
 
 class TestTelemetry:

@@ -2,16 +2,14 @@ from typing import AsyncGenerator
 
 from dependency_injector import containers, providers
 
-from backend.application.use_cases.process_query_use_case import ProcessQueryUseCase
+from backend.application.use_cases.process_query_use_case import \
+    ProcessQueryUseCase
 from backend.infrastructure.database.database import get_db
 from backend.infrastructure.database.repositories_impl import (
-    SQLAlchemyFoodItemRepository,
-    SQLAlchemyUserRepository,
-)
+    SQLAlchemyFoodItemRepository, SQLAlchemyUserRepository)
 from backend.infrastructure.llm_api.llm_client import LLMClient
-from backend.infrastructure.vector_store.vector_store_impl import (
-    EnhancedVectorStoreImpl,
-)
+from backend.infrastructure.vector_store.vector_store_impl import \
+    EnhancedVectorStoreImpl
 
 
 class Container(containers.DeclarativeContainer):

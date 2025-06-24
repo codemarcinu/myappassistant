@@ -17,13 +17,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.api.v2.exceptions import (
-    APIErrorCodes,
-    BadRequestError,
-    InternalServerError,
-    NotFoundError,
-    UnprocessableEntityError,
-)
+from backend.api.v2.exceptions import (APIErrorCodes, BadRequestError,
+                                       InternalServerError, NotFoundError,
+                                       UnprocessableEntityError)
 from backend.core.backup_manager import backup_manager
 from backend.infrastructure.database.database import get_db
 

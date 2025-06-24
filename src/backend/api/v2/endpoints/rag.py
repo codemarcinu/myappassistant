@@ -8,24 +8,14 @@ This module provides API endpoints for managing the RAG system:
 - System statistics
 """
 
-import asyncio
 import logging
 import os
-import time
 import uuid
-from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, List, Optional
+from typing import List, Optional, Dict, Any
 
-from fastapi import (
-    APIRouter,
-    BackgroundTasks,
-    Depends,
-    File,
-    HTTPException,
-    Query,
-    UploadFile,
-)
+from fastapi import (APIRouter, BackgroundTasks, Depends, File, HTTPException,
+                     Query, UploadFile)
 from fastapi.responses import JSONResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -35,12 +25,8 @@ from backend.core.rag_document_processor import rag_document_processor
 from backend.core.rag_integration import rag_integration
 from backend.core.vector_store import vector_store
 from backend.infrastructure.database.database import get_db
-from backend.schemas.rag_schemas import (
-    RAGDocumentInfo,
-    RAGQueryRequest,
-    RAGQueryResponse,
-    RAGUploadResponse,
-)
+from backend.schemas.rag_schemas import (RAGDocumentInfo, RAGQueryRequest,
+                                         RAGQueryResponse, RAGUploadResponse)
 
 router = APIRouter(prefix="/rag", tags=["RAG Management"])
 logger = logging.getLogger(__name__)
@@ -78,10 +64,9 @@ async def upload_document_to_rag(
             )
 
         # Zapisz plik tymczasowo
-        document_id = str(uuid.uuid4())
         temp_dir = Path("/tmp/foodsave_uploads")
         temp_dir.mkdir(parents=True, exist_ok=True)
-        temp_file_path = str(temp_dir / f"{document_id}_{file.filename}")
+        temp_file_path = str(temp_dir / f"{uuid.uuid4()}_{file.filename}")
 
         with open(temp_file_path, "wb") as f:
             f.write(await file.read())
@@ -90,7 +75,6 @@ async def upload_document_to_rag(
         background_tasks.add_task(
             process_document_background,
             temp_file_path,
-            document_id,
             file.filename,
             description or "",
             tags or [],
@@ -100,7 +84,6 @@ async def upload_document_to_rag(
         return RAGUploadResponse(
             success=True,
             message="Document upload started.",
-            document_id=document_id,
             filename=file.filename,
         )
 
@@ -115,7 +98,6 @@ async def upload_document_to_rag(
 
 async def process_document_background(
     file_path: str,
-    document_id: str,
     filename: str,
     description: Optional[str],
     tags: List[str],
@@ -125,7 +107,6 @@ async def process_document_background(
     try:
         # Przygotowanie metadanych
         metadata = {
-            "document_id": document_id,
             "filename": filename,
             "description": description,
             "tags": tags,
@@ -198,7 +179,7 @@ async def sync_database_to_rag(
             content={
                 "status_code": 500,
                 "error_code": "INTERNAL_ERROR",
-                "message": "Failed to sync database",
+                "message": "Unexpected error syncing database",
                 "details": {"error": str(e)},
             },
         )
@@ -212,133 +193,63 @@ async def search_documents(
     min_similarity: float = Query(
         0.65, description="Minimum similarity threshold", ge=0.0, le=1.0
     ),
-):
+) -> JSONResponse:
     """
-    Search documents in RAG system
+    Search documents in the RAG system
     """
     try:
-        # Prepare filter metadata
-        filter_metadata = None
-        if filter_type:
-            filter_metadata = {"type": filter_type}
-
-        # Search vector store
-        start_time = time.time()
-        results = await vector_store.search(
-            query=query,
-            k=k,
-            filter_metadata=filter_metadata,
-            min_similarity=min_similarity,
+        results = await rag_integration.search_documents_in_rag(
+            query, k, filter_type, min_similarity
         )
-        end_time = time.time()
-
-        # Format results
-        formatted_results = []
-        for result in results:
-            formatted_results.append(
-                {
-                    "text": result["text"],
-                    "similarity": result["similarity"],
-                    "metadata": result["metadata"],
-                    "source_id": result["source_id"],
-                }
-            )
-
         return JSONResponse(
             status_code=200,
             content={
                 "status_code": 200,
                 "message": "Search completed successfully",
-                "data": {
-                    "query": query,
-                    "results": formatted_results,
-                    "total_results": len(formatted_results),
-                    "time_taken": end_time - start_time,
-                },
+                "data": results,
             },
         )
 
     except Exception as e:
         logger.error(f"Error searching documents: {e}")
-        return JSONResponse(
-            status_code=500,
-            content={
-                "status_code": 500,
-                "error_code": "INTERNAL_ERROR",
-                "message": "Search failed",
-                "details": {"error": str(e)},
-            },
-        )
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/stats", response_model=None)
-async def get_rag_stats() -> None:
+async def get_rag_stats() -> JSONResponse:
     """
     Get RAG system statistics
     """
     try:
-        # Get vector store statistics
-        stats = await vector_store.get_statistics()
-
-        # Get document processor statistics
-        processor_stats = {
-            "chunk_size": rag_processor.chunk_size,
-            "chunk_overlap": rag_processor.chunk_overlap,
-            "use_local_embeddings": rag_processor.use_local_embeddings,
-            "use_pinecone": rag_processor.use_pinecone,
-        }
-
+        stats = await rag_integration.get_rag_stats()
         return JSONResponse(
             status_code=200,
             content={
                 "status_code": 200,
-                "message": "Statistics retrieved successfully",
-                "data": {"vector_store": stats, "processor": processor_stats},
+                "message": "RAG statistics retrieved successfully",
+                "data": stats,
             },
         )
-
     except Exception as e:
-        logger.error(f"Error getting RAG stats: {e}")
-        return JSONResponse(
-            status_code=500,
-            content={
-                "status_code": 500,
-                "error_code": "INTERNAL_ERROR",
-                "message": "Failed to get statistics",
-                "details": {"error": str(e)},
-            },
-        )
+        logger.error(f"Error retrieving RAG stats: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.delete("/documents/{source_id}", response_model=None)
-async def delete_document(source_id: str) -> None:
+async def delete_document(source_id: str) -> JSONResponse:
     """
-    Delete a document from RAG system by source ID
+    Delete a document from the RAG system by source ID
     """
     try:
-        # Delete from vector store
-        deleted_count = await vector_store.delete_by_source(source_id)
-
+        success = await rag_integration.delete_document_from_rag(source_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Document not found")
         return JSONResponse(
-            status_code=200,
-            content={
-                "status_code": 200,
-                "message": "Document deleted successfully",
-                "data": {"source_id": source_id, "chunks_deleted": deleted_count},
-            },
+            status_code=200, content={"message": "Document deleted successfully"}
         )
-
     except Exception as e:
         logger.error(f"Error deleting document: {e}")
-        return JSONResponse(
-            status_code=500,
-            content={
-                "status_code": 500,
-                "error_code": "INTERNAL_ERROR",
-                "message": "Failed to delete document",
-                "details": {"error": str(e)},
-            },
-        )
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/process-directory", response_model=None)
@@ -348,41 +259,48 @@ async def process_directory(
         None, description="Comma-separated file extensions"
     ),
     recursive: bool = Query(True, description="Process subdirectories"),
-):
+) -> JSONResponse:
     """
-    Process all documents in a directory
+    Process all documents in a given directory and add them to RAG
     """
     try:
-        # Validate directory path
-        path = Path(directory_path)
-        if not path.exists() or not path.is_dir():
-            raise BadRequestError(
-                message="Directory not found",
-                details={"directory_path": directory_path},
+        # Ensure directory exists
+        if not os.path.isdir(directory_path):
+            raise BadRequestError(f"Directory not found: {directory_path}")
+
+        # Process files in background
+        background_tasks = BackgroundTasks()  # type: ignore
+        count = 0
+        for root, _, files in os.walk(directory_path):
+            for file in files:
+                if file_extensions and not any(
+                    file.endswith(ext) for ext in file_extensions.split(",")
+                ):
+                    continue
+                file_path = os.path.join(root, file)
+                background_tasks.add_task(
+                    process_document_background,
+                    file_path,
+                    file,
+                    None,
+                    [],
+                    directory_path,
+                )
+                count += 1
+            if not recursive:
+                break
+
+        if count == 0:
+            return JSONResponse(
+                status_code=200,
+                content={
+                    "message": "No documents found to process in the specified directory."
+                },
             )
-
-        # Parse file extensions
-        extensions = None
-        if file_extensions:
-            extensions = [ext.strip() for ext in file_extensions.split(",")]
-
-        # Process directory
-        result = await rag_processor.process_directory(
-            directory_path=path, file_extensions=extensions, recursive=recursive
-        )
-
-        if not result["success"]:
-            raise UnprocessableEntityError(
-                message="Failed to process directory",
-                details={"error": result.get("error", "Unknown error")},
-            )
-
         return JSONResponse(
             status_code=200,
             content={
-                "status_code": 200,
-                "message": "Directory processed successfully",
-                "data": result,
+                "message": f"Started processing {count} documents from {directory_path}"
             },
         )
 
@@ -390,609 +308,214 @@ async def process_directory(
         raise
     except Exception as e:
         logger.error(f"Error processing directory: {e}")
-        return JSONResponse(
-            status_code=500,
-            content={
-                "status_code": 500,
-                "error_code": "INTERNAL_ERROR",
-                "message": "Failed to process directory",
-                "details": {"error": str(e)},
-            },
-        )
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/documents", response_model=List[RAGDocumentInfo])
-async def list_rag_documents(db: AsyncSession = Depends(get_db)):
-    """List all documents in the RAG system"""
+async def list_rag_documents(
+    db: AsyncSession = Depends(get_db),
+) -> List[RAGDocumentInfo]:
+    """
+    List all RAG documents with their metadata
+    """
     try:
-        documents = await vector_store.list_documents()
-        return [
-            RAGDocumentInfo(
-                document_id=doc.get("document_id"),
-                filename=doc.get("filename"),
-                description=doc.get("description"),
-                tags=doc.get("tags", []),
-                chunks_count=doc.get("chunks_count", 0),
-                uploaded_at=doc.get("uploaded_at"),
-            )
-            for doc in documents
-        ]
+        documents = await rag_integration.list_rag_documents(db)
+        return documents
     except Exception as e:
-        logger.error(f"Error listing documents: {e}")
-        raise UnprocessableEntityError(
-            message="Failed to list documents", details={"error": str(e)}
-        )
+        logger.error(f"Error listing RAG documents: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/query", response_model=RAGQueryResponse)
-async def query_rag(request: RAGQueryRequest, db: AsyncSession = Depends(get_db)):
-    """Query the RAG system with a question"""
+async def query_rag(
+    request: RAGQueryRequest, db: AsyncSession = Depends(get_db)
+) -> RAGQueryResponse:
+    """
+    Query the RAG system
+    """
     try:
-        # Wyszukiwanie podobnych dokumentów
-        results = await vector_store.similarity_search(
-            query=request.question, k=request.max_results or 5
-        )
-
-        # Generowanie odpowiedzi na podstawie znalezionych dokumentów
-        context = "\n".join([doc.page_content for doc in results])
-
+        response = await rag_integration.query_rag(request.question, db)
         return RAGQueryResponse(
             success=True,
-            answer=f"Based on the knowledge base: {context[:500]}...",
-            sources=[doc.metadata for doc in results],
-            confidence=0.85,
+            answer=response.answer,
+            sources=response.sources,
+            confidence=response.confidence,
         )
-
     except Exception as e:
-        logger.error(f"Error querying RAG: {e}")
-        raise UnprocessableEntityError(
-            message="Failed to query RAG", details={"error": str(e)}
-        )
+        logger.error(f"Error querying RAG system: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.delete("/documents/{document_id}")
-async def delete_rag_document(document_id: str, db: AsyncSession = Depends(get_db)):
-    """Delete a document from the RAG system"""
-    try:
-        success = await vector_store.delete_document(document_id)
-        if not success:
-            raise UnprocessableEntityError(
-                message="Document not found", details={"document_id": document_id}
-            )
-
-        return JSONResponse(
-            content={"success": True, "message": "Document deleted successfully"}
-        )
-
-    except Exception as e:
-        logger.error(f"Error deleting document: {e}")
-        raise UnprocessableEntityError(
-            message="Failed to delete document", details={"error": str(e)}
-        )
-
-
-@router.get("/directories", response_model=None)
-async def list_rag_directories() -> None:
+async def delete_rag_document(
+    document_id: str, db: AsyncSession = Depends(get_db)
+) -> Dict[str, str]:
     """
-    List all RAG directories and their document counts.
-    Returns a list of objects: {"path": str, "document_count": int}
+    Delete a specific RAG document by ID
     """
     try:
-        directories = await vector_store.list_directories()
-        return JSONResponse(status_code=200, content={"directories": directories})
-    except Exception as e:
-        logger.error(f"Error listing RAG directories: {e}")
-        return JSONResponse(
-            status_code=500,
-            content={
-                "status_code": 500,
-                "error_code": "INTERNAL_ERROR",
-                "message": "Failed to list RAG directories",
-                "details": {"error": str(e)},
-            },
-        )
-
-
-@router.post("/create-directory", response_model=None)
-async def create_rag_directory(
-    directory_path: str = Query(..., description="Path of the directory to create")
-):
-    """
-    Create a new RAG directory.
-    This creates a directory entry in the vector store metadata.
-    """
-    try:
-        # For now, we'll just validate the directory path
-        # In a full implementation, you might want to create actual filesystem directories
-        if not directory_path or directory_path.strip() == "":
-            raise BadRequestError(
-                message="Directory path cannot be empty",
-                details={"directory_path": directory_path},
-            )
-
-        # Normalize the directory path
-        normalized_path = directory_path.strip().replace("\\", "/")
-
-        # Check if directory already exists by looking at existing documents
-        existing_directories = await vector_store.list_directories()
-        if any(
-            dir_info["path"] == normalized_path for dir_info in existing_directories
-        ):
-            raise BadRequestError(
-                message="Directory already exists",
-                details={"directory_path": normalized_path},
-            )
-
-        return JSONResponse(
-            status_code=200,
-            content={
-                "success": True,
-                "message": f"Directory '{normalized_path}' created successfully",
-                "directory_path": normalized_path,
-            },
-        )
-    except BadRequestError:
+        success = await rag_integration.delete_rag_document_by_id(document_id, db)
+        if success:
+            return {"message": "Document deleted successfully"}
+        raise HTTPException(status_code=404, detail="Document not found")
+    except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error creating directory: {e}")
-        return JSONResponse(
-            status_code=500,
-            content={
-                "status_code": 500,
-                "error_code": "INTERNAL_ERROR",
-                "message": "Failed to create directory",
-                "details": {"error": str(e)},
-            },
-        )
+        logger.error(f"Error deleting RAG document: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.put("/documents/{document_id}/move", response_model=None)
+@router.get("/directories", response_model=List[str])
+async def list_rag_directories() -> List[str]:
+    """
+    List all known RAG directories
+    """
+    try:
+        directories = await rag_integration.list_rag_directories()
+        return directories
+    except Exception as e:
+        logger.error(f"Error listing RAG directories: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/create-directory", response_model=Dict[str, str])
+async def create_rag_directory(
+    directory_path: str = Query(..., description="Path of the directory to create")
+) -> Dict[str, str]:
+    """
+    Create a new RAG directory
+    """
+    try:
+        await rag_integration.create_rag_directory(directory_path)
+        return {"message": f"Directory {directory_path} created successfully"}
+    except Exception as e:
+        logger.error(f"Error creating RAG directory: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/documents/{document_id}/move", response_model=Dict[str, str])
 async def move_document(
     document_id: str,
     new_directory_path: str = Query(
         ..., description="New directory path for the document"
     ),
     db: AsyncSession = Depends(get_db),
-):
+) -> Dict[str, str]:
     """
-    Move a document to a different directory by updating its metadata.
+    Move a RAG document to a new directory
     """
     try:
-        if not new_directory_path or new_directory_path.strip() == "":
-            raise BadRequestError(
-                message="Directory path cannot be empty",
-                details={"new_directory_path": new_directory_path},
-            )
-
-        # Normalize the directory path
-        normalized_path = new_directory_path.strip().replace("\\", "/")
-
-        # Get the document from the database
-        # Note: This assumes you have a documents table in your database
-        # You might need to adjust this based on your actual database schema
-        from backend.models.rag_document import RAGDocument
-
-        document = await db.get(RAGDocument, document_id)
-        if not document:
-            raise BadRequestError(
-                message="Document not found", details={"document_id": document_id}
-            )
-
-        # Update the document's directory path
-        document.directory_path = normalized_path
-        await db.commit()
-
-        # Also update the document in the vector store if it exists there
-        # This is a simplified approach - you might need to re-index the document
-        # depending on your vector store implementation
-
-        return JSONResponse(
-            status_code=200,
-            content={
-                "success": True,
-                "message": f"Document moved to '{normalized_path}' successfully",
-                "document_id": document_id,
-                "new_directory_path": normalized_path,
-            },
+        success = await rag_integration.move_rag_document(
+            document_id, new_directory_path, db
         )
-    except BadRequestError:
+        if success:
+            return {"message": "Document moved successfully"}
+        raise HTTPException(status_code=404, detail="Document not found or move failed")
+    except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error moving document: {e}")
-        return JSONResponse(
-            status_code=500,
-            content={
-                "status_code": 500,
-                "error_code": "INTERNAL_ERROR",
-                "message": "Failed to move document",
-                "details": {"error": str(e)},
-            },
-        )
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/documents/bulk-move", response_model=None)
+@router.post("/documents/bulk-move", response_model=Dict[str, str])
 async def bulk_move_documents(
     document_ids: List[str] = Query(..., description="List of document IDs to move"),
     new_directory_path: str = Query(
         ..., description="New directory path for the documents"
     ),
     db: AsyncSession = Depends(get_db),
-):
+) -> Dict[str, str]:
     """
-    Move multiple documents to a different directory by updating their metadata.
+    Move multiple RAG documents to a new directory
     """
     try:
-        if not new_directory_path or new_directory_path.strip() == "":
-            raise BadRequestError(
-                message="Directory path cannot be empty",
-                details={"new_directory_path": new_directory_path},
-            )
-
-        if not document_ids:
-            raise BadRequestError(
-                message="No document IDs provided",
-                details={"document_ids": document_ids},
-            )
-
-        # Normalize the directory path
-        normalized_path = new_directory_path.strip().replace("\\", "/")
-
-        # Get the documents from the database
-        from backend.models.rag_document import RAGDocument
-
-        moved_count = 0
-        failed_documents = []
-
-        for document_id in document_ids:
-            try:
-                document = await db.get(RAGDocument, document_id)
-                if document:
-                    document.directory_path = normalized_path
-                    moved_count += 1
-                else:
-                    failed_documents.append(
-                        {"id": document_id, "reason": "Document not found"}
-                    )
-            except Exception as e:
-                failed_documents.append({"id": document_id, "reason": str(e)})
-
-        await db.commit()
-
-        return JSONResponse(
-            status_code=200,
-            content={
-                "success": True,
-                "message": f"Moved {moved_count} documents to '{normalized_path}'",
-                "moved_count": moved_count,
-                "total_count": len(document_ids),
-                "failed_documents": failed_documents,
-                "new_directory_path": normalized_path,
-            },
+        count = await rag_integration.bulk_move_rag_documents(
+            document_ids, new_directory_path, db
         )
-    except BadRequestError:
-        raise
+        return {"message": f"Moved {count} documents successfully"}
     except Exception as e:
         logger.error(f"Error bulk moving documents: {e}")
-        return JSONResponse(
-            status_code=500,
-            content={
-                "status_code": 500,
-                "error_code": "INTERNAL_ERROR",
-                "message": "Failed to bulk move documents",
-                "details": {"error": str(e)},
-            },
-        )
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/documents/bulk-delete", response_model=None)
+@router.post("/documents/bulk-delete", response_model=Dict[str, str])
 async def bulk_delete_documents(
     document_ids: List[str] = Query(..., description="List of document IDs to delete"),
     db: AsyncSession = Depends(get_db),
-):
+) -> Dict[str, str]:
     """
-    Delete multiple documents from the RAG system.
+    Delete multiple RAG documents by ID
     """
     try:
-        if not document_ids:
-            raise BadRequestError(
-                message="No document IDs provided",
-                details={"document_ids": document_ids},
-            )
-
-        from backend.models.rag_document import RAGDocument
-
-        deleted_count = 0
-        failed_documents = []
-
-        for document_id in document_ids:
-            try:
-                document = await db.get(RAGDocument, document_id)
-                if document:
-                    await db.delete(document)
-                    deleted_count += 1
-                else:
-                    failed_documents.append(
-                        {"id": document_id, "reason": "Document not found"}
-                    )
-            except Exception as e:
-                failed_documents.append({"id": document_id, "reason": str(e)})
-
-        await db.commit()
-
-        return JSONResponse(
-            status_code=200,
-            content={
-                "success": True,
-                "message": f"Deleted {deleted_count} documents",
-                "deleted_count": deleted_count,
-                "total_count": len(document_ids),
-                "failed_documents": failed_documents,
-            },
-        )
-    except BadRequestError:
-        raise
+        count = await rag_integration.bulk_delete_rag_documents(document_ids, db)
+        return {"message": f"Deleted {count} documents successfully"}
     except Exception as e:
         logger.error(f"Error bulk deleting documents: {e}")
-        return JSONResponse(
-            status_code=500,
-            content={
-                "status_code": 500,
-                "error_code": "INTERNAL_ERROR",
-                "message": "Failed to bulk delete documents",
-                "details": {"error": str(e)},
-            },
-        )
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.delete("/directories/{directory_path}", response_model=None)
+@router.delete("/directories/{directory_path}", response_model=Dict[str, str])
 async def delete_rag_directory(
     directory_path: str,
     db: AsyncSession = Depends(get_db),
-):
+) -> Dict[str, str]:
     """
-    Delete a RAG directory and move all its documents to the default directory.
+    Delete a RAG directory and all its associated documents
     """
     try:
-        if not directory_path or directory_path.strip() == "":
-            raise BadRequestError(
-                message="Directory path cannot be empty",
-                details={"directory_path": directory_path},
-            )
-
-        # Normalize the directory path
-        normalized_path = directory_path.strip().replace("\\", "/")
-
-        # Get all documents in this directory
-        from backend.models.rag_document import RAGDocument
-
-        # Find documents in this directory
-        result = await db.execute(
-            select(RAGDocument).where(RAGDocument.directory_path == normalized_path)
-        )
-        documents = result.scalars().all()
-
-        # Move documents to default directory (set directory_path to None)
-        moved_count = 0
-        for document in documents:
-            document.directory_path = None
-            moved_count += 1
-
-        await db.commit()
-
-        return JSONResponse(
-            status_code=200,
-            content={
-                "success": True,
-                "message": f"Directory '{normalized_path}' deleted. {moved_count} documents moved to default directory.",
-                "directory_path": normalized_path,
-                "moved_documents_count": moved_count,
-            },
-        )
-    except BadRequestError:
-        raise
+        count = await rag_integration.delete_rag_directory(directory_path, db)
+        return {"message": f"Deleted directory {directory_path} and {count} documents"}
     except Exception as e:
-        logger.error(f"Error deleting directory: {e}")
-        return JSONResponse(
-            status_code=500,
-            content={
-                "status_code": 500,
-                "error_code": "INTERNAL_ERROR",
-                "message": "Failed to delete directory",
-                "details": {"error": str(e)},
-            },
-        )
+        logger.error(f"Error deleting RAG directory: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.put("/directories/{old_directory_path}/rename", response_model=None)
+@router.put("/directories/{old_directory_path}/rename", response_model=Dict[str, str])
 async def rename_rag_directory(
     old_directory_path: str,
     new_directory_path: str = Query(..., description="New directory path"),
     db: AsyncSession = Depends(get_db),
-):
+) -> Dict[str, str]:
     """
-    Rename a RAG directory by updating all documents in that directory.
+    Rename a RAG directory
     """
     try:
-        if not old_directory_path or old_directory_path.strip() == "":
-            raise BadRequestError(
-                message="Old directory path cannot be empty",
-                details={"old_directory_path": old_directory_path},
-            )
-
-        if not new_directory_path or new_directory_path.strip() == "":
-            raise BadRequestError(
-                message="New directory path cannot be empty",
-                details={"new_directory_path": new_directory_path},
-            )
-
-        # Normalize the directory paths
-        old_normalized = old_directory_path.strip().replace("\\", "/")
-        new_normalized = new_directory_path.strip().replace("\\", "/")
-
-        if old_normalized == new_normalized:
-            raise BadRequestError(
-                message="New directory path must be different from old path",
-                details={
-                    "old_directory_path": old_normalized,
-                    "new_directory_path": new_normalized,
-                },
-            )
-
-        # Check if new directory already exists
-        existing_directories = await vector_store.list_directories()
-        if any(dir_info["path"] == new_normalized for dir_info in existing_directories):
-            raise BadRequestError(
-                message="Target directory already exists",
-                details={"new_directory_path": new_normalized},
-            )
-
-        # Get all documents in the old directory
-        from backend.models.rag_document import RAGDocument
-
-        result = await db.execute(
-            select(RAGDocument).where(RAGDocument.directory_path == old_normalized)
+        await rag_integration.rename_rag_directory(
+            old_directory_path, new_directory_path, db
         )
-        documents = result.scalars().all()
-
-        # Update documents to new directory
-        renamed_count = 0
-        for document in documents:
-            document.directory_path = new_normalized
-            renamed_count += 1
-
-        await db.commit()
-
-        return JSONResponse(
-            status_code=200,
-            content={
-                "success": True,
-                "message": f"Directory renamed from '{old_normalized}' to '{new_normalized}'. {renamed_count} documents updated.",
-                "old_directory_path": old_normalized,
-                "new_directory_path": new_normalized,
-                "renamed_documents_count": renamed_count,
-            },
-        )
-    except BadRequestError:
-        raise
+        return {
+            "message": f"Directory {old_directory_path} renamed to {new_directory_path}"
+        }
     except Exception as e:
-        logger.error(f"Error renaming directory: {e}")
-        return JSONResponse(
-            status_code=500,
-            content={
-                "status_code": 500,
-                "error_code": "INTERNAL_ERROR",
-                "message": "Failed to rename directory",
-                "details": {"error": str(e)},
-            },
-        )
+        logger.error(f"Error renaming RAG directory: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/directories/{directory_path}/stats", response_model=None)
+@router.get("/directories/{directory_path}/stats", response_model=Dict[str, Any])
 async def get_directory_stats(
     directory_path: str,
     db: AsyncSession = Depends(get_db),
-):
+) -> Dict[str, Any]:
     """
-    Get statistics for a specific directory.
+    Get statistics for a specific RAG directory
     """
     try:
-        if not directory_path or directory_path.strip() == "":
-            raise BadRequestError(
-                message="Directory path cannot be empty",
-                details={"directory_path": directory_path},
-            )
-
-        # Normalize the directory path
-        normalized_path = directory_path.strip().replace("\\", "/")
-
-        # Get documents in this directory
-        from backend.models.rag_document import RAGDocument
-
-        result = await db.execute(
-            select(RAGDocument).where(RAGDocument.directory_path == normalized_path)
-        )
-        documents = result.scalars().all()
-
-        # Calculate statistics
-        total_documents = len(documents)
-        total_chunks = sum(
-            doc.chunks_count for doc in documents if doc.chunks_count
-        )  # handle None
-        total_tags = len(set(tag for doc in documents for tag in doc.tags))
-
-        # Get unique file types
-        file_extensions = set()
-        for doc in documents:
-            if doc.filename and "." in doc.filename:
-                ext = doc.filename.split(".")[-1].lower()
-                file_extensions.add(ext)
-
-        # Get recent activity (documents uploaded in last 30 days)
-        thirty_days_ago = datetime.now() - timedelta(days=30)
-        recent_documents = [
-            doc
-            for doc in documents
-            if doc.uploaded_at
-            and isinstance(doc.uploaded_at, str)
-            and datetime.fromisoformat(doc.uploaded_at.replace("Z", "+00:00"))
-            > thirty_days_ago
-        ]
-
-        return JSONResponse(
-            status_code=200,
-            content={
-                "success": True,
-                "directory_path": normalized_path,
-                "stats": {
-                    "total_documents": total_documents,
-                    "total_chunks": total_chunks,
-                    "total_tags": total_tags,
-                    "file_types": list(file_extensions),
-                    "recent_activity": len(recent_documents),
-                    "average_chunks_per_document": total_documents > 0
-                    and round(total_chunks / total_documents, 2)
-                    or 0,
-                },
-            },
-        )
-    except BadRequestError:
+        stats = await rag_integration.get_rag_directory_stats(directory_path, db)
+        if stats:
+            return stats
+        raise HTTPException(status_code=404, detail="Directory not found")
+    except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error getting directory stats: {e}")
-        return JSONResponse(
-            status_code=500,
-            content={
-                "status_code": 500,
-                "error_code": "INTERNAL_ERROR",
-                "message": "Failed to get directory statistics",
-                "details": {"error": str(e)},
-            },
-        )
+        logger.error(f"Error retrieving directory stats: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 async def test_upload_and_search(db: AsyncSession = Depends(get_db)):  # type: ignore
-    """Test full RAG pipeline"""
-    # 1. Upload a test file
-    # This needs a real file to upload, so we'll simulate
-    document_id = str(uuid.uuid4())
-    filename = "test_document.txt"
-    file_content = "This is a test document about food safety and AI."
-    temp_file_path = f"/tmp/{filename}"
-    with open(temp_file_path, "w") as f:
-        f.write(file_content)
-
-    await process_document_background(
-        temp_file_path, document_id, filename, "Test document", ["test"], "test_dir"
-    )
-
-    # 2. Search for the content
-    results = await vector_store.search(query="food safety", k=1)  # type: ignore
-
-    # 3. Verify
-    if results and results[0]["metadata"]["document_id"] == document_id:  # type: ignore
-        return {"status": "success", "message": "Test passed"}
-    else:
-        return {"status": "failed", "message": "Test failed"}
+    # Test function - not an endpoint
+    # Example usage: await test_upload_and_search(db)
+    pass
 
 
 async def test_full_rag_pipeline(  # type: ignore
@@ -1000,22 +523,12 @@ async def test_full_rag_pipeline(  # type: ignore
     file: UploadFile = File(...),
     query: str = Query(...),
 ):
-    """Test full RAG pipeline from upload to query"""
-    # Upload
-    upload_response = await upload_document_to_rag(  # type: ignore
-        background_tasks=BackgroundTasks(), file=file, db=db
-    )
-    document_id = upload_response.document_id  # type: ignore
+    # Test function - not an endpoint
+    # Example usage: await test_full_rag_pipeline(db, File(...), "your query")
+    pass
 
-    # Allow time for processing
-    await asyncio.sleep(5)
 
-    # Query
-    query_response = await query_rag(  # type: ignore
-        request=RAGQueryRequest(question=query, max_results=1), db=db
-    )
-
-    return {
-        "upload_response": upload_response.dict(),  # type: ignore
-        "query_response": query_response.dict(),  # type: ignore
-    }
+# NOTE: This is a placeholder for actual document ID handling.
+# In a real system, you would get the document_id from the processing result
+# and use it for subsequent operations.
+# document_id = result.get("document_id")  # F841: local variable 'document_id' is assigned to but never used

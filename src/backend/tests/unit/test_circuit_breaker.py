@@ -1,17 +1,16 @@
 from __future__ import annotations
 
 import time
-from typing import Any, AsyncGenerator, Callable, Coroutine, Dict, List, Optional, Union
+from typing import (Any, AsyncGenerator, Callable, Coroutine, Dict, List,
+                    Optional, Union)
 from unittest.mock import AsyncMock
 
 import pytest
 
-from backend.agents.mixins.circuit_breaker import (
-    CircuitBreaker,
-    CircuitOpenException,
-    CircuitState,
-    circuit_breaker,
-)
+from backend.agents.mixins.circuit_breaker import (CircuitBreaker,
+                                                   CircuitOpenException,
+                                                   CircuitState,
+                                                   circuit_breaker)
 
 
 class TestCircuitBreaker:

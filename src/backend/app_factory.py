@@ -22,16 +22,11 @@ from backend.api.v2.exceptions import APIErrorDetail, APIException
 from backend.config import settings
 from backend.core.cache_manager import CacheManager
 from backend.core.database import AsyncSessionLocal, Base, engine
-from backend.core.exceptions import (
-    FoodSaveError,
-    convert_system_exception,
-    log_error_with_context,
-)
-from backend.core.middleware import (
-    ErrorHandlingMiddleware,
-    RequestLoggingMiddleware,
-    SecurityHeadersMiddleware,
-)
+from backend.core.exceptions import (FoodSaveError, convert_system_exception,
+                                     log_error_with_context)
+from backend.core.middleware import (ErrorHandlingMiddleware,
+                                     RequestLoggingMiddleware,
+                                     SecurityHeadersMiddleware)
 from backend.core.migrations import run_migrations
 from backend.core.seed_data import seed_database
 from backend.core.telemetry import setup_telemetry

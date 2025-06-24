@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, AsyncGenerator, Callable, Coroutine, Dict, List, Optional, Union
+from typing import (Any, AsyncGenerator, Callable, Coroutine, Dict, List,
+                    Optional, Union)
 
 """
 Tests for GeneralConversationAgent
@@ -13,9 +14,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from backend.agents.general_conversation_agent import (
-    AgentResponse,
-    GeneralConversationAgent,
-)
+    AgentResponse, GeneralConversationAgent)
 
 
 class TestGeneralConversationAgent:

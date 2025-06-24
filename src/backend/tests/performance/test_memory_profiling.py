@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, AsyncGenerator, Callable, Coroutine, Dict, List, Optional, Union
+from typing import (Any, AsyncGenerator, Callable, Coroutine, Dict, List,
+                    Optional, Union)
 
 """
 Memory Profiling Tests z pytest-benchmark
@@ -14,15 +15,10 @@ from unittest.mock import Mock, patch
 import pytest
 import pytest_benchmark.fixture
 
-from backend.core.monitoring import (
-    AsyncMemoryProfiler,
-    MemoryProfiler,
-    MemorySnapshot,
-    PerformanceMetrics,
-    async_memory_profiling_context,
-    memory_monitor,
-    memory_profiling_context,
-)
+from backend.core.monitoring import (AsyncMemoryProfiler, MemoryProfiler,
+                                     MemorySnapshot, PerformanceMetrics,
+                                     async_memory_profiling_context,
+                                     memory_monitor, memory_profiling_context)
 
 
 class TestMemoryProfiler:

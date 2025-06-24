@@ -9,7 +9,8 @@ import time
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Callable, Coroutine, Dict, List, Optional, Tuple, Type, TypeVar, AsyncGenerator
+from typing import (Any, AsyncGenerator, Callable, Coroutine, Dict, List,
+                    Optional, Tuple, Type, TypeVar, Union, cast)
 
 logger = logging.getLogger(__name__)
 

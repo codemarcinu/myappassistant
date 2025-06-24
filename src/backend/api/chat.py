@@ -9,12 +9,9 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.core.async_patterns import (
-    CircuitBreakerConfig,
-    timeout_context,
-    with_backpressure,
-    with_circuit_breaker,
-)
+from backend.core.async_patterns import (CircuitBreakerConfig, timeout_context,
+                                         with_backpressure,
+                                         with_circuit_breaker)
 from backend.core.llm_client import llm_client
 from backend.infrastructure.database.database import get_db
 from backend.orchestrator_management.orchestrator_pool import orchestrator_pool

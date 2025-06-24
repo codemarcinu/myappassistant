@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, AsyncGenerator, Callable, Coroutine, Dict, List, Optional, Union
+from typing import (Any, AsyncGenerator, Callable, Coroutine, Dict, List,
+                    Optional, Union)
 
 """
 Tests for updated Agent Factory with new agent types
@@ -14,13 +15,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from backend.agents.agent_factory import (
-    AgentFactory,
-    CookingAgent,
-    FoodConversationAgent,
-    InformationQueryAgent,
-    ShoppingConversationAgent,
-)
+from backend.agents.agent_factory import (AgentFactory, CookingAgent,
+                                          FoodConversationAgent,
+                                          InformationQueryAgent,
+                                          ShoppingConversationAgent)
 from backend.agents.analytics_agent import AnalyticsAgent
 from backend.agents.categorization_agent import CategorizationAgent
 from backend.agents.chef_agent import ChefAgent

@@ -4,7 +4,8 @@ from typing import Any, Dict, List
 
 import pandas as pd
 import torch
-from transformers import AutoModelForSequenceClassification, Trainer, TrainingArguments
+from transformers import (AutoModelForSequenceClassification, Trainer,
+                          TrainingArguments)
 
 # Set User-Agent for transformers library
 os.environ.setdefault(

@@ -13,7 +13,7 @@ from .agent_router import AgentRouter
 from .base_agent import BaseAgent
 from .error_types import ErrorSeverity
 from .intent_detector import SimpleIntentDetector as IntentDetector
-from .interfaces import AgentResponse, AgentType
+from .interfaces import AgentResponse, AgentType, IntentData
 from .memory_manager import MemoryManager
 from .orchestrator_errors import OrchestratorError
 from .response_generator import ResponseGenerator

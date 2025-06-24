@@ -2,16 +2,13 @@ from __future__ import annotations
 
 import asyncio
 import time
-from typing import Any, AsyncGenerator, Callable, Coroutine, Dict, List, Optional, Union
+from typing import (Any, AsyncGenerator, Callable, Coroutine, Dict, List,
+                    Optional, Union)
 
 import pytest
 
-from backend.agents.mixins.rate_limiter import (
-    RateLimiter,
-    RateLimitExceeded,
-    TokenBucket,
-    rate_limited,
-)
+from backend.agents.mixins.rate_limiter import (RateLimiter, RateLimitExceeded,
+                                                TokenBucket, rate_limited)
 
 
 class TestTokenBucket:

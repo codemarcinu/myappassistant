@@ -4,13 +4,9 @@ import logging
 import time
 from typing import Any, Callable, TypeVar
 
-from backend.core.exceptions import (
-    ConfigurationError,
-    DatabaseError,
-    ExternalAPIError,
-    FoodSaveError,
-    ProcessingError,
-)
+from backend.core.exceptions import (ConfigurationError, DatabaseError,
+                                     ExternalAPIError, FoodSaveError,
+                                     ProcessingError)
 
 logger = logging.getLogger(__name__)
 T = TypeVar("T")

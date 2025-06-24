@@ -1,7 +1,6 @@
 import logging
-import re
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set, Tuple, TypedDict
+from typing import Any, Dict, List, Optional, TypedDict
 
 from backend.core.language_detector import language_detector
 
@@ -164,9 +163,6 @@ class ModelSelector:
         model_scores: Dict[str, float] = {}
 
         for model in candidate_models:
-            # Inicjalizacja bazową wartością
-            base_score = 0.5
-
             # Dodaj punkty za dopasowanie językowe
             language_score = self.MODEL_CAPABILITIES.get(
                 model, self.DEFAULT_CAPABILITY
@@ -196,8 +192,7 @@ class ModelSelector:
         if model_scores:
             best_model = max(model_scores.items(), key=lambda x: x[1])[0]
             logger.info(
-                f"Selected model {best_model} with score {model_scores[best_model]:.2f} "
-                + f"(lang: {detected_language}, task: {task}, complexity: {complexity:.2f})"
+                f"Selected model {best_model} with score {model_scores[best_model]:.2f} (lang: {detected_language}, task: {task}, complexity: {complexity:.2f})"
             )
             return best_model
 

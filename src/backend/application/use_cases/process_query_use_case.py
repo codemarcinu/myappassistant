@@ -3,9 +3,8 @@ from typing import Any, Dict, List
 
 from backend.domain.repositories import FoodItemRepository, UserRepository
 from backend.infrastructure.llm_api.llm_client import LLMClient
-from backend.infrastructure.vector_store.vector_store_impl import (
-    EnhancedVectorStoreImpl,
-)
+from backend.infrastructure.vector_store.vector_store_impl import \
+    EnhancedVectorStoreImpl
 
 logger = logging.getLogger(__name__)
 

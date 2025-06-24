@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, AsyncGenerator, Callable, Coroutine, Dict, List, Optional, Union
+from typing import (Any, AsyncGenerator, Callable, Coroutine, Dict, List,
+                    Optional, Union)
 
 """
 Tests dla Prometheus Metrics
@@ -12,18 +13,15 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from backend.core.prometheus_metrics import (
-    MetricsCollector,
-    get_metrics,
-    get_metrics_dict,
-    record_agent_metrics,
-    record_cache_metrics,
-    record_circuit_breaker_metrics,
-    record_db_metrics,
-    record_llm_metrics,
-    record_ocr_metrics,
-    record_vector_metrics,
-)
+from backend.core.prometheus_metrics import (MetricsCollector, get_metrics,
+                                             get_metrics_dict,
+                                             record_agent_metrics,
+                                             record_cache_metrics,
+                                             record_circuit_breaker_metrics,
+                                             record_db_metrics,
+                                             record_llm_metrics,
+                                             record_ocr_metrics,
+                                             record_vector_metrics)
 
 
 class TestPrometheusMetrics:

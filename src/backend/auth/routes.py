@@ -11,19 +11,9 @@ from sqlalchemy.orm import Session
 
 from .jwt_handler import jwt_handler
 from .models import Role, User, UserRole
-from .schemas import (
-    PasswordChange,
-    PasswordReset,
-    PasswordResetConfirm,
-    RoleCreate,
-    RoleResponse,
-    TokenResponse,
-    UserCreate,
-    UserLogin,
-    UserResponse,
-    UserRoleAssign,
-    UserUpdate,
-)
+from .schemas import (PasswordChange, PasswordReset, PasswordResetConfirm,
+                      RoleCreate, RoleResponse, TokenResponse, UserCreate,
+                      UserLogin, UserResponse, UserRoleAssign, UserUpdate)
 
 logger = logging.getLogger(__name__)
 

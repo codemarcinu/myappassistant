@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from typing import Any, AsyncGenerator, Callable, Coroutine, Dict, List, Optional, Union
+from typing import (Any, AsyncGenerator, Callable, Coroutine, Dict, List,
+                    Optional, Union)
 
 from fastapi import HTTPException, Request
 from fastapi.responses import JSONResponse

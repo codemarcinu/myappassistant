@@ -10,7 +10,8 @@ os.environ.setdefault(
 import torch
 from transformers import AutoTokenizer, pipeline
 
-from .orchestration_components import IntentData, MemoryContext  # Importuj klasy bazowe
+from .orchestration_components import (IntentData,  # Importuj klasy bazowe
+                                       MemoryContext)
 
 logger = logging.getLogger(__name__)
 

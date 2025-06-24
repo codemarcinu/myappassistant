@@ -4,12 +4,8 @@ from typing import Any, Dict, Optional
 from backend.agents.agent_container import AgentContainer
 from backend.agents.base_agent import BaseAgent
 from backend.agents.general_conversation_agent import GeneralConversationAgent
-from backend.agents.interfaces import (
-    AgentType,
-    IAlertService,
-    IErrorHandler,
-    IFallbackProvider,
-)
+from backend.agents.interfaces import (AgentType, IAlertService, IErrorHandler,
+                                       IFallbackProvider)
 from backend.agents.search_agent import SearchAgent
 from backend.agents.weather_agent import WeatherAgent
 from backend.core.decorators import handle_exceptions

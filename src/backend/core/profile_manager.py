@@ -5,12 +5,8 @@ from typing import Dict, List, Optional, Union
 import pytz
 from sqlalchemy.exc import SQLAlchemyError
 
-from backend.models.user_profile import (
-    InteractionType,
-    UserPreferences,
-    UserProfileData,
-    UserSchedule,
-)
+from backend.models.user_profile import (InteractionType, UserPreferences,
+                                         UserProfileData, UserSchedule)
 
 logger = logging.getLogger(__name__)
 
@@ -28,10 +24,8 @@ class ProfileManager:
             return self.active_sessions[session_id]
 
         try:
-            from backend.core.crud import (
-                create_user_profile,
-                get_user_profile_by_session,
-            )
+            from backend.core.crud import (create_user_profile,
+                                           get_user_profile_by_session)
 
             profile = await get_user_profile_by_session(self.db, session_id)
             if not profile:

@@ -3,10 +3,11 @@ Authentication middleware for FastAPI
 """
 
 import logging
-from typing import Optional
+from functools import wraps
+from typing import Any, Callable, Optional, Union
 
 from fastapi import HTTPException, Request, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi.security import HTTPBearer
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from .jwt_handler import jwt_handler
@@ -99,11 +100,12 @@ def get_current_user_id(request: Request) -> int:
     return request.state.user_id
 
 
-def require_roles(required_roles: list) -> None:
+def require_roles(required_roles: list) -> Callable[..., Any]:
     """Decorator to require specific roles"""
 
-    def decorator(func) -> None:
-        async def wrapper(request: Request, *args, **kwargs) -> None:
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+        @wraps(func)
+        async def wrapper(request: Request, *args: Any, **kwargs: Any) -> Any:
             user_roles = getattr(request.state, "user_roles", [])
 
             if not any(role in user_roles for role in required_roles):
@@ -119,11 +121,12 @@ def require_roles(required_roles: list) -> None:
     return decorator
 
 
-def require_permission(permission: str) -> None:
+def require_permission(permission: str) -> Callable[..., Any]:
     """Decorator to require specific permission"""
 
-    def decorator(func) -> None:
-        async def wrapper(request: Request, *args, **kwargs) -> None:
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+        @wraps(func)
+        async def wrapper(request: Request, *args: Any, **kwargs: Any) -> Any:
             user_permissions = getattr(request.state, "user_permissions", [])
 
             if permission not in user_permissions:

@@ -11,7 +11,8 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, AsyncGenerator, Callable, Dict, List, Optional, Tuple, Union
+from typing import (Any, AsyncGenerator, Callable, Dict, List, Optional, Tuple,
+                    Union)
 
 import numpy as np
 
@@ -26,23 +27,22 @@ except ImportError:
 # Import existing clients
 from backend.core.hybrid_llm_client import hybrid_llm_client
 from backend.core.interfaces import VectorStore
-from backend.infrastructure.vector_store.vector_store_impl import (
-    EnhancedVectorStoreImpl,
-)
+from backend.infrastructure.vector_store.vector_store_impl import \
+    EnhancedVectorStoreImpl
 
 # LangChain imports (optional)
 try:
     from langchain.document_loaders.base import BaseLoader
     from langchain.text_splitter import RecursiveCharacterTextSplitter
     from langchain_community.document_loaders import PyPDFLoader, WebBaseLoader
-    from langchain_community.document_loaders.email import UnstructuredEmailLoader
-    from langchain_community.document_loaders.markdown import UnstructuredMarkdownLoader
-    from langchain_community.document_loaders.powerpoint import (
-        UnstructuredPowerPointLoader,
-    )
-    from langchain_community.document_loaders.word_document import (
-        UnstructuredWordDocumentLoader,
-    )
+    from langchain_community.document_loaders.email import \
+        UnstructuredEmailLoader
+    from langchain_community.document_loaders.markdown import \
+        UnstructuredMarkdownLoader
+    from langchain_community.document_loaders.powerpoint import \
+        UnstructuredPowerPointLoader
+    from langchain_community.document_loaders.word_document import \
+        UnstructuredWordDocumentLoader
 
     LANGCHAIN_AVAILABLE = True
 except ImportError:

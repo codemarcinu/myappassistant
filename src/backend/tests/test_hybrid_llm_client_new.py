@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, AsyncGenerator, Callable, Coroutine, Dict, List, Optional, Union
+from typing import (Any, AsyncGenerator, Callable, Coroutine, Dict, List,
+                    Optional, Union)
 
 """
 Tests for updated Hybrid LLM Client with Bielik and Gemma support
@@ -21,19 +22,21 @@ class TestHybridLLMClientNew:
     """Test suite for updated Hybrid LLM Client"""
 
     @pytest.fixture
-    def client(self) -> None:
+    def client(self) -> HybridLLMClient:
         """Create a HybridLLMClient instance for testing"""
         return HybridLLMClient()
 
     @pytest.fixture
-    def mock_messages(self) -> None:
+    def mock_messages(self) -> List[Dict[str, str]]:
         """Mock messages for testing"""
         return [{"role": "user", "content": "Hello, how are you?"}]
 
     @pytest.mark.asyncio
-    async def test_chat_with_bielik_default(self, client) -> None:
+    async def test_chat_with_bielik_default(self, client: HybridLLMClient) -> None:
         """Test chat with Bielik as default model"""
-        messages = [{"role": "user", "content": "Hello, how are you?"}]
+        messages: List[Dict[str, str]] = [
+            {"role": "user", "content": "Hello, how are you?"}
+        ]
 
         response = await client.chat(messages=messages)
 

@@ -10,7 +10,8 @@ from backend.auth.auth_middleware import AuthMiddleware
 from backend.auth.jwt_handler import JWTHandler
 from backend.auth.models import Role, User, UserRole
 from backend.auth.routes import auth_router
-from backend.auth.schemas import TokenResponse, UserCreate, UserLogin, UserResponse
+from backend.auth.schemas import (TokenResponse, UserCreate, UserLogin,
+                                  UserResponse)
 
 # Set User-Agent environment variable early to prevent warnings
 os.environ.setdefault(

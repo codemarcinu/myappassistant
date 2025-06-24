@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
 from datetime import datetime
 from enum import Enum
-from typing import Any, AsyncGenerator, Dict, List, Optional, Type, TypeVar, Union
+from typing import (Any, AsyncGenerator, Dict, List, Optional, Type, TypeVar,
+                    Union)
 
 from pydantic import BaseModel, ConfigDict
 

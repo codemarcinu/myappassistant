@@ -24,11 +24,8 @@ class AgentContainer:
         from backend.agents.adapters.alert_service import AlertService
         from backend.agents.adapters.error_handler import ErrorHandler
         from backend.agents.adapters.fallback_manager import FallbackManager
-        from backend.agents.interfaces import (
-            IAlertService,
-            IErrorHandler,
-            IFallbackProvider,
-        )
+        from backend.agents.interfaces import (IAlertService, IErrorHandler,
+                                               IFallbackProvider)
         from backend.core.hybrid_llm_client import hybrid_llm_client
         from backend.core.profile_manager import ProfileManager
 

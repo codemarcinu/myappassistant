@@ -6,7 +6,8 @@ import os
 import sys
 from datetime import datetime
 from logging.handlers import RotatingFileHandler
-from typing import Any, AsyncGenerator, Callable, Coroutine, Dict, List, Optional, Union
+from typing import (Any, AsyncGenerator, Callable, Coroutine, Dict, List,
+                    Optional, Union)
 
 
 class JsonFormatter(logging.Formatter):

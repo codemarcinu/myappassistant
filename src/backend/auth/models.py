@@ -6,7 +6,8 @@ Database models for authentication
 from datetime import datetime
 from typing import List
 
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Table
+from sqlalchemy import (Boolean, Column, DateTime, ForeignKey, Integer, String,
+                        Table)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from backend.core.database import Base

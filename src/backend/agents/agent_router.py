@@ -51,7 +51,8 @@ class AgentRouter(IAgentRouter):
                 logger.warning(
                     f"No agent found for type {agent_type.value}, using GeneralConversationAgent as fallback"
                 )
-                from .general_conversation_agent import GeneralConversationAgent
+                from .general_conversation_agent import \
+                    GeneralConversationAgent
 
                 agent = GeneralConversationAgent()
 
@@ -70,7 +71,8 @@ class AgentRouter(IAgentRouter):
             logger.error(f"Error routing to agent: {e}", exc_info=True)
             # Even in case of exception, return a fallback response
             try:
-                from .general_conversation_agent import GeneralConversationAgent
+                from .general_conversation_agent import \
+                    GeneralConversationAgent
 
                 fallback_agent = GeneralConversationAgent()
                 input_data = {

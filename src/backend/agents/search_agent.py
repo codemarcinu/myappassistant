@@ -48,9 +48,8 @@ class SearchAgent(BaseAgent):
             timeout=30.0, headers={"User-Agent": settings.USER_AGENT}
         )
         self.llm_client = llm_client
-        from backend.core.perplexity_client import (
-            perplexity_client as global_perplexity_client,
-        )
+        from backend.core.perplexity_client import \
+            perplexity_client as global_perplexity_client
 
         self.web_search = perplexity_client or global_perplexity_client
         self.plugins = plugins or []

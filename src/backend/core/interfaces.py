@@ -2,17 +2,8 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import (
-    Any,
-    AsyncGenerator,
-    Dict,
-    List,
-    Optional,
-    Tuple,
-    Type,
-    TypeVar,
-    Union,
-)
+from typing import (Any, AsyncGenerator, Dict, List, Optional, Tuple, Type,
+                    TypeVar, Union)
 
 import numpy as np
 from pydantic import BaseModel, ConfigDict
