@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
+import Image from 'next/image';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
 import { ReceiptUploaderProps } from '@/types/shopping';
@@ -61,7 +62,7 @@ export function ReceiptUploader({
             <p className="text-sm mb-2">Wybrany plik: {selectedFile?.name}</p>
             <div className="border rounded-md overflow-hidden mb-4 max-h-96">
               {selectedFile && selectedFile.type.startsWith('image/') && previewUrl ? (
-                <img src={previewUrl} alt="Podgląd" className="w-full object-contain" />
+                <Image src={previewUrl} alt="Podgląd" className="w-full object-contain" width={300} height={300} />
               ) : (
                 <div className="p-4 bg-gray-100 text-center">
                   <p>Podgląd niedostępny dla plików PDF</p>

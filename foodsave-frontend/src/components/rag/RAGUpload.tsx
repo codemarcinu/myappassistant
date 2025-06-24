@@ -373,10 +373,11 @@ export default function RAGUpload({ onUpload }: RAGUploadProps) {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="description-input" className="block text-sm font-medium text-gray-700 mb-1">
                 Description (optional)
               </label>
               <input
+                id="description-input"
                 type="text"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
@@ -385,10 +386,11 @@ export default function RAGUpload({ onUpload }: RAGUploadProps) {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="tags-input" className="block text-sm font-medium text-gray-700 mb-1">
                 Tags (comma-separated)
               </label>
               <input
+                id="tags-input"
                 type="text"
                 value={tags}
                 onChange={(e) => setTags(e.target.value)}
@@ -629,10 +631,11 @@ export default function RAGUpload({ onUpload }: RAGUploadProps) {
                 From: <span className="font-mono">{movingDocument.metadata?.directory_path || 'default'}</span>
               </p>
 
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="target-directory" className="block text-sm font-medium text-gray-700 mb-2">
                 To Directory
               </label>
               <input
+                id="target-directory"
                 type="text"
                 value={targetDirectory}
                 onChange={(e) => setTargetDirectory(e.target.value)}
@@ -684,10 +687,11 @@ export default function RAGUpload({ onUpload }: RAGUploadProps) {
                 Moving <strong>{selectedDocuments.size} documents</strong>
               </p>
 
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="bulk-target-directory" className="block text-sm font-medium text-gray-700 mb-2">
                 To Directory
               </label>
               <input
+                id="bulk-target-directory"
                 type="text"
                 value={bulkTargetDirectory}
                 onChange={(e) => setBulkTargetDirectory(e.target.value)}

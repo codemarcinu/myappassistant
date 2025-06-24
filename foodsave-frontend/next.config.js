@@ -5,7 +5,7 @@ const nextConfig = {
   output: 'standalone',
   experimental: {
     outputFileTracingRoot: undefined,
-    optimizeCss: true,
+    // optimizeCss: true, // Wyłączone z powodu problemu z critters
     scrollRestoration: true,
   },
   images: {

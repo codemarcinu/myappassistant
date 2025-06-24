@@ -194,7 +194,7 @@ export function useCooking() {
     } finally {
       setIsLoading(false);
     }
-  }, [conversationState, fetchPantryItems]);
+  }, [fetchPantryItems]);
 
   // Load initial data
   useEffect(() => {

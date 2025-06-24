@@ -11,7 +11,8 @@ WORKDIR /app
 
 # Kopiowanie plików package
 COPY package.json package-lock.json* ./
-RUN npm ci --only=production
+# Instaluj wszystkie zależności (w tym devDependencies) potrzebne do budowania
+RUN npm ci
 
 # Etap budowania
 FROM base AS builder

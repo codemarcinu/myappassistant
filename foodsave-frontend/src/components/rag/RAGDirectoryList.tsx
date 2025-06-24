@@ -317,10 +317,11 @@ export default function RAGDirectoryList({
             <h3 className="text-lg font-semibold mb-4">Create New Directory</h3>
 
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="directory-name" className="block text-sm font-medium text-gray-700 mb-2">
                 Directory Name
               </label>
               <input
+                id="directory-name"
                 type="text"
                 value={newDirectoryName}
                 onChange={(e) => setNewDirectoryName(e.target.value)}
@@ -416,10 +417,11 @@ export default function RAGDirectoryList({
                 Renaming: <strong>{renamingDirectory}</strong>
               </p>
 
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="new-directory-name" className="block text-sm font-medium text-gray-700 mb-2">
                 New Directory Name
               </label>
               <input
+                id="new-directory-name"
                 type="text"
                 value={newDirectoryPath}
                 onChange={(e) => setNewDirectoryPath(e.target.value)}

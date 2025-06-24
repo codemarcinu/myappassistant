@@ -163,7 +163,7 @@ export function RAGManager() {
               </div>
             </div>
           ) : (
-            <p>Click "Refresh" to load statistics</p>
+            <p>Click &quot;Refresh&quot; to load statistics</p>
           )}
         </CardContent>
       </Card>
@@ -175,8 +175,9 @@ export function RAGManager() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-2">Select File</label>
+            <label htmlFor="file-input" className="block text-sm font-medium mb-2">Select File</label>
             <input
+              id="file-input"
               type="file"
               accept=".pdf,.docx,.txt,.md,.html,.doc"
               onChange={handleFileChange}
@@ -186,16 +187,18 @@ export function RAGManager() {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-2">Category (optional)</label>
+              <label htmlFor="category-input" className="block text-sm font-medium mb-2">Category (optional)</label>
               <Input
+                id="category-input"
                 value={uploadCategory}
                 onChange={(e: ChangeEvent<HTMLInputElement>) => setUploadCategory(e.target.value)}
                 placeholder="e.g., recipes, guides"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-2">Tags (optional)</label>
+              <label htmlFor="tags-input" className="block text-sm font-medium mb-2">Tags (optional)</label>
               <Input
+                id="tags-input"
                 value={uploadTags}
                 onChange={(e: ChangeEvent<HTMLInputElement>) => setUploadTags(e.target.value)}
                 placeholder="e.g., cooking, healthy, quick"

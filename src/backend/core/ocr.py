@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional
 
 import fitz  # Import biblioteki PyMuPDF
 import pytesseract
-from PIL import Image
+from PIL import Image, ImageEnhance
 from pydantic import BaseModel
 
 from backend.core.decorators import handle_exceptions
@@ -23,28 +23,79 @@ class OCRResult(BaseModel):
 
 
 class OCRProcessor:
-    """Główna klasa do przetwarzania OCR"""
+    """Główna klasa do przetwarzania OCR z optymalizacją dla polskich paragonów"""
 
     def __init__(
         self, languages: List[str] = ["pol"], tesseract_config: Optional[str] = None
     ) -> None:
         self.languages = languages
-        self.default_config = tesseract_config or r"--oem 3 --psm 4"
+        self.default_config = tesseract_config or self._get_default_receipt_config()
+
+    def _get_default_receipt_config(self) -> str:
+        """Generuje domyślną konfigurację Tesseract zoptymalizowaną dla paragonów"""
+        return r"--oem 3 --psm 6"
 
     def _get_tesseract_config(self) -> str:
-        """Generuje konfigurację Tesseract z uwzględnieniem języków"""
-        lang_part = f"-l {'+'.join(self.languages)}" if self.languages else ""
-        return f"{self.default_config} {lang_part}"
+        """Generuje konfigurację Tesseract z uwzględnieniem języków i optymalizacji dla paragonów"""
+        # Specjalna konfiguracja dla paragonów polskich sklepów
+        receipt_config = (
+            "--oem 3 --psm 6 "
+            "-c tessedit_char_whitelist=0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+            "abcdefghijklmnopqrstuvwxyzĄĆĘŁŃÓŚŹŻąćęłńóśźż.,:-/%()[] "
+        )
+        lang_part = f"-l {'+'.join(self.languages)}" if self.languages else "-l pol"
+        return f"{receipt_config} {lang_part}"
+
+    def _preprocess_receipt_image(self, image: Image.Image) -> Image.Image:
+        """Preprocessing obrazu paragonu dla lepszego OCR"""
+        try:
+            # Konwersja do skali szarości
+            if image.mode != "L":
+                image = image.convert("L")
+
+            # Zwiększenie kontrastu
+            enhancer = ImageEnhance.Contrast(image)
+            image = enhancer.enhance(1.5)
+
+            # Zwiększenie ostrości
+            enhancer = ImageEnhance.Sharpness(image)
+            image = enhancer.enhance(1.2)
+
+            # Zmiana rozmiaru jeśli obraz jest za mały
+            width, height = image.size
+            if width < 800 or height < 600:
+                # Zachowaj proporcje
+                ratio = max(800 / width, 600 / height)
+                new_width = int(width * ratio)
+                new_height = int(height * ratio)
+                image = image.resize((new_width, new_height), Image.Resampling.LANCZOS)
+
+            logger.info(
+                "Obraz paragonu przetworzony",
+                extra={
+                    "original_size": f"{width}x{height}",
+                    "final_size": f"{image.size[0]}x{image.size[1]}",
+                    "mode": image.mode,
+                },
+            )
+
+            return image
+        except Exception as e:
+            logger.warning(f"Błąd podczas preprocessingu obrazu: {e}")
+            return image
 
     def process_image(
         self, image_bytes: bytes, config: Optional[str] = None
     ) -> OCRResult:
-        """Przetwarza obraz na tekst z context managerem"""
+        """Przetwarza obraz na tekst z context managerem i preprocessingiem"""
         try:
             with Image.open(io.BytesIO(image_bytes)) as image:
+                # Preprocessing obrazu dla lepszego OCR
+                processed_image = self._preprocess_receipt_image(image)
+
                 config = config or self._get_tesseract_config()
                 data = pytesseract.image_to_data(
-                    image, config=config, output_type=pytesseract.Output.DICT
+                    processed_image, config=config, output_type=pytesseract.Output.DICT
                 )
 
                 text = "\n".join([line for line in data["text"] if line.strip()])
@@ -54,6 +105,15 @@ class OCRProcessor:
                     else 0
                 )
 
+                logger.info(
+                    "OCR przetwarzanie obrazu zakończone",
+                    extra={
+                        "confidence": avg_conf,
+                        "text_length": len(text),
+                        "language": self.languages[0] if self.languages else "unknown",
+                    },
+                )
+
                 return OCRResult(
                     text=text,
                     confidence=avg_conf,
@@ -61,6 +121,7 @@ class OCRProcessor:
                         "source": "image",
                         "pages": 1,
                         "language": self.languages[0] if self.languages else "unknown",
+                        "preprocessing_applied": True,
                     },
                 )
         except Exception as e:
@@ -85,6 +146,14 @@ class OCRProcessor:
                         page_result = self.process_image(image.tobytes(), config=config)
                         full_text.append(page_result.text)
 
+            logger.info(
+                "OCR przetwarzanie PDF zakończone",
+                extra={
+                    "pages": len(full_text),
+                    "language": self.languages[0] if self.languages else "unknown",
+                },
+            )
+
             return OCRResult(
                 text="\n".join(full_text),
                 confidence=0,  # PDF confidence calculation would be more complex
@@ -104,7 +173,8 @@ class OCRProcessor:
         """Batch processing obrazów z monitoringiem pamięci"""
         tracemalloc.start()
         results = []
-        for img_bytes in images:
+        for i, img_bytes in enumerate(images):
+            logger.info(f"Przetwarzanie obrazu {i+1}/{len(images)}")
             result = self.process_image(img_bytes, config=config)
             results.append(result)
         current, peak = tracemalloc.get_traced_memory()
@@ -120,7 +190,8 @@ class OCRProcessor:
         """Batch processing PDF z monitoringiem pamięci"""
         tracemalloc.start()
         results = []
-        for pdf_bytes in pdfs:
+        for i, pdf_bytes in enumerate(pdfs):
+            logger.info(f"Przetwarzanie PDF {i+1}/{len(pdfs)}")
             result = self.process_pdf(pdf_bytes, config=config)
             results.append(result)
         current, peak = tracemalloc.get_traced_memory()
@@ -138,7 +209,11 @@ def _extract_text_from_image_obj(
     """
     Prywatna funkcja pomocnicza, która wykonuje OCR na obiekcie obrazu PIL.
     """
-    custom_config = config or r"--oem 3 --psm 4 -l pol"
+    # Użyj konfiguracji zoptymalizowanej dla paragonów
+    custom_config = (
+        config
+        or r"--oem 3 --psm 6 -l pol -c tessedit_char_whitelist=0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzĄĆĘŁŃÓŚŹŻąćęłńóśźż.,:-/%()[] "
+    )
     return pytesseract.image_to_string(image, config=custom_config)
 
 
@@ -147,12 +222,15 @@ def process_image_file(
     file_bytes: bytes, config: Optional[str] = None
 ) -> Optional[str]:
     """
-    Przetwarza plik obrazu (jpg, png) i wyciąga z niego tekst.
+    Przetwarza plik obrazu (jpg, png) i wyciąga z niego tekst z preprocessingiem.
     """
     try:
         logger.info("OCR: Rozpoczynam odczyt pliku obrazu...")
         with Image.open(io.BytesIO(file_bytes)) as image:
-            text = _extract_text_from_image_obj(image, config=config)
+            # Preprocessing obrazu dla lepszego OCR
+            processor = OCRProcessor()
+            processed_image = processor._preprocess_receipt_image(image)
+            text = _extract_text_from_image_obj(processed_image, config=config)
         logger.info("OCR: Odczyt obrazu zakończony sukcesem.")
         return text
     except Exception as e:
