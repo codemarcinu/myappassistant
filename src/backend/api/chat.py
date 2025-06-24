@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import os
 from typing import Any, AsyncGenerator, Dict, cast
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Request
@@ -8,7 +9,6 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.config import settings
 from backend.core.async_patterns import (
     CircuitBreakerConfig,
     timeout_context,
@@ -22,6 +22,40 @@ from backend.orchestrator_management.request_queue import request_queue
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+
+def get_selected_model() -> str:
+    """Get the selected model from config file or fallback to default"""
+    try:
+        # Path to the LLM settings file
+        llm_settings_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+            "..",
+            "data",
+            "config",
+            "llm_settings.json",
+        )
+
+        if os.path.exists(llm_settings_path):
+            with open(llm_settings_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                selected_model = data.get("selected_model", "")
+                if selected_model:
+                    logger.info(f"Using selected model from config: {selected_model}")
+                    return selected_model
+
+        # Fallback to hardcoded default
+        fallback_default = "SpeakLeash/bielik-4.5b-v3.0-instruct:Q8_0"
+        logger.info(
+            f"No valid selected model in config, using fallback: {fallback_default}"
+        )
+        return fallback_default
+
+    except Exception as e:
+        logger.warning(f"Error reading selected model from config: {e}")
+        fallback_default = "SpeakLeash/bielik-4.5b-v3.0-instruct:Q8_0"
+        logger.info(f"Using fallback default model: {fallback_default}")
+        return fallback_default
 
 
 class ChatRequest(BaseModel):
@@ -87,7 +121,7 @@ async def chat_response_generator(prompt: str, model: str) -> AsyncGenerator[str
 async def chat_with_model(request: Request):
     body = await request.json()
     prompt = body.get("prompt")
-    model = body.get("model") or settings.DEFAULT_CODE_MODEL
+    model = body.get("model") or get_selected_model()
     return StreamingResponse(
         chat_response_generator(prompt, model), media_type="text/plain"
     )
@@ -273,20 +307,22 @@ async def test_chat_simple(request: ChatRequest) -> Dict[str, Any]:
     """
     try:
         # Use the LLM client directly without streaming
+        selected_model = get_selected_model()
         response = await llm_client.chat(
-            model=request.model or settings.DEFAULT_CODE_MODEL,
+            model=request.model or selected_model,
             messages=[{"role": "user", "content": request.prompt}],
             stream=False,
         )
         return {
             "response": response.get("response", "No response"),
-            "model": request.model or settings.DEFAULT_CODE_MODEL,
+            "model": request.model or selected_model,
             "success": True,
         }
     except Exception as e:
         logger.error(f"Error in test_chat_simple: {e}")
+        selected_model = get_selected_model()
         return {
             "response": f"Error: {str(e)}",
-            "model": request.model or settings.DEFAULT_CODE_MODEL,
+            "model": request.model or selected_model,
             "success": False,
         }
