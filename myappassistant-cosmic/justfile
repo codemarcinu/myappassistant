@@ -1,0 +1,45 @@
+# justfile for MyAppAssistant COSMIC
+default: build
+
+# Build the application
+build:
+    cargo build
+
+# Build release
+build-release:
+    cargo build --release
+
+# Run application
+run:
+    cargo run
+
+# Run with logs
+run-verbose:
+    RUST_LOG=debug cargo run
+
+# Install application
+install: build-release
+    sudo cp target/release/myappassistant-cosmic /usr/local/bin/
+    sudo mkdir -p /usr/share/applications/
+    sudo cp assets/myappassistant-cosmic.desktop /usr/share/applications/
+
+# Check code quality
+check:
+    cargo fmt -- --check
+    cargo clippy -- -D warnings
+
+# Format code
+fmt:
+    cargo fmt
+
+# Run tests
+test:
+    cargo test
+
+# Clean build artifacts
+clean:
+    cargo clean
+
+# Generate documentation
+docs:
+    cargo doc --open 

@@ -1,0 +1,40 @@
+[package]
+name = "myappassistant-cosmic"
+version = "0.1.0"
+edition = "2021"
+description = "MyAppAssistant - Personal life assistant with COSMIC UI"
+license = "MIT"
+authors = ["Marcin"]
+
+[dependencies]
+# COSMIC Toolkit
+cosmic = { git = "https://github.com/pop-os/libcosmic", features = ["tokio", "debug"] }
+cosmic-config = { git = "https://github.com/pop-os/cosmic-config" }
+
+# HTTP Client for Python backend communication
+reqwest = { version = "0.11", features = ["json", "multipart"] }
+tokio = { version = "1.0", features = ["full"] }
+
+# Serialization/Deserialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Error handling
+thiserror = "1.0"
+anyhow = "1.0"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Async utilities
+futures = "0.3"
+
+# Time handling
+chrono = { version = "0.4", features = ["serde"] }
+
+# Image handling for OCR
+image = "0.24"
+
+[dev-dependencies]
+tokio-test = "0.4" 
