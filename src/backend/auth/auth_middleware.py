@@ -3,7 +3,7 @@ Authentication middleware for FastAPI
 """
 
 import logging
-from typing import Optional, Any
+from typing import Optional
 
 from fastapi import HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer

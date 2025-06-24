@@ -1,8 +1,8 @@
 from datetime import datetime, time
 from enum import Enum
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
-import pytz  # type: ignore  # Needed for timezone validation
+import pytz
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -57,12 +57,12 @@ class UserSchedule(BaseModel):
 
     @field_validator("time_zone")
     @classmethod
-    def validate_timezone(cls, v) -> str:
+    def validate_timezone(cls, v: str) -> str:
         if v not in pytz.all_timezones:
             return "Europe/Warsaw"
         return v
 
-    def model_dump(self, *args, **kwargs) -> Dict:
+    def model_dump(self, *args: Any, **kwargs: Any) -> Dict[str, Any]:
         """Override model_dump() to serialize time objects to ISO format strings"""
         data = super().model_dump(*args, **kwargs)
         for field in [
@@ -77,11 +77,11 @@ class UserSchedule(BaseModel):
         return data
 
     @classmethod
-    def parse_time(cls, time_str: str) -> time:
+    def parse_time(cls, time_str: str | time) -> time:
         """Parse ISO format time string back to time object"""
         if isinstance(time_str, time):
             return time_str
-        return time.fromisoformat(time_str)
+        return time.fromisoformat(str(time_str))
 
 
 class UserActivity(Base):
@@ -108,6 +108,17 @@ class UserActivity(Base):
         back_populates="activities",
         lazy="selectin",
     )
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Konwertuje obiekt UserActivity na słownik."""
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "interaction_type": self.interaction_type,
+            "content": self.content,
+            "timestamp": self.timestamp.isoformat(),
+            "activity_metadata": self.activity_metadata,
+        }
 
 
 class UserProfile(Base):
@@ -168,6 +179,19 @@ class UserProfile(Base):
                 )
 
         return UserSchedule.model_validate(schedule_data)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Konwertuje obiekt UserProfile na słownik."""
+        return {
+            "user_id": self.user_id,
+            "session_id": self.session_id,
+            "created_at": self.created_at.isoformat(),
+            "last_active": self.last_active.isoformat(),
+            "preferences": self.preferences,
+            "schedule": self.schedule,
+            "topics_of_interest": self.topics_of_interest,
+            "activities": [activity.to_dict() for activity in self.activities],
+        }
 
 
 class UserProfileData(BaseModel):

@@ -8,14 +8,14 @@ This module provides API endpoints for managing the RAG system:
 - System statistics
 """
 
+import asyncio
 import logging
 import os
+import time
 import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import List, Optional, Any
-import time
-import asyncio
+from typing import Any, List, Optional
 
 from fastapi import (
     APIRouter,
@@ -915,7 +915,9 @@ async def get_directory_stats(
 
         # Calculate statistics
         total_documents = len(documents)
-        total_chunks = sum(doc.chunks_count for doc in documents if doc.chunks_count) # handle None
+        total_chunks = sum(
+            doc.chunks_count for doc in documents if doc.chunks_count
+        )  # handle None
         total_tags = len(set(tag for doc in documents for tag in doc.tags))
 
         # Get unique file types
@@ -931,7 +933,8 @@ async def get_directory_stats(
             doc
             for doc in documents
             if doc.uploaded_at
-            and isinstance(doc.uploaded_at, str) and datetime.fromisoformat(doc.uploaded_at.replace("Z", "+00:00"))
+            and isinstance(doc.uploaded_at, str)
+            and datetime.fromisoformat(doc.uploaded_at.replace("Z", "+00:00"))
             > thirty_days_ago
         ]
 
@@ -967,7 +970,7 @@ async def get_directory_stats(
         )
 
 
-async def test_upload_and_search(db: AsyncSession = Depends(get_db)): # type: ignore
+async def test_upload_and_search(db: AsyncSession = Depends(get_db)):  # type: ignore
     """Test full RAG pipeline"""
     # 1. Upload a test file
     # This needs a real file to upload, so we'll simulate
@@ -983,36 +986,36 @@ async def test_upload_and_search(db: AsyncSession = Depends(get_db)): # type: ig
     )
 
     # 2. Search for the content
-    results = await vector_store.search(query="food safety", k=1) # type: ignore
+    results = await vector_store.search(query="food safety", k=1)  # type: ignore
 
     # 3. Verify
-    if results and results[0]["metadata"]["document_id"] == document_id: # type: ignore
+    if results and results[0]["metadata"]["document_id"] == document_id:  # type: ignore
         return {"status": "success", "message": "Test passed"}
     else:
         return {"status": "failed", "message": "Test failed"}
 
 
-async def test_full_rag_pipeline( # type: ignore
+async def test_full_rag_pipeline(  # type: ignore
     db: AsyncSession = Depends(get_db),
     file: UploadFile = File(...),
     query: str = Query(...),
 ):
     """Test full RAG pipeline from upload to query"""
     # Upload
-    upload_response = await upload_document_to_rag( # type: ignore
+    upload_response = await upload_document_to_rag(  # type: ignore
         background_tasks=BackgroundTasks(), file=file, db=db
     )
-    document_id = upload_response.document_id # type: ignore
+    document_id = upload_response.document_id  # type: ignore
 
     # Allow time for processing
     await asyncio.sleep(5)
 
     # Query
-    query_response = await query_rag( # type: ignore
+    query_response = await query_rag(  # type: ignore
         request=RAGQueryRequest(question=query, max_results=1), db=db
     )
 
     return {
-        "upload_response": upload_response.dict(), # type: ignore
-        "query_response": query_response.dict(), # type: ignore
+        "upload_response": upload_response.dict(),  # type: ignore
+        "query_response": query_response.dict(),  # type: ignore
     }

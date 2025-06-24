@@ -90,7 +90,7 @@ PARAMETER temperature 0.1
                     )
                 except subprocess.CalledProcessError as e:
                     logger.warning(f"Failed to pull Bielik model: {e}")
-                    
+
                 # Pobieranie modelu gemma3:12b
                 logger.info("Preloading gemma3:12b model...")
                 try:
@@ -101,7 +101,7 @@ PARAMETER temperature 0.1
                     logger.info("gemma3:12b model preloaded successfully!")
                 except subprocess.CalledProcessError as e:
                     logger.warning(f"Failed to pull gemma3:12b model: {e}")
-                    
+
                 # Pobieranie modelu do embeddingów
                 logger.info("Preloading nomic-embed-text model...")
                 try:

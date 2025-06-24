@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import List
+from typing import Any, Dict, List
 
 from sqlalchemy import Date, DateTime, Float, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -33,6 +33,18 @@ class ShoppingTrip(Base):
         cascade="all, delete-orphan",
         lazy="selectin",
     )
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Konwertuje obiekt ShoppingTrip na słownik."""
+        return {
+            "id": self.id,
+            "trip_date": self.trip_date.isoformat(),
+            "store_name": self.store_name,
+            "total_amount": self.total_amount,
+            "created_at": self.created_at.isoformat(),
+            "updated_at": self.updated_at.isoformat(),
+            "products": [product.to_dict() for product in self.products],
+        }
 
 
 class Product(Base):
@@ -70,6 +82,25 @@ class Product(Base):
         back_populates="products",
         lazy="selectin",
     )
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Konwertuje obiekt Product na słownik."""
+        return {
+            "id": self.id,
+            "name": self.name,
+            "category": self.category,
+            "unit_price": self.unit_price,
+            "quantity": self.quantity,
+            "unit": self.unit,
+            "expiration_date": (
+                self.expiration_date.isoformat() if self.expiration_date else None
+            ),
+            "is_consumed": bool(self.is_consumed),
+            "notes": self.notes,
+            "created_at": self.created_at.isoformat(),
+            "updated_at": self.updated_at.isoformat(),
+            "trip_id": self.trip_id,
+        }
 
 
 # Composite indexes for common product queries

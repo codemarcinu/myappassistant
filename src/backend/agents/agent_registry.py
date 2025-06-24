@@ -24,7 +24,9 @@ class AgentRegistry:
             "general": "GeneralConversation",  # Default mapping
         }
 
-    def register_agent_class(self, agent_type: str, agent_class: Type[BaseAgent]) -> None:
+    def register_agent_class(
+        self, agent_type: str, agent_class: Type[BaseAgent]
+    ) -> None:
         """Rejestruje klasę agenta pod danym typem."""
         self._agents[agent_type] = agent_class
 

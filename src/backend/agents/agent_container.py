@@ -15,7 +15,7 @@ class AgentContainer:
         """Register a service in the container"""
         self._services[name] = service
 
-    def get(self, name: str) -> None:
+    def get(self, name: str) -> Any | None:
         """Get a registered service"""
         return self._services.get(name)
 

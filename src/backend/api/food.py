@@ -1,5 +1,5 @@
 # File: backend/api/food.py
-from typing import List
+from typing import Dict, List
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,7 +20,7 @@ router = APIRouter()
 )
 async def add_shopping_trip(
     trip: shopping_schemas.ShoppingTripCreate, db: AsyncSession = Depends(get_db)
-):
+) -> shopping_schemas.ShoppingTrip:
     """
     Dodaje nowy paragon z listą produktów do bazy danych.
     """
@@ -34,7 +34,7 @@ async def add_shopping_trip(
 )
 async def read_shopping_trips(
     skip: int = 0, limit: int = 100, db: AsyncSession = Depends(get_db)
-):
+) -> List[shopping_schemas.ShoppingTrip]:
     """
     Pobiera listę ostatnich paragonów z bazy danych.
     """
@@ -51,7 +51,7 @@ async def update_shopping_trip(
     trip_id: int,
     trip_update: shopping_schemas.ShoppingTripUpdate,
     db: AsyncSession = Depends(get_db),
-):
+) -> shopping_schemas.ShoppingTrip:
     """
     Aktualizuje dane paragonu w bazie danych.
     Można zaktualizować tylko wybrane pola.
@@ -78,7 +78,7 @@ async def update_product(
     product_id: int,
     product_update: shopping_schemas.ProductUpdate,
     db: AsyncSession = Depends(get_db),
-):
+) -> shopping_schemas.ProductSchema:
     """
     Aktualizuje dane produktu w bazie danych.
     Można zaktualizować tylko wybrane pola.
@@ -97,7 +97,9 @@ async def update_product(
 
 
 @router.delete("/shopping-trips/{trip_id}", status_code=200)
-async def delete_shopping_trip(trip_id: int, db: AsyncSession = Depends(get_db)):
+async def delete_shopping_trip(
+    trip_id: int, db: AsyncSession = Depends(get_db)
+) -> Dict[str, str]:
     """
     Endpoint do usunięcia pojedynczego paragonu.
     """
@@ -116,7 +118,9 @@ async def delete_shopping_trip(trip_id: int, db: AsyncSession = Depends(get_db))
 
 
 @router.delete("/products/{product_id}", status_code=200)
-async def delete_product(product_id: int, db: AsyncSession = Depends(get_db)):
+async def delete_product(
+    product_id: int, db: AsyncSession = Depends(get_db)
+) -> Dict[str, str]:
     """
     Endpoint do usunięcia pojedynczego produktu.
     """

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Models package - unified Base class to prevent SQLAlchemy Multiple Classes conflicts.
 Import models directly from their modules instead of from this package.

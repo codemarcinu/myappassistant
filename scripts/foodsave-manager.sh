@@ -152,7 +152,7 @@ restart_full_environment() {
 check_and_pull_models() {
     print_header
     print_info "Sprawdzanie i pobieranie modeli AI dla Ollama..."
-    
+
     if ! docker-compose ps ollama | grep -q "Up"; then
         print_warning "Kontener Ollama nie jest uruchomiony. Uruchamiam..."
         docker-compose up -d ollama
@@ -168,7 +168,7 @@ check_and_pull_models() {
 
     print_info "Pobieranie listy zainstalowanych modeli..."
     INSTALLED_MODELS=$(docker-compose exec -T ollama ollama list)
-    
+
     for model in "${REQUIRED_MODELS[@]}"; do
         # Uproszczone sprawdzanie, szuka nazwy modelu bez taga
         model_name=$(echo "$model" | cut -d':' -f1)
@@ -192,16 +192,16 @@ fix_backend_deps() {
     print_header
     print_info "Instalowanie/aktualizowanie zależności backendu z requirements.txt..."
     check_prerequisites
-    
+
     if ! docker-compose ps backend | grep -q "Up"; then
         print_warning "Backend nie jest uruchomiony. Uruchamiam..."
         docker-compose up -d backend
         sleep 5
     fi
-    
+
     print_info "Instalowanie zależności..."
     docker-compose exec -T backend pip install --no-cache-dir -r src/backend/requirements.txt
-    
+
     print_success "Zależności backendu zostały zaktualizowane!"
     print_info "Zrestartuj backend, aby zmiany weszły w życie (użyj opcji 'restart')."
     echo
@@ -270,12 +270,12 @@ exec_shell() {
     print_header
     print_info "Wybierz kontener, w którym chcesz otworzyć powłokę bash:"
     running_containers=($(docker-compose ps --services --filter "status=running"))
-    
+
     if [ ${#running_containers[@]} -eq 0 ]; then
         print_warning "Brak uruchomionych kontenerów."
         return
     fi
-    
+
     select container in "${running_containers[@]}"; do
         if [ -n "$container" ]; then
             print_info "Otwieranie powłoki w kontenerze: $container..."
@@ -313,10 +313,10 @@ show_menu() {
         echo " 14. Otwórz powłokę w kontenerze"
         echo " 0. Wyjście"
         echo
-        
+
         read -p "Twój wybór (0-14): " choice
         echo
-        
+
         case $choice in
             1) show_status ;;
             2) start_environment ;;
@@ -335,7 +335,7 @@ show_menu() {
             0) print_info "Do widzenia!"; exit 0 ;;
             *) print_error "Nieprawidłowy wybór. Spróbuj ponownie." ;;
         esac
-        
+
         echo; read -p "Naciśnij Enter, aby kontynuować..."; clear
     done
 }

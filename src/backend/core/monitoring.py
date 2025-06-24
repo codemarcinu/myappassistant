@@ -13,7 +13,7 @@ from contextlib import asynccontextmanager, contextmanager
 from dataclasses import dataclass
 from datetime import datetime
 from functools import wraps
-from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
+from typing import Any, AsyncGenerator, Callable, Dict, List, Optional, Tuple
 from weakref import WeakSet
 
 import psutil
@@ -31,16 +31,16 @@ except ImportError:
 
     # Fallback mock classes
     class MockMetric:
-        def __init__(self, *args, **kwargs):
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
             pass
 
-        def inc(self, *args, **kwargs):
+        def inc(self, *args: Any, **kwargs: Any) -> None:
             pass
 
-        def observe(self, *args, **kwargs):
+        def observe(self, *args: Any, **kwargs: Any) -> None:
             pass
 
-        def set(self, *args, **kwargs):
+        def set(self, *args: Any, **kwargs: Any) -> None:
             pass
 
     Counter = Histogram = Gauge = Summary = MockMetric
@@ -59,18 +59,30 @@ class MemorySnapshot:
 
 
 @dataclass
+class SystemPerformanceSnapshot:
+    """Snapshot systemowych metryk wydajności"""
+
+    timestamp: float
+    cpu_percent: float
+    memory_percent: float
+    memory_rss: int
+    memory_vms: int
+    open_files: int
+    threads: int
+
+
 class PerformanceMetrics:
     """✅ REQUIRED: Performance metrics collection for FoodSave AI"""
 
-    _instance = None
-    _initialized = False
+    _instance: Optional["PerformanceMetrics"] = None
+    _initialized: bool = False
 
-    def __new__(cls):
+    def __new__(cls) -> "PerformanceMetrics":
         if cls._instance is None:
             cls._instance = super().__new__(cls)
         return cls._instance
 
-    def __init__(self):
+    def __init__(self) -> None:
         if self._initialized:
             return
 
@@ -179,18 +191,18 @@ class MemoryProfiler:
         self.enable_tracemalloc = enable_tracemalloc
         self.process = psutil.Process()
         self.snapshots: List[MemorySnapshot] = []
-        self.performance_metrics: List[PerformanceMetrics] = []
+        self.performance_metrics: List[SystemPerformanceSnapshot] = []
         self._active_contexts: WeakSet = WeakSet()
 
         if enable_tracemalloc:
             tracemalloc.start(25)  # Track top 25 allocations
 
-    def __enter__(self) -> None:
+    def __enter__(self) -> "MemoryProfiler":
         """Context manager entry"""
         self._active_contexts.add(self)
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """Context manager exit z cleanup"""
         self._active_contexts.discard(self)
         if self.enable_tracemalloc:
@@ -220,10 +232,10 @@ class MemoryProfiler:
         self.snapshots.append(memory_snapshot)
         return memory_snapshot
 
-    def get_performance_metrics(self) -> PerformanceMetrics:
+    def get_performance_metrics(self) -> SystemPerformanceSnapshot:
         """Pobiera metryki wydajności procesu"""
         with self.process.oneshot():
-            metrics = PerformanceMetrics(
+            metrics = SystemPerformanceSnapshot(
                 timestamp=time.time(),
                 cpu_percent=self.process.cpu_percent(),
                 memory_percent=self.process.memory_percent(),
@@ -248,140 +260,194 @@ class MemoryProfiler:
             peak_mb=snapshot.peak_memory / 1024 / 1024,
             cpu_percent=metrics.cpu_percent,
             memory_percent=metrics.memory_percent,
-            rss_mb=metrics.memory_rss / 1024 / 1024,
+            memory_rss_mb=metrics.memory_rss / (1024 * 1024),
+            memory_vms_mb=metrics.memory_vms / (1024 * 1024),
+            open_files=metrics.open_files,
+            threads=metrics.threads,
+            top_allocations=snapshot.top_allocations,
         )
 
     def detect_memory_leak(self, threshold_mb: float = 50.0) -> bool:
-        """Wykrywa potencjalne wycieki pamięci"""
+        """Detects if memory usage has increased beyond a threshold."""
         if len(self.snapshots) < 2:
             return False
 
-        first = self.snapshots[0]
-        last = self.snapshots[-1]
+        # Compare last two snapshots
+        latest_usage = self.snapshots[-1].memory_usage
+        previous_usage = self.snapshots[-2].memory_usage
 
-        memory_increase = (last.memory_usage - first.memory_usage) / 1024 / 1024
+        diff_mb = (latest_usage - previous_usage) / (1024 * 1024)
 
-        if memory_increase > threshold_mb:
+        if diff_mb > threshold_mb:
             logger.warning(
-                "potential_memory_leak_detected",
-                memory_increase_mb=memory_increase,
+                "memory_leak_detected",
                 threshold_mb=threshold_mb,
+                current_diff_mb=diff_mb,
             )
             return True
-
         return False
 
     def cleanup(self) -> None:
-        """Cleanup resources"""
-        self.snapshots.clear()
-        self.performance_metrics.clear()
-        gc.collect()
+        """Cleans up profiler resources."""
+        if self.enable_tracemalloc and tracemalloc.is_tracing():
+            tracemalloc.stop()
+        self.snapshots = []
+        self.performance_metrics = []
+        self._active_contexts.clear()
 
 
 class AsyncMemoryProfiler(MemoryProfiler):
-    """Asynchroniczny profiler pamięci"""
+    """Asynchronous memory profiler for async contexts."""
+
+    async def __aenter__(self) -> "AsyncMemoryProfiler":
+        """Asynchronous context manager entry"""
+        await asyncio.to_thread(MemoryProfiler.__enter__, self)
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: Any,
+        exc_val: Any,
+        exc_tb: Any,
+    ) -> None:
+        """Asynchronous context manager exit with cleanup"""
+        await asyncio.to_thread(
+            MemoryProfiler.__exit__, self, exc_type, exc_val, exc_tb
+        )
 
     async def take_snapshot_async(self) -> MemorySnapshot:
-        """Asynchroniczne pobieranie snapshot"""
-        return await asyncio.get_event_loop().run_in_executor(None, self.take_snapshot)
+        return await asyncio.to_thread(self.take_snapshot)
 
-    async def get_performance_metrics_async(self) -> PerformanceMetrics:
-        """Asynchroniczne pobieranie metryk"""
-        return await asyncio.get_event_loop().run_in_executor(
-            None, self.get_performance_metrics
-        )
+    async def get_performance_metrics_async(self) -> SystemPerformanceSnapshot:
+        return await asyncio.to_thread(self.get_performance_metrics)
 
     async def log_memory_usage_async(self, context: str = "general") -> None:
-        """Asynchroniczne logowanie pamięci"""
-        await asyncio.get_event_loop().run_in_executor(
-            None, self.log_memory_usage, context
-        )
+        await asyncio.to_thread(self.log_memory_usage, context)
+
+    async def detect_memory_leak_async(self, threshold_mb: float = 50.0) -> bool:
+        """Asynchronously detects if memory usage has increased beyond a threshold."""
+        return await asyncio.to_thread(self.detect_memory_leak, threshold_mb)
 
 
 @contextmanager
-def memory_profiling_context(context_name: str = "operation") -> None:
-    """Context manager dla memory profiling"""
-    profiler = MemoryProfiler()
+def memory_profiling_context(context_name: str = "operation") -> Any:
+    """Context manager for synchronous memory profiling."""
+    profiler = get_memory_profiler(context_name)
     try:
-        profiler.log_memory_usage(f"{context_name}_start")
+        profiler.__enter__()
         yield profiler
     finally:
-        profiler.log_memory_usage(f"{context_name}_end")
-        if profiler.detect_memory_leak():
-            logger.error(f"Memory leak detected in {context_name}")
-        profiler.cleanup()
+        profiler.log_memory_usage(f"{context_name}_exit")
+        profiler.__exit__(None, None, None)
 
 
 @asynccontextmanager
-async def async_memory_profiling_context(context_name: str = "async_operation") -> None:
-    """Async context manager dla memory profiling"""
-    profiler = AsyncMemoryProfiler()
+async def async_memory_profiling_context(
+    context_name: str = "async_operation",
+) -> AsyncGenerator[Any, None]:
+    """Async context manager for asynchronous memory profiling."""
+    profiler = get_async_memory_profiler(
+        context_name
+    )  # Ensure this gets an AsyncMemoryProfiler if needed
     try:
-        await profiler.log_memory_usage_async(f"{context_name}_start")
+        await profiler.__aenter__()
         yield profiler
     finally:
-        await profiler.log_memory_usage_async(f"{context_name}_end")
-        if profiler.detect_memory_leak():
-            logger.error(f"Memory leak detected in {context_name}")
-        profiler.cleanup()
+        await profiler.log_memory_usage_async(f"{context_name}_exit")
+        await profiler.__aexit__(None, None, None)
 
 
 class MemoryMonitor:
-    """Globalny monitor pamięci dla aplikacji"""
+    """Centralized memory monitoring for different components."""
+
+    _instance: Optional["MemoryMonitor"] = None
+    _initialized: bool = False
+
+    def __new__(cls) -> "MemoryMonitor":
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
 
     def __init__(self) -> None:
+        if self._initialized:
+            return
+        self._initialized = True
         self.profilers: Dict[str, MemoryProfiler] = {}
-        self.monitoring_enabled = (
-            os.getenv("ENABLE_MEMORY_MONITORING", "true").lower() == "true"
-        )
+        self.async_profilers: Dict[str, AsyncMemoryProfiler] = {}
 
     def get_profiler(self, name: str) -> MemoryProfiler:
-        """Pobiera lub tworzy profiler dla danego komponentu"""
+        """Get a synchronous memory profiler by name."""
         if name not in self.profilers:
-            self.profilers[name] = MemoryProfiler()
+            self.profilers[name] = MemoryProfiler(enable_tracemalloc=True)
         return self.profilers[name]
 
-    def log_all_components(self) -> None:
-        """Loguje pamięć dla wszystkich komponentów"""
-        if not self.monitoring_enabled:
-            return
+    def get_async_profiler(self, name: str) -> AsyncMemoryProfiler:
+        """Get an asynchronous memory profiler by name."""
+        if name not in self.async_profilers:
+            self.async_profilers[name] = AsyncMemoryProfiler(enable_tracemalloc=True)
+        return self.async_profilers[name]
 
+    def log_all_components(self) -> None:
+        """Log memory usage for all registered profilers."""
         for name, profiler in self.profilers.items():
             profiler.log_memory_usage(name)
+        for name, profiler in self.async_profilers.items():
+            asyncio.run(
+                profiler.log_memory_usage_async(name)
+            )  # This might need to be awaited in an async context
+
+    def detect_leaks_all_components(
+        self, threshold_mb: float = 50.0
+    ) -> Dict[str, bool]:
+        """Detects memory leaks across all registered profilers."""
+        leaks_detected: Dict[str, bool] = {}
+        for name, profiler in self.profilers.items():
+            leaks_detected[name] = profiler.detect_memory_leak(threshold_mb)
+        for name, profiler in self.async_profilers.items():
+            # For async profilers, you might need to run this in an async loop or adjust
+            # how detect_memory_leak is called if it relies on async operations.
+            leaks_detected[name] = asyncio.run(
+                profiler.detect_memory_leak_async(threshold_mb)
+            )
+        return leaks_detected
 
     def cleanup_all(self) -> None:
-        """Cleanup wszystkich profilerów"""
+        """Cleans up all profiler resources."""
         for profiler in self.profilers.values():
             profiler.cleanup()
+        for profiler in self.async_profilers.values():
+            profiler.cleanup()
         self.profilers.clear()
+        self.async_profilers.clear()
+        PerformanceMetrics._instance = None  # Reset singleton instances
+        MemoryMonitor._instance = None
 
 
-# Global instance
+metrics = PerformanceMetrics()
 memory_monitor = MemoryMonitor()
 
 
 def get_memory_profiler(name: str) -> MemoryProfiler:
-    """Helper function do pobierania profilerów"""
+    """Get a specific memory profiler instance."""
     return memory_monitor.get_profiler(name)
 
 
+def get_async_memory_profiler(name: str) -> AsyncMemoryProfiler:
+    """Get a specific asynchronous memory profiler instance."""
+    return memory_monitor.get_async_profiler(name)
+
+
 def log_memory_usage(context: str = "general") -> None:
-    """Helper function do logowania pamięci"""
-    if memory_monitor.monitoring_enabled:
-        profiler = get_memory_profiler(context)
-        profiler.log_memory_usage(context)
+    """Log current memory usage for a given context."""
+    get_memory_profiler(context).log_memory_usage()
 
 
-# Global metrics instance
-metrics = PerformanceMetrics()
-
-
-def monitor_request(method: str, endpoint: str):
+def monitor_request(method: str, endpoint: str) -> Any:
     """✅ REQUIRED: Monitor HTTP requests with proper metrics"""
 
-    def decorator(func):
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         @wraps(func)
-        async def async_wrapper(*args, **kwargs):
+        async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
             start_time = time.time()
             status = "success"
 
@@ -404,7 +470,7 @@ def monitor_request(method: str, endpoint: str):
                 ).observe(duration)
 
         @wraps(func)
-        def sync_wrapper(*args, **kwargs):
+        def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
             start_time = time.time()
             status = "success"
 
@@ -427,8 +493,6 @@ def monitor_request(method: str, endpoint: str):
                 ).observe(duration)
 
         # Return appropriate wrapper
-        import asyncio
-
         if asyncio.iscoroutinefunction(func):
             return async_wrapper
         else:
@@ -437,12 +501,12 @@ def monitor_request(method: str, endpoint: str):
     return decorator
 
 
-def monitor_agent(agent_type: str):
+def monitor_agent(agent_type: str) -> Any:
     """✅ REQUIRED: Monitor agent performance"""
 
-    def decorator(func):
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         @wraps(func)
-        async def async_wrapper(*args, **kwargs):
+        async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
             start_time = time.time()
             status = "success"
 
@@ -471,7 +535,7 @@ def monitor_agent(agent_type: str):
                 metrics.active_agents.labels(agent_type=agent_type).dec()
 
         @wraps(func)
-        def sync_wrapper(*args, **kwargs):
+        def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
             start_time = time.time()
             status = "success"
 
@@ -500,8 +564,6 @@ def monitor_agent(agent_type: str):
                 metrics.active_agents.labels(agent_type=agent_type).dec()
 
         # Return appropriate wrapper
-        import asyncio
-
         if asyncio.iscoroutinefunction(func):
             return async_wrapper
         else:
@@ -510,12 +572,12 @@ def monitor_agent(agent_type: str):
     return decorator
 
 
-def monitor_database_operation(operation: str, table: str = "unknown"):
+def monitor_database_operation(operation: str, table: str = "unknown") -> Any:
     """✅ REQUIRED: Monitor database operations"""
 
-    def decorator(func):
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         @wraps(func)
-        async def async_wrapper(*args, **kwargs):
+        async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
             start_time = time.time()
 
             try:
@@ -534,7 +596,7 @@ def monitor_database_operation(operation: str, table: str = "unknown"):
                 ).observe(duration)
 
         @wraps(func)
-        def sync_wrapper(*args, **kwargs):
+        def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
             start_time = time.time()
 
             try:
@@ -553,8 +615,6 @@ def monitor_database_operation(operation: str, table: str = "unknown"):
                 ).observe(duration)
 
         # Return appropriate wrapper
-        import asyncio
-
         if asyncio.iscoroutinefunction(func):
             return async_wrapper
         else:
@@ -563,12 +623,12 @@ def monitor_database_operation(operation: str, table: str = "unknown"):
     return decorator
 
 
-def monitor_external_api(api_name: str, endpoint: str):
+def monitor_external_api(api_name: str, endpoint: str) -> Any:
     """✅ REQUIRED: Monitor external API calls"""
 
-    def decorator(func):
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         @wraps(func)
-        async def async_wrapper(*args, **kwargs):
+        async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
             start_time = time.time()
             status = "success"
 
@@ -577,6 +637,9 @@ def monitor_external_api(api_name: str, endpoint: str):
                 return result
             except Exception as e:
                 status = "error"
+                metrics.external_api_calls.labels(
+                    api_name=api_name, endpoint=endpoint, status=status
+                ).inc()
                 metrics.error_count.labels(
                     error_type=type(e).__name__, component=f"external_api_{api_name}"
                 ).inc()
@@ -591,7 +654,7 @@ def monitor_external_api(api_name: str, endpoint: str):
                 ).observe(duration)
 
         @wraps(func)
-        def sync_wrapper(*args, **kwargs):
+        def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
             start_time = time.time()
             status = "success"
 
@@ -600,6 +663,9 @@ def monitor_external_api(api_name: str, endpoint: str):
                 return result
             except Exception as e:
                 status = "error"
+                metrics.external_api_calls.labels(
+                    api_name=api_name, endpoint=endpoint, status=status
+                ).inc()
                 metrics.error_count.labels(
                     error_type=type(e).__name__, component=f"external_api_{api_name}"
                 ).inc()
@@ -612,9 +678,6 @@ def monitor_external_api(api_name: str, endpoint: str):
                 metrics.external_api_duration.labels(
                     api_name=api_name, endpoint=endpoint
                 ).observe(duration)
-
-        # Return appropriate wrapper
-        import asyncio
 
         if asyncio.iscoroutinefunction(func):
             return async_wrapper
@@ -625,7 +688,7 @@ def monitor_external_api(api_name: str, endpoint: str):
 
 
 @asynccontextmanager
-async def monitor_processing(operation: str):
+async def monitor_processing(operation: str) -> AsyncGenerator[None, None]:
     """✅ REQUIRED: Monitor food processing operations"""
     start_time = time.time()
     status = "success"
@@ -643,7 +706,7 @@ async def monitor_processing(operation: str):
         metrics.processing_duration.labels(operation=operation).observe(duration)
 
 
-def update_system_metrics():
+def update_system_metrics() -> Any:
     """✅ REQUIRED: Update system metrics (memory, CPU)"""
     try:
         import psutil
@@ -662,12 +725,12 @@ def update_system_metrics():
         logger.error(f"Failed to update system metrics: {e}")
 
 
-def record_food_item_processed(operation: str, status: str = "success"):
+def record_food_item_processed(operation: str, status: str = "success") -> Any:
     """Record food item processing"""
     metrics.food_items_processed.labels(operation=operation, status=status).inc()
 
 
-def record_error(error_type: str, component: str):
+def record_error(error_type: str, component: str) -> Any:
     """Record error occurrence"""
     metrics.error_count.labels(error_type=error_type, component=component).inc()
 

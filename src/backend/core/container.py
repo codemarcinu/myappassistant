@@ -1,5 +1,6 @@
-from dependency_injector import containers, providers
 from typing import AsyncGenerator
+
+from dependency_injector import containers, providers
 
 from backend.application.use_cases.process_query_use_case import ProcessQueryUseCase
 from backend.infrastructure.database.database import get_db
@@ -21,20 +22,16 @@ class Container(containers.DeclarativeContainer):
     user_repo_impl: providers.Provider[SQLAlchemyUserRepository] = providers.Factory(
         SQLAlchemyUserRepository, session=db_session_provider
     )
-    food_item_repo_impl: providers.Provider[
-        SQLAlchemyFoodItemRepository
-    ] = providers.Factory(
-        SQLAlchemyFoodItemRepository, session=db_session_provider
+    food_item_repo_impl: providers.Provider[SQLAlchemyFoodItemRepository] = (
+        providers.Factory(SQLAlchemyFoodItemRepository, session=db_session_provider)
     )
     llm_client: providers.Provider[LLMClient] = providers.Singleton(
         LLMClient, api_key=config.llm_api_key
     )
-    vector_store: providers.Provider[
-        EnhancedVectorStoreImpl
-    ] = providers.Singleton(EnhancedVectorStoreImpl, llm_client=llm_client)
-    process_query_use_case: providers.Provider[
-        ProcessQueryUseCase
-    ] = providers.Factory(
+    vector_store: providers.Provider[EnhancedVectorStoreImpl] = providers.Singleton(
+        EnhancedVectorStoreImpl, llm_client=llm_client
+    )
+    process_query_use_case: providers.Provider[ProcessQueryUseCase] = providers.Factory(
         ProcessQueryUseCase,
         user_repository=user_repo_impl,
         food_item_repository=food_item_repo_impl,

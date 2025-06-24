@@ -1,7 +1,8 @@
 from __future__ import annotations
+
 import time
+from typing import Any, AsyncGenerator, Callable, Coroutine, Dict, List, Optional, Union
 from unittest.mock import AsyncMock
-from typing import Any, Dict, List, Optional, Union, Callable, AsyncGenerator, Coroutine
 
 import pytest
 

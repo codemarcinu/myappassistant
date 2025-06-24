@@ -1,11 +1,11 @@
 from __future__ import annotations
+
+from typing import Any, AsyncGenerator, Callable, Coroutine, Dict, List, Optional, Union
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from backend.agents.meal_planner_agent import MealPlannerAgent
-from typing import Any, Dict, List, Optional, Union, Callable
-from typing import AsyncGenerator, Coroutine
 
 
 @pytest.mark.asyncio

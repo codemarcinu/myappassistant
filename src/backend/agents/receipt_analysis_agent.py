@@ -289,87 +289,125 @@ class ReceiptAnalysisAgent(BaseAgent):
         return result
 
     def _normalize_date(self, date_str: str) -> str:
-        """Normalizuje datę do formatu YYYY-MM-DD"""
+        """Normalizuje format daty."""
         try:
-            date_str = date_str.replace(".", "-").replace(" ", "-")
-            parts = date_str.split("-")
-
-            if len(parts) == 3:
-                if len(parts[0]) == 4:  # YYYY-MM-DD
-                    return f"{parts[0]}-{parts[1].zfill(2)}-{parts[2].zfill(2)}"
-                else:  # DD-MM-YYYY
-                    return f"{parts[2]}-{parts[1].zfill(2)}-{parts[0].zfill(2)}"
-        except Exception as e:
-            logger.warning(f"Błąd normalizacji daty '{date_str}': {e}")
-
-        return ""
+            # Próba parsowania różnych formatów daty
+            if re.match(r"^\d{2}[-.]\d{2}[-.]\d{4}$", date_str):
+                return datetime.strptime(date_str, "%d.%m.%Y").strftime("%Y-%m-%d")
+            elif re.match(r"^\d{4}[-.]\d{2}[-.]\d{2}$", date_str):
+                return datetime.strptime(date_str, "%Y.%m.%d").strftime("%Y-%m-%d")
+            elif re.match(r"^\d{1,2}[-.]\d{1,2}[-.]\d{4}$", date_str):
+                return datetime.strptime(date_str, "%d.%m.%Y").strftime("%Y-%m-%d")
+            return date_str  # Zwróć oryginalny string, jeśli format nie pasuje
+        except ValueError:
+            return date_str
 
     def _validate_and_fix_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """Waliduje i poprawia wyciągnięte dane paragonu"""
-        # Sprawdź czy suma produktów odpowiada sumie końcowej
-        items = data.get("items", [])
-        if isinstance(items, list):
-            items_total = sum(item.get("total_price", 0) for item in items)
-        else:
-            items_total = 0.0
-        receipt_total = data.get("total_amount", 0)
+        """Waliduje i poprawia wyciągnięte dane paragonu."""
+        if "store_name" not in data or not data["store_name"].strip():
+            data["store_name"] = "Nieznany Sklep"
 
-        # Tolerancja różnicy 1 PLN (zaokrąglenia, rabaty)
-        warnings_obj = data.get("validation_warnings", [])
-        warnings: list[str] = (
-            list(warnings_obj) if isinstance(warnings_obj, list) else []
-        )
-        if abs(items_total - receipt_total) > 1.0:
-            warnings.append(
-                f"Różnica między sumą produktów ({items_total:.2f}) a sumą paragonu ({receipt_total:.2f})"
-            )
-            data["validation_warnings"] = warnings
+        # Normalizacja daty
+        if "date" in data and data["date"]:
+            data["date"] = self._normalize_date(data["date"])
 
-        # Sprawdź czy data jest w przyszłości
-        if data.get("date"):
-            try:
-                receipt_date = datetime.strptime(data["date"], "%Y-%m-%d")
-                if receipt_date > datetime.now():
-                    data["date"] = datetime.now().strftime("%Y-%m-%d")
-                    warnings_obj2 = data.get("validation_warnings", [])
-                    warnings2: list[str] = (
-                        list(warnings_obj2) if isinstance(warnings_obj2, list) else []
-                    )
-                    warnings2.append(
-                        "Data paragonu była w przyszłości, ustawiono dzisiejszą"
-                    )
-                    data["validation_warnings"] = warnings2
-            except ValueError:
-                data["date"] = ""
-
-        # Upewnij się że wszystkie wymagane pola istnieją
-        if "items" not in data:
+        # Upewnij się, że 'items' jest listą
+        if "items" not in data or not isinstance(data["items"], list):
             data["items"] = []
-        if "subtotals" not in data:
-            data["subtotals"] = {
-                "vat_a_amount": 0,
-                "vat_b_amount": 0,
-                "vat_c_amount": 0,
-                "total_discount": 0,
-            }
+
+        # Walidacja i poprawa pozycji
+        for item in data["items"]:
+            if "name" not in item or not item["name"].strip():
+                item["name"] = "Nieznany Produkt"
+            if "quantity" in item:
+                try:
+                    item["quantity"] = float(str(item["quantity"]).replace(",", "."))
+                except ValueError:
+                    item["quantity"] = 0.0
+            if "unit_price" in item:
+                try:
+                    item["unit_price"] = float(
+                        str(item["unit_price"]).replace(",", ".")
+                    )
+                except ValueError:
+                    item["unit_price"] = 0.0
+            if "total_price" in item:
+                try:
+                    item["total_price"] = float(
+                        str(item["total_price"]).replace(",", ".")
+                    )
+                except ValueError:
+                    item["total_price"] = 0.0
+
+        # Normalizacja sum i rabatów
+        if "total_amount" in data:
+            try:
+                data["total_amount"] = float(
+                    str(data["total_amount"]).replace(",", ".")
+                )
+            except ValueError:
+                data["total_amount"] = 0.0
+
+        if "subtotals" in data and isinstance(data["subtotals"], dict):
+            for key in [
+                "vat_a_amount",
+                "vat_b_amount",
+                "vat_c_amount",
+                "total_discount",
+            ]:
+                if key in data["subtotals"]:
+                    try:
+                        data["subtotals"][key] = float(
+                            str(data["subtotals"][key]).replace(",", ".")
+                        )
+                    except ValueError:
+                        data["subtotals"][key] = 0.0
 
         return data
 
     async def _categorize_products(self, items: List[Dict[str, Any]]) -> None:
-        """Kategoryzuje produkty używając agenta kategoryzacji"""
-        from backend.agents.agent_factory import AgentFactory
+        """Kategoryzuje produkty przy użyciu LLM."""
+        if not items:
+            return
 
+        product_names = [item["name"] for item in items if "name" in item]
+        if not product_names:
+            return
+
+        products_to_categorize = ", ".join(product_names)
+
+        categorization_prompt = f"""
+        Podaj kategorie dla poniższych produktów. Zwróć tylko listę kategorii, po jednej na produkt, w kolejności.
+        Przykładowe kategorie: Owoce, Warzywa, Nabiał, Mięso, Pieczywo, Napoje, Słodycze, Chemia domowa, Kosmetyki, Inne.
+
+        Produkty: {products_to_categorize}
+
+        Odpowiedź (tylko lista kategorii oddzielona przecinkami, bez dodatkowego tekstu):
+        """
         try:
-            agent_factory = AgentFactory()
-            categorization_agent = agent_factory.create_agent("categorization")
+            response = await hybrid_llm_client.chat(
+                model="SpeakLeash/bielik-4.5b-v3.0-instruct:Q8_0",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "Jesteś ekspertem od kategoryzacji produktów spożywczych.",
+                    },
+                    {"role": "user", "content": categorization_prompt},
+                ],
+                stream=False,
+                max_tokens=100,
+            )
+            categories_str = response.get("message", {}).get("content", "").strip()
+            categories = [
+                cat.strip() for cat in categories_str.split(",") if cat.strip()
+            ]
 
-            for item in items:
-                if not item.get("category") and item.get("name"):
-                    response = await categorization_agent.process(
-                        {"product_name": item["name"]}
-                    )
-                    if response.success and response.data:
-                        item["category"] = response.data.get("category", "")
+            for i, item in enumerate(items):
+                if i < len(categories):
+                    item["category"] = categories[i]
+                else:
+                    item["category"] = "Inne"
         except Exception as e:
-            logger.warning(f"Błąd podczas kategoryzacji produktów: {e}")
-            # Nie przerywaj procesu jeśli kategoryzacja się nie powiedzie
+            logger.error(f"Błąd podczas kategoryzacji produktów: {e}")
+            for item in items:
+                item["category"] = "Nieznana"

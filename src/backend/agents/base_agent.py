@@ -6,7 +6,17 @@ Provides core functionality for all agent types.
 import json
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, AsyncGenerator, Callable, Dict, Generic, List, Optional, TypeVar, Type
+from typing import (
+    Any,
+    AsyncGenerator,
+    Callable,
+    Dict,
+    Generic,
+    List,
+    Optional,
+    Type,
+    TypeVar,
+)
 
 from pydantic import BaseModel, ValidationError
 
@@ -118,11 +128,11 @@ class BaseAgent(IBaseAgent, ABC):
                     yield chunk["message"]["content"]
         except json.JSONDecodeError as e:
             logger.error(f"JSON parsing error in LLM streaming for {self.name}: {e}")
-            yield f"Przepraszam, wystąpił błąd podczas przetwarzania odpowiedzi. Spróbuj ponownie później."
+            yield "Przepraszam, wystąpił błąd podczas przetwarzania odpowiedzi. Spróbuj ponownie później."
         except Exception as e:
             logger.error(f"Error in LLM streaming for {self.name}: {e}")
             # Zwróć przyjazny komunikat o błędzie
-            yield f"Przepraszam, wystąpił błąd podczas przetwarzania. Spróbuj ponownie później."
+            yield "Przepraszam, wystąpił błąd podczas przetwarzania. Spróbuj ponownie później."
 
 
 class BaseAgentEnhanced(IBaseAgent, Generic[T]):
@@ -133,7 +143,9 @@ class BaseAgentEnhanced(IBaseAgent, Generic[T]):
     - Streaming LLM support
     """
 
-    def __init__(self, name: str, error_handler: Any = None, fallback_manager: Any = None) -> None:
+    def __init__(
+        self, name: str, error_handler: Any = None, fallback_manager: Any = None
+    ) -> None:
         super().__init__(
             name, error_handler=error_handler, fallback_manager=fallback_manager
         )

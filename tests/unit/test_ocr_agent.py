@@ -1,8 +1,9 @@
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from backend.agents.ocr_agent import OCRAgent, OCRAgentInput
+import pytest
+
 from backend.agents.interfaces import AgentResponse
+from backend.agents.ocr_agent import OCRAgent, OCRAgentInput
 
 
 class TestOCRAgent:
@@ -24,15 +25,17 @@ class TestOCRAgent:
         # Create agent and input
         agent = OCRAgent()
         input_data = OCRAgentInput(file_bytes=sample_image_bytes, file_type="image")
-        
+
         # Mock the process_image_file function
         expected_text = "Sample receipt text\nMilk 3.99\nBread 4.50\nTotal 8.49"
-        
+
         # Need to patch at the module level where it's imported
-        with patch('backend.agents.ocr_agent.process_image_file', return_value=expected_text) as mock_process:
+        with patch(
+            "backend.agents.ocr_agent.process_image_file", return_value=expected_text
+        ) as mock_process:
             # Process the image
             result = await agent.process(input_data)
-            
+
             # Verify the result
             assert isinstance(result, AgentResponse)
             assert result.success is True
@@ -48,15 +51,17 @@ class TestOCRAgent:
         # Create agent and input
         agent = OCRAgent()
         input_data = OCRAgentInput(file_bytes=sample_pdf_bytes, file_type="pdf")
-        
+
         # Mock the process_pdf_file function
         expected_text = "Page 1\nInvoice #12345\nTotal: $123.45\n\nPage 2\nThank you for your business"
-        
+
         # Need to patch at the module level where it's imported
-        with patch('backend.agents.ocr_agent.process_pdf_file', return_value=expected_text) as mock_process:
+        with patch(
+            "backend.agents.ocr_agent.process_pdf_file", return_value=expected_text
+        ) as mock_process:
             # Process the PDF
             result = await agent.process(input_data)
-            
+
             # Verify the result
             assert isinstance(result, AgentResponse)
             assert result.success is True
@@ -72,10 +77,10 @@ class TestOCRAgent:
         # Create agent and input with unsupported file type
         agent = OCRAgent()
         input_data = OCRAgentInput(file_bytes=sample_image_bytes, file_type="docx")
-        
+
         # Process with unsupported file type
         result = await agent.process(input_data)
-        
+
         # Verify the error response
         assert isinstance(result, AgentResponse)
         assert result.success is False
@@ -88,12 +93,14 @@ class TestOCRAgent:
         # Create agent and input
         agent = OCRAgent()
         input_data = OCRAgentInput(file_bytes=sample_image_bytes, file_type="image")
-        
+
         # Mock the process_image_file function to return None (failure)
-        with patch('backend.agents.ocr_agent.process_image_file', return_value=None) as mock_process:
+        with patch(
+            "backend.agents.ocr_agent.process_image_file", return_value=None
+        ) as mock_process:
             # Process the image
             result = await agent.process(input_data)
-            
+
             # Verify the error response
             assert isinstance(result, AgentResponse)
             assert result.success is False
@@ -108,12 +115,15 @@ class TestOCRAgent:
         # Create agent and input
         agent = OCRAgent()
         input_data = OCRAgentInput(file_bytes=sample_image_bytes, file_type="image")
-        
+
         # Mock the process_image_file function to raise an exception
-        with patch('backend.agents.ocr_agent.process_image_file', side_effect=Exception("Test error")) as mock_process:
+        with patch(
+            "backend.agents.ocr_agent.process_image_file",
+            side_effect=Exception("Test error"),
+        ) as mock_process:
             # Process the image
             result = await agent.process(input_data)
-            
+
             # Verify the error response
             assert isinstance(result, AgentResponse)
             assert result.success is False
@@ -128,18 +138,17 @@ class TestOCRAgent:
         """Test OCRAgent.process with dictionary input instead of OCRAgentInput."""
         # Create agent and dictionary input
         agent = OCRAgent()
-        input_dict = {
-            "file_bytes": sample_image_bytes,
-            "file_type": "image"
-        }
-        
+        input_dict = {"file_bytes": sample_image_bytes, "file_type": "image"}
+
         # Mock the process_image_file function
         expected_text = "Sample receipt text from dictionary input"
-        
-        with patch('backend.agents.ocr_agent.process_image_file', return_value=expected_text) as mock_process:
+
+        with patch(
+            "backend.agents.ocr_agent.process_image_file", return_value=expected_text
+        ) as mock_process:
             # Process with dictionary input
             result = await agent.process(input_dict)
-            
+
             # Verify the result
             assert isinstance(result, AgentResponse)
             assert result.success is True
@@ -155,10 +164,10 @@ class TestOCRAgent:
         # Create agent and invalid input (missing required fields)
         agent = OCRAgent()
         invalid_input = {"some_field": "some_value"}
-        
+
         # Process with invalid input
         result = await agent.process(invalid_input)
-        
+
         # Verify the error response
         assert isinstance(result, AgentResponse)
         assert result.success is False
@@ -169,28 +178,27 @@ class TestOCRAgent:
         """Test OCRAgent.execute method."""
         # Create agent
         agent = OCRAgent()
-        
+
         # Create context with file data
-        context = {
-            "file_bytes": sample_image_bytes,
-            "file_type": "image"
-        }
-        
+        context = {"file_bytes": sample_image_bytes, "file_type": "image"}
+
         # Mock the process method
         mock_response = AgentResponse(
             success=True,
             text="Sample receipt text from execute method",
             message="Pomyślnie wyodrębniono tekst z pliku",
-            metadata={"file_type": "image"}
+            metadata={"file_type": "image"},
         )
-        
-        with patch.object(agent, 'process', AsyncMock(return_value=mock_response)) as mock_process:
+
+        with patch.object(
+            agent, "process", AsyncMock(return_value=mock_response)
+        ) as mock_process:
             # Execute the agent
             result = await agent.execute("Extract text from receipt", context)
-            
+
             # Verify the process method was called with the context
             mock_process.assert_called_once_with(context)
-            
+
             # Verify the result is the same as the mocked response
             assert result == mock_response
 

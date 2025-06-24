@@ -10,8 +10,6 @@ from backend.core.utils import extract_json_from_text
 # src/backend/agents/tools/date_parser.py
 
 
-
-
 # Definiujemy dzisiejszą datę jako punkt odniesienia dla LLM
 # W prawdziwej aplikacji moglibyśmy ją dynamicznie aktualizować.
 TODAY = date(2025, 6, 15)

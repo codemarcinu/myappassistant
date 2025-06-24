@@ -309,14 +309,14 @@ Answer:"""
             )
 
     def get_metadata(self) -> Dict[str, Any]:
-        """Return agent metadata including capabilities"""
+        """Return metadata about this agent."""
         return {
             "name": self.name,
-            "type": self.__class__.__name__,
-            "capabilities": [
-                "document_processing",
-                "vector_search",
-                "source_tracking",
-            ],
-            "document_count": 0,  # Synchronous alternative needed
+            "description": self.__doc__,
+            "initialized": self.initialized,
+            "vector_store_document_count": (
+                len(self.vector_store.get_all_documents())
+                if hasattr(self.vector_store, "get_all_documents")
+                else 0
+            ),
         }

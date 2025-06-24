@@ -1,9 +1,8 @@
 from __future__ import annotations
+
 from sqlalchemy import text
 
 from backend.core.database import engine
-from typing import Any, Dict, List, Optional, Union, Callable
-from typing import AsyncGenerator, Coroutine
 
 
 async def run_migrations() -> None:

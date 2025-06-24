@@ -10,7 +10,9 @@ from ..interfaces import IErrorHandler
 class ErrorHandler(IErrorHandler):
     """Handler for error processing and recovery with alerting capabilities"""
 
-    def __init__(self, name: str, alert_config: Optional[Dict[str, Any]] = None) -> None:
+    def __init__(
+        self, name: str, alert_config: Optional[Dict[str, Any]] = None
+    ) -> None:
         self.name = name
         self.alert_config = alert_config or {
             "enabled": True,

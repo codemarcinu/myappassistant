@@ -11,7 +11,7 @@ import logging
 import pickle
 import time
 from functools import wraps
-from typing import Any, Callable, Dict, Optional, Tuple, TypeVar, Union, cast
+from typing import Any, Callable, Dict, Optional, Tuple, TypeVar
 
 try:
     import redis.asyncio as redis
@@ -41,7 +41,9 @@ INTERNET_CACHE_TTL = 600  # 10 minutes
 class QueryCache:
     """Simple in-memory cache for query results"""
 
-    def __init__(self, name: str, ttl: int = DEFAULT_CACHE_TTL, max_size: int = 100) -> None:
+    def __init__(
+        self, name: str, ttl: int = DEFAULT_CACHE_TTL, max_size: int = 100
+    ) -> None:
         """
         Initialize a new query cache
 

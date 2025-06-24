@@ -1,0 +1,3 @@
+
+> foodsave-frontend@0.1.0 test
+> jest --maxWorkers=2 --ci --reporters=default --reporters=jest-junit

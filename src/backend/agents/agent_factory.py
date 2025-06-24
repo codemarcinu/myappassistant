@@ -267,25 +267,19 @@ class AgentFactory:
                 ) from e
 
     def get_available_agents(self) -> Dict[str, str]:
-        """Return a dictionary of available agent types and their descriptions"""
+        """Return a dictionary of all registered agents and their descriptions."""
         return {
-            "general_conversation": "Agent do swobodnych konwersacji z RAG i wyszukiwaniem",
-            "chef": "Agent do przepisów kulinarnych",
-            "weather": "Agent do prognoz pogody",
-            "search": "Agent do wyszukiwania w internecie",
-            "rag": "Agent do analizy dokumentów",
-            "ocr": "Agent do analizy obrazów i paragonów",
-            "categorization": "Agent do kategoryzacji produktów",
-            "meal_planner": "Agent do planowania posiłków",
-            "analytics": "Agent do analizy danych",
+            agent_type: agent_class.__doc__ or "No description provided"
+            for agent_type, agent_class in self.AGENT_REGISTRY.items()
         }
 
     def cleanup(self) -> None:
-        """Clear the agent cache and registry"""
+        """Perform any necessary cleanup for the factory, such as clearing caches."""
         self._agent_cache.clear()
-        self._registry.clear()
+        logger.info("AgentFactory cache cleared.")
 
     def reset(self) -> None:
-        """Reset the factory to initial state"""
+        """Resets the factory state, clearing caches and re-initializing the registry if needed."""
         self.cleanup()
-        self.config.clear()
+        # If there are any other states that need to be reset, add them here
+        logger.info("AgentFactory state reset.")

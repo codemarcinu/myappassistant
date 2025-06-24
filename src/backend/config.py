@@ -1,15 +1,14 @@
 from __future__ import annotations
+
 import os
 import secrets
-from typing import Any, Dict, List, Optional, Union, Callable
-from typing import AsyncGenerator, Coroutine
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Set User-Agent environment variable early to prevent warnings
 os.environ.setdefault(
     "USER_AGENT", "FoodSave-AI/1.0.0 (https://github.com/foodsave-ai)"
 )
-
-from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -49,8 +48,12 @@ class Settings(BaseSettings):
 
     # Modele językowe - z fallback na działające modele
     OLLAMA_MODEL: str = "SpeakLeash/bielik-4.5b-v3.0-instruct:Q8_0"  # Główny model
-    DEFAULT_CODE_MODEL: str = "SpeakLeash/bielik-4.5b-v3.0-instruct:Q8_0"  # Fallback zamiast problematycznego bielik
-    DEFAULT_CHAT_MODEL: str = "SpeakLeash/bielik-4.5b-v3.0-instruct:Q8_0"  # Model do ogólnej konwersacji
+    DEFAULT_CODE_MODEL: str = (
+        "SpeakLeash/bielik-4.5b-v3.0-instruct:Q8_0"  # Fallback zamiast problematycznego bielik
+    )
+    DEFAULT_CHAT_MODEL: str = (
+        "SpeakLeash/bielik-4.5b-v3.0-instruct:Q8_0"  # Model do ogólnej konwersacji
+    )
     DEFAULT_EMBEDDING_MODEL: str = "nomic-embed-text"  # Model do embeddingów
 
     # Lista dostępnych modeli (w kolejności preferencji)

@@ -101,6 +101,6 @@ Implementacja testów OCR znacząco zwiększyła pokrycie testami systemu FoodSa
 
 ---
 
-**Data**: 2024-12-21  
-**Autor**: AI Assistant  
-**Wersja**: 1.0 
+**Data**: 2024-12-21
+**Autor**: AI Assistant
+**Wersja**: 1.0

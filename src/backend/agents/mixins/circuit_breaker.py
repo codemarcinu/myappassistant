@@ -30,7 +30,9 @@ class CircuitBreaker:
         self.last_failure_time: Optional[float] = None
         self.half_open_attempts = 0
 
-    def __call__(self, func: Callable[..., Coroutine[Any, Any, Any]]) -> Callable[..., Coroutine[Any, Any, Any]]:
+    def __call__(
+        self, func: Callable[..., Coroutine[Any, Any, Any]]
+    ) -> Callable[..., Coroutine[Any, Any, Any]]:
         @functools.wraps(func)
         async def wrapper(*args, **kwargs) -> None:
             if self.state == CircuitState.OPEN:
@@ -88,10 +90,14 @@ def circuit_breaker(
     failure_threshold: int = 3,
     recovery_timeout: float = 30.0,
     half_open_threshold: int = 1,
-) -> Callable[[Callable[..., Coroutine[Any, Any, Any]]], Callable[..., Coroutine[Any, Any, Any]]]:
+) -> Callable[
+    [Callable[..., Coroutine[Any, Any, Any]]], Callable[..., Coroutine[Any, Any, Any]]
+]:
     """Decorator factory for circuit breaker pattern"""
 
-    def decorator(func: Callable[..., Coroutine[Any, Any, Any]]) -> Callable[..., Coroutine[Any, Any, Any]]:
+    def decorator(
+        func: Callable[..., Coroutine[Any, Any, Any]],
+    ) -> Callable[..., Coroutine[Any, Any, Any]]:
         breaker = CircuitBreaker(
             failure_threshold, recovery_timeout, half_open_threshold
         )

@@ -11,7 +11,9 @@ logger.setLevel(logging.DEBUG)
 
 
 class AgentRouter:
-    def __init__(self, agent_factory: AgentFactory, agent_registry: AgentRegistry) -> None:
+    def __init__(
+        self, agent_factory: AgentFactory, agent_registry: AgentRegistry
+    ) -> None:
         self.agent_factory = agent_factory
         self.agent_registry = agent_registry
 

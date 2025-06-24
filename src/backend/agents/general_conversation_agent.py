@@ -604,7 +604,7 @@ class GeneralConversationAgent(BaseAgent):
         return formatted
 
     def _prepare_messages(
-        self, query: str, conversation_history: List[Dict], context: str
+        self, query: str, conversation_history: List[Dict[str, str]], context: str
     ) -> List[Dict[str, str]]:
         """Prepare messages for LLM with context and conversation history"""
         messages = []

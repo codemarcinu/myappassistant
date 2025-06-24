@@ -648,7 +648,7 @@ class WeatherAgent(BaseAgent):
             )
 
             # Create a streaming generator
-            async def weather_stream_generator():
+            async def weather_stream_generator() -> Any:
                 # Split the text into chunks for streaming
                 chunks = formatted_text.split(" ")
                 for chunk in chunks:
@@ -715,10 +715,10 @@ class WeatherAgent(BaseAgent):
         await self.http_client.aclose()
 
     @handle_exceptions(max_retries=1)
-    def get_dependencies(self) -> list[type]:
+    def get_dependencies(self) -> List[type]:
         return [type(hybrid_llm_client)]
 
-    def get_metadata(self) -> dict:
+    def get_metadata(self) -> Dict[str, Any]:
         """Return metadata about this agent"""
         return {
             "name": self.name,

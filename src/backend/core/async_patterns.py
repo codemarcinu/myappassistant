@@ -9,8 +9,7 @@ import time
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from enum import Enum
-from functools import wraps
-from typing import Any, Callable, Coroutine, List, Optional, Tuple, Type, TypeVar, Union, Dict
+from typing import Any, Callable, Coroutine, Dict, List, Optional, Tuple, Type, TypeVar, AsyncGenerator
 
 logger = logging.getLogger(__name__)
 
@@ -98,11 +97,13 @@ class BackpressureManager:
         self.max_concurrent = max_concurrent
         self.max_queue_size = max_queue_size
         self.semaphore = asyncio.Semaphore(max_concurrent)
-        self.queue: asyncio.Queue[Tuple[Callable[..., Any], Tuple[Any, ...], Dict[str, Any]]] = asyncio.Queue(maxsize=max_queue_size)
+        self.queue: asyncio.Queue[
+            Tuple[Callable[..., Any], Tuple[Any, ...], Dict[str, Any]]
+        ] = asyncio.Queue(maxsize=max_queue_size)
         self.active_tasks = 0
 
     @asynccontextmanager
-    async def acquire_slot(self) -> None:
+    async def acquire_slot(self) -> AsyncGenerator[None, None]:
         """Acquire a processing slot with backpressure"""
         try:
             await self.semaphore.acquire()
@@ -221,7 +222,7 @@ async def batch_process(
 
 
 @asynccontextmanager
-async def timeout_context(timeout: float) -> None:
+async def timeout_context(timeout: float) -> AsyncGenerator[None, None]:
     """Context manager for timeout handling"""
     try:
         yield

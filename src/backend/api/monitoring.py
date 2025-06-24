@@ -1,17 +1,15 @@
 from __future__ import annotations
 
-from typing import Any, AsyncGenerator, Callable, Coroutine, Dict, List, Optional, Union
-
 """
 API endpoints for monitoring, health, and status checks.
 """
 
-import json
 import time
 from datetime import datetime
+from typing import Any, Dict, List
 
 import structlog
-from fastapi import APIRouter, Response
+from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 
 from backend.agents.agent_factory import AgentFactory
@@ -126,7 +124,7 @@ async def check_external_apis_health() -> Dict[str, Any]:
 
 
 @router.get("/health", tags=["Health"])
-async def health_check() -> Response:
+async def health_check() -> JSONResponse:
     """✅ REQUIRED: Health checks for all services"""
     start_time = time.time()
 
@@ -163,7 +161,7 @@ async def health_check() -> Response:
 
 
 @router.get("/ready", tags=["Health"])
-async def ready_check() -> Response:
+async def ready_check() -> JSONResponse:
     """Readiness check for services like database."""
     db_health = await check_database_health()
 
@@ -189,7 +187,7 @@ async def ready_check() -> Response:
 
 
 @router.get("/metrics", tags=["Monitoring"])
-async def metrics_endpoint() -> Response:
+async def metrics_endpoint() -> JSONResponse:
     """Prometheus metrics endpoint."""
     # This would typically be handled by a Prometheus client library middleware
     # returning the metrics in the correct format.
@@ -203,7 +201,7 @@ async def metrics_endpoint() -> Response:
 
 
 @router.get("/status", tags=["Monitoring"])
-async def detailed_status() -> Response:
+async def detailed_status() -> JSONResponse:
     """Get detailed status of the application components."""
     # Perform comprehensive health checks
     db_health = await check_database_health()
@@ -248,52 +246,40 @@ async def detailed_status() -> Response:
     )
 
 
-@router.get("/alerts", tags=["Monitoring"])
-async def get_alerts() -> None:
-    """Get currently active alerts."""
+async def get_alerts() -> List[Dict[str, Any]]:
+    """Pobiera listę aktywnych alertów."""
     return alert_manager.get_active_alerts()
 
 
 @router.get("/alerts/history", tags=["Monitoring"])
-async def get_alert_history(hours: int = 24) -> None:
-    """Get alert history for the last N hours."""
-    return alert_manager.get_alert_history(hours=hours)
+async def get_alert_history(hours: int = 24) -> List[Dict[str, Any]]:
+    """Pobiera historię alertów z ostatnich X godzin."""
+    return alert_manager.get_alert_history(hours)
 
 
 @router.post("/alerts/{rule_name}/acknowledge", tags=["Monitoring"])
-async def acknowledge_alert(rule_name: str, user: str = "admin") -> None:
-    """Acknowledge an active alert."""
-    success = alert_manager.acknowledge_alert(rule_name, user)
-    return {"status": "acknowledged" if success else "alert_not_found"}
+async def acknowledge_alert(rule_name: str, user: str = "admin") -> Dict[str, str]:
+    """Potwierdza alert, wyciszając go tymczasowo."""
+    alert_manager.acknowledge_alert(rule_name, user)
+    return {"status": "ok", "message": f"Alert {rule_name} acknowledged by {user}"}
 
 
 @router.post("/alerts/{rule_name}/resolve", tags=["Monitoring"])
-async def resolve_alert(rule_name: str) -> None:
-    """Manually resolve an active alert."""
-    success = alert_manager.resolve_alert(rule_name)
-    return {"status": "resolved" if success else "alert_not_found"}
+async def resolve_alert(rule_name: str) -> Dict[str, str]:
+    """Rozwiązuje alert, usuwając go z aktywnych."""
+    alert_manager.resolve_alert(rule_name)
+    return {"status": "ok", "message": f"Alert {rule_name} resolved"}
 
 
 @router.post("/alerts/rules", tags=["Monitoring"])
-async def add_alert_rule(rule_data: dict) -> None:
-    """Add a new alerting rule."""
-    try:
-        alert_manager.add_rule(
-            name=rule_data["name"],
-            metric=rule_data["metric"],
-            threshold=rule_data["threshold"],
-            comparison=rule_data["comparison"],
-            duration=rule_data["duration"],
-            severity=rule_data["severity"],
-            description=rule_data.get("description", ""),
-        )
-        return {"status": "rule_added"}
-    except KeyError as e:
-        return {"status": "error", "message": f"Missing required field: {e}"}
+async def add_alert_rule(rule_data: Dict[str, Any]) -> Dict[str, str]:
+    """Dodaje nową regułę alertu."""
+    alert_manager.add_alert_rule(rule_data)
+    return {"status": "ok", "message": "Alert rule added"}
 
 
 @router.delete("/alerts/rules/{rule_name}", tags=["Monitoring"])
-async def remove_alert_rule(rule_name: str) -> None:
-    """Remove an alerting rule."""
-    success = alert_manager.remove_rule(rule_name)
-    return {"status": "rule_removed" if success else "rule_not_found"}
+async def remove_alert_rule(rule_name: str) -> Dict[str, str]:
+    """Usuwa regułę alertu."""
+    alert_manager.remove_alert_rule(rule_name)
+    return {"status": "ok", "message": f"Alert rule {rule_name} removed"}

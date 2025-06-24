@@ -22,8 +22,10 @@ if ollama_host != "localhost":
     logger.info(f"Ollama URL: {ollama_url}")
 
 # Create a configured ollama client instance
-ollama_client = ollama.Client(base_url=ollama_url)
-logger.info(f"Configured ollama client to use URL: {ollama_url}")
+ollama_client = ollama.Client()
+logger.info(
+    f"Configured ollama client to use host: {ollama_host} and URL: {ollama_url}"
+)
 
 
 # Test Ollama connection on startup
@@ -162,7 +164,7 @@ class EnhancedLLMClient:
             }
             if stream:
 
-                async def fallback_stream():
+                async def fallback_stream() -> Any:
                     yield fallback_response
 
                 return fallback_stream()

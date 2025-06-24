@@ -1,19 +1,19 @@
 from __future__ import annotations
+
+import json
 import logging
 import os
 import sys
-import json
 from datetime import datetime
 from logging.handlers import RotatingFileHandler
-from typing import Any, Dict, List, Optional, Union, Callable
-from typing import AsyncGenerator, Coroutine
+from typing import Any, AsyncGenerator, Callable, Coroutine, Dict, List, Optional, Union
 
 
 class JsonFormatter(logging.Formatter):
     """JSON formatter for structured logging to be parsed by Loki/Promtail"""
 
-    def format(self, record) -> None:
-        log_data = {
+    def format(self, record: logging.LogRecord) -> str:
+        log_data: Dict[str, Any] = {
             "timestamp": datetime.now().isoformat(),
             "level": record.levelname,
             "logger": record.name,
@@ -27,17 +27,35 @@ class JsonFormatter(logging.Formatter):
 
         # Include custom attributes if available
         for key, value in record.__dict__.items():
-            if key not in ["args", "asctime", "created", "exc_info", "exc_text", "filename",
-                          "funcName", "levelname", "lineno", "message", "module",
-                          "msecs", "msg", "name", "pathname", "process",
-                          "processName", "relativeCreated", "stack_info", "thread",
-                          "threadName"]:
+            if key not in [
+                "args",
+                "asctime",
+                "created",
+                "exc_info",
+                "exc_text",
+                "filename",
+                "funcName",
+                "levelname",
+                "lineno",
+                "message",
+                "module",
+                "msecs",
+                "msg",
+                "name",
+                "pathname",
+                "process",
+                "processName",
+                "relativeCreated",
+                "stack_info",
+                "thread",
+                "threadName",
+            ]:
                 log_data[key] = value
 
         return json.dumps(log_data)
 
 
-def setup_logger(name="backend", level=logging.INFO) -> None:
+def setup_logger(name: str = "backend", level: int = logging.INFO) -> logging.Logger:
     """Konfiguruje i zwraca logger z formatem JSON dla integracji z Loki"""
     logger = logging.getLogger(name)
     logger.setLevel(level)
@@ -62,8 +80,8 @@ def setup_logger(name="backend", level=logging.INFO) -> None:
     os.makedirs(log_dir, exist_ok=True)
     file_handler = RotatingFileHandler(
         os.path.join(log_dir, "app.log"),
-        maxBytes=10*1024*1024,  # 10MB
-        backupCount=5
+        maxBytes=10 * 1024 * 1024,  # 10MB
+        backupCount=5,
     )
     file_handler.setLevel(level)
     file_handler.setFormatter(json_formatter)
@@ -73,7 +91,7 @@ def setup_logger(name="backend", level=logging.INFO) -> None:
 
 
 # Konfiguracja root loggera, aby przechwytywać wszystkie logi
-def configure_root_logger(level=logging.INFO) -> None:
+def configure_root_logger(level: int = logging.INFO) -> None:
     """Konfiguruje root logger z formatem JSON"""
     root_logger = logging.getLogger()
     root_logger.setLevel(level)
@@ -97,12 +115,13 @@ def configure_root_logger(level=logging.INFO) -> None:
     os.makedirs(log_dir, exist_ok=True)
     file_handler = RotatingFileHandler(
         os.path.join(log_dir, "app.log"),
-        maxBytes=10*1024*1024,  # 10MB
-        backupCount=5
+        maxBytes=10 * 1024 * 1024,  # 10MB
+        backupCount=5,
     )
     file_handler.setLevel(level)
     file_handler.setFormatter(json_formatter)
     root_logger.addHandler(file_handler)
+    return None
 
 
 # Utwórz domyślny logger

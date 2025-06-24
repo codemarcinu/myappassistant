@@ -6,7 +6,7 @@
 
 1. **test_search_agent_fixed.py** - WSZYSTKIE TESTY PRZESZŁY
    - `test_search_agent()` - ✅ PASSED
-   - `test_search_agent_empty_query()` - ✅ PASSED  
+   - `test_search_agent_empty_query()` - ✅ PASSED
    - `test_search_agent_api_error()` - ✅ PASSED
    - `test_search_agent_with_duckduckgo_fallback()` - ✅ PASSED
 
@@ -26,7 +26,7 @@
 ### ⚠️ Testy wymagające poprawy
 
 1. **test_weather_agent_fixed.py** - Problem z importami
-2. **test_rag_system_fixed.py** - Problem z importami  
+2. **test_rag_system_fixed.py** - Problem z importami
 3. **test_receipt_processing_fixed.py** - Problem z importami
 4. **test_shopping_conversation_fixed.py** - Problem z importami
 5. **test_orchestrator.py** - Problem z importami
@@ -109,6 +109,6 @@ Zaimplementowane testy pokrywają następujące funkcjonalności:
 
 ---
 
-**Data testów**: 2024-12-21  
-**Wersja systemu**: FoodSave AI v2.0  
-**Status**: Częściowo działający (2/6 kategorii testów + nowe uproszczone testy OCR) 
+**Data testów**: 2024-12-21
+**Wersja systemu**: FoodSave AI v2.0
+**Status**: Częściowo działający (2/6 kategorii testów + nowe uproszczone testy OCR)

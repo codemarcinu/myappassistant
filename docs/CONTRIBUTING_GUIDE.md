@@ -69,7 +69,7 @@ Projekt FoodSave AI składa się z dwóch głównych części:
   ```python
   # Prawidłowo
   from backend.agents.tools import ShoppingTool
-  
+
   # Nieprawidłowo
   from src.backend.agents.tools import ShoppingTool
   ```

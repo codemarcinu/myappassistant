@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from typing import Any, AsyncGenerator, Callable, Coroutine, Dict, List, Optional, Union
+
 """
 Tests for GeneralConversationAgent
 
@@ -18,12 +22,12 @@ class TestGeneralConversationAgent:
     """Test suite for GeneralConversationAgent"""
 
     @pytest.fixture
-    def agent(self):
+    def agent(self) -> Any:
         """Create a GeneralConversationAgent instance for testing"""
         return GeneralConversationAgent()
 
     @pytest.fixture
-    def mock_input_data(self):
+    def mock_input_data(self) -> Any:
         """Mock input data for testing"""
         return {
             "query": "What is the weather like today?",

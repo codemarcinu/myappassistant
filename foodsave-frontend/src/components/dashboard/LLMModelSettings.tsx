@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ApiService } from '@/services/ApiService';
 import { LLMModel } from '@/types/api';
@@ -34,12 +34,33 @@ export const LLMModelSettings: React.FC = () => {
     staleTime: 1 * 60 * 1000, // 1 minute
   });
 
+  // Initialize selectedModel with current model when data loads
+  useEffect(() => {
+    if (currentModel && !selectedModel) {
+      console.log('Initializing selectedModel with currentModel:', currentModel);
+      setSelectedModel(currentModel);
+    }
+  }, [currentModel, selectedModel]);
+
+  // Reset selectedModel when currentModel changes (after save)
+  useEffect(() => {
+    if (currentModel && selectedModel !== currentModel) {
+      console.log('Resetting selectedModel to currentModel:', currentModel);
+      setSelectedModel(currentModel);
+    }
+  }, [currentModel, selectedModel]);
+
+  // Debug log for current model
+  useEffect(() => {
+    console.log('Current model from API:', currentModel);
+  }, [currentModel]);
+
   // Mutation for setting selected model
   const setModelMutation = useMutation({
     mutationFn: (modelName: string) => ApiService.setSelectedLLMModel(modelName),
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log('Model saved successfully:', data);
       queryClient.invalidateQueries({ queryKey: ['llm-model-selected'] });
-      setSelectedModel('');
     },
     onError: (error) => {
       console.error('Failed to set model:', error);
@@ -51,10 +72,13 @@ export const LLMModelSettings: React.FC = () => {
   };
 
   const handleSaveModel = () => {
-    if (selectedModel) {
+    if (selectedModel && selectedModel !== currentModel) {
       setModelMutation.mutate(selectedModel);
     }
   };
+
+  // Check if save button should be enabled
+  const isSaveEnabled = selectedModel && selectedModel !== currentModel && !setModelMutation.isPending;
 
   if (isLoadingModels || isLoadingCurrent) {
     return (
@@ -87,7 +111,7 @@ export const LLMModelSettings: React.FC = () => {
         <h3 className="text-lg font-medium mb-2">Aktualny model:</h3>
         <div className="bg-gray-100 p-3 rounded-lg">
           <span className="font-mono text-sm">
-            {currentModel?.selected_model || 'Nie wybrano modelu'}
+            {currentModel || (isLoadingCurrent ? 'Ładowanie...' : 'Nie wybrano modelu')}
           </span>
         </div>
       </div>
@@ -134,7 +158,7 @@ export const LLMModelSettings: React.FC = () => {
       <div className="flex justify-end">
         <Button
           onClick={handleSaveModel}
-          disabled={!selectedModel || setModelMutation.isPending}
+          disabled={!isSaveEnabled}
           className="min-w-[120px]"
         >
           {setModelMutation.isPending ? (

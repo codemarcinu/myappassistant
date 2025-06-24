@@ -1,6 +1,6 @@
 import logging
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
+from typing import Any, AsyncGenerator, Dict, List
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -38,10 +38,10 @@ class DatabaseMetrics:
     """Enhanced database performance metrics with memory monitoring"""
 
     def __init__(self) -> None:
-        self.query_count = 0
-        self.slow_queries = []
-        self.connection_errors = 0
-        self.connection_pool_stats = {
+        self.query_count: int = 0
+        self.slow_queries: List[Dict[str, Any]] = []
+        self.connection_errors: int = 0
+        self.connection_pool_stats: Dict[str, int] = {
             "checked_in": 0,
             "checked_out": 0,
             "overflow": 0,
@@ -60,7 +60,7 @@ class DatabaseMetrics:
         """Record connection error"""
         self.connection_errors += 1
 
-    def update_pool_stats(self, pool) -> None:
+    def update_pool_stats(self, pool: Any) -> None:
         """Update connection pool statistics"""
         if hasattr(pool, "_pool"):
             self.connection_pool_stats.update(

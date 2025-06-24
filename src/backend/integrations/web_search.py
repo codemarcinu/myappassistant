@@ -4,7 +4,6 @@ import json
 import logging
 import os
 import time
-from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 import httpx
@@ -243,9 +242,7 @@ class WebSearchClient:
         while attempt < retries:
             try:
                 # Filter out None values from headers
-                filtered_headers = {
-                    k: v for k, v in headers.items() if v is not None
-                }
+                filtered_headers = {k: v for k, v in headers.items() if v is not None}
                 response = await self.client.get(
                     url, params=params, headers=filtered_headers
                 )

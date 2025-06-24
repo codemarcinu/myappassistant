@@ -4,7 +4,7 @@ JWT Handler for FoodSave AI authentication
 
 import logging
 from datetime import datetime, timedelta
-from typing import Dict, Optional, Union, Any
+from typing import Any, Dict, Optional
 
 import jwt
 from passlib.context import CryptContext

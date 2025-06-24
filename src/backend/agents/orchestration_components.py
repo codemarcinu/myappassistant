@@ -1,20 +1,16 @@
 import logging
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 
-from pydantic import BaseModel, Field
-
-from backend.agents.interfaces import AgentResponse, BaseAgent, MemoryContext, IntentData
+from backend.agents.interfaces import AgentResponse, IntentData, MemoryContext
 
 logger = logging.getLogger(__name__)
 
 
 class IIntentDetector(ABC):
     @abstractmethod
-    async def detect_intent(
-        self, query: str, context: MemoryContext
-    ) -> IntentData:
+    async def detect_intent(self, query: str, context: MemoryContext) -> IntentData:
         """Detects user intent based on query and context."""
 
 
@@ -73,5 +69,6 @@ class BasicResponseGenerator(IResponseGenerator):
         if agent_response.text:
             return AgentResponse(success=True, text=agent_response.text)
         return AgentResponse(
-            success=False, error="Przepraszam, wystąpił problem podczas przetwarzania żądania."
+            success=False,
+            error="Przepraszam, wystąpił problem podczas przetwarzania żądania.",
         )

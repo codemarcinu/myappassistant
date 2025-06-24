@@ -37,7 +37,9 @@ class OCRAgent(BaseAgent):
         self.default_language = kwargs.get("language", "eng")
 
     @handle_exceptions(max_retries=1, retry_delay=0.5)
-    async def process(self, input_data: Union[OCRAgentInput, Dict[str, Any]]) -> AgentResponse:
+    async def process(
+        self, input_data: Union[OCRAgentInput, Dict[str, Any]]
+    ) -> AgentResponse:
         """
         Przetwarza pliki obrazów lub PDF-ów za pomocą OCR.
 

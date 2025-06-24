@@ -13,7 +13,7 @@ from backend.core.vector_store import DocumentChunk, VectorStore
 
 
 @pytest.fixture
-def mock_vector_store():
+def mock_vector_store() -> Any:
     with patch("backend.agents.rag_agent.vector_store") as mock:
         mock.is_empty = AsyncMock(return_value=False)
         doc1 = DocumentChunk(
@@ -27,7 +27,7 @@ def mock_vector_store():
 
 
 @pytest.fixture
-def mock_hybrid_client():
+def mock_hybrid_client() -> Any:
     with patch("backend.agents.rag_agent.hybrid_llm_client") as mock:
         mock.embed = AsyncMock(return_value=[0.1, 0.2, 0.3])
         mock.chat = AsyncMock(return_value={"message": {"content": "Test response"}})
@@ -36,7 +36,7 @@ def mock_hybrid_client():
 
 
 @pytest.fixture
-def mock_processor():
+def mock_processor() -> Any:
     with patch("backend.agents.rag_agent.rag_document_processor") as mock:
         mock.process_document = AsyncMock(return_value=["chunk1", "chunk2"])
         mock.process_file = AsyncMock(
@@ -59,7 +59,7 @@ class TestRAGAgent:
     @pytest.mark.asyncio
     async def test_agent_initialization(
         self, agent, mock_vector_store, mock_hybrid_client, mock_processor
-    ):
+    ) -> Any:
         assert agent.name == "test_rag_agent"
         assert agent.initialized is False
         await agent.initialize()
@@ -68,7 +68,7 @@ class TestRAGAgent:
     @pytest.mark.asyncio
     async def test_add_document(
         self, agent, mock_vector_store, mock_hybrid_client, mock_processor
-    ):
+    ) -> Any:
         agent.document_processor = AsyncMock()
         agent.document_processor.process_document = AsyncMock(
             return_value=["chunk1", "chunk2"]
@@ -82,7 +82,7 @@ class TestRAGAgent:
     @pytest.mark.asyncio
     async def test_search(
         self, agent, mock_vector_store, mock_hybrid_client, mock_processor
-    ):
+    ) -> Any:
         agent._get_embedding = AsyncMock(return_value=[0.1, 0.2, 0.3])
         from backend.core.vector_store import DocumentChunk
 
@@ -102,7 +102,7 @@ class TestRAGAgent:
     @pytest.mark.asyncio
     async def test_process_query(
         self, agent, mock_vector_store, mock_hybrid_client, mock_processor
-    ):
+    ) -> Any:
         query = "What is the weather like?"
         response = await agent.process({"query": query})
         assert isinstance(response, AgentResponse)
@@ -113,7 +113,7 @@ class TestRAGAgent:
     @pytest.mark.asyncio
     async def test_process_document(
         self, agent, mock_vector_store, mock_hybrid_client, mock_processor
-    ):
+    ) -> Any:
         response = await agent.process({"query": "What is this document about?"})
         assert isinstance(response, AgentResponse)
         assert response.success is True
@@ -121,7 +121,7 @@ class TestRAGAgent:
     @pytest.mark.asyncio
     async def test_process_empty_query(
         self, agent, mock_vector_store, mock_hybrid_client, mock_processor
-    ):
+    ) -> Any:
         response = await agent.process({})
         assert isinstance(response, AgentResponse)
         assert response.success is False

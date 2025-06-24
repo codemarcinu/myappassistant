@@ -1,6 +1,7 @@
 from __future__ import annotations
-from typing import Any, Dict, List, Optional, Union, Callable
-from typing import AsyncGenerator, Coroutine
+
+from typing import Any, AsyncGenerator, Callable, Coroutine, Dict, List, Optional, Union
+
 """
 Tests dla Alerting System
 Zgodnie z regułami MDC dla testowania i monitoringu
@@ -92,7 +93,9 @@ class TestAlerting:
         assert alert.value == 15.0
         assert alert.status == AlertStatus.ACTIVE
 
-    def test_evaluate_rule_threshold_not_exceeded(self, alert_manager, sample_rule) -> None:
+    def test_evaluate_rule_threshold_not_exceeded(
+        self, alert_manager, sample_rule
+    ) -> None:
         """Test rule evaluation when threshold is not exceeded"""
         alert_manager.add_rule(sample_rule)
 
@@ -104,7 +107,9 @@ class TestAlerting:
 
         assert alert is None
 
-    def test_evaluate_rule_with_duration_window(self, alert_manager, sample_rule) -> None:
+    def test_evaluate_rule_with_duration_window(
+        self, alert_manager, sample_rule
+    ) -> None:
         """Test rule evaluation with duration window"""
         alert_manager.add_rule(sample_rule)
 

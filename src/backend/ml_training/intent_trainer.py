@@ -2,36 +2,36 @@ import logging
 import os
 from typing import Any, Dict, List
 
+import pandas as pd
+import torch
+from transformers import AutoModelForSequenceClassification, Trainer, TrainingArguments
+
 # Set User-Agent for transformers library
 os.environ.setdefault(
     "USER_AGENT", "FoodSave-AI/1.0.0 (https://github.com/foodsave-ai)"
 )
 
-import pandas as pd
-import torch
-from transformers import AutoModelForSequenceClassification, Trainer, TrainingArguments
-
 logger = logging.getLogger(__name__)
 
 
 class IntentDataset(torch.utils.data.Dataset):
-    def __init__(self, encodings, labels) -> None:
+    def __init__(self, encodings: Dict[str, Any], labels: List[int]) -> None:
         self.encodings = encodings
         self.labels = labels
 
-    def __getitem__(self, idx) -> None:
+    def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
         item = {key: torch.tensor(val[idx]) for key, val in self.encodings.items()}
         item["labels"] = torch.tensor(self.labels[idx])
         return item
 
-    def __len__(self) -> None:
+    def __len__(self) -> int:
         return len(self.labels)
 
 
 class IntentTrainer:
     def __init__(
         self,
-        tokenizer,
+        tokenizer: Any,
         model_name: str = "distilbert-base-uncased",
         num_labels: int = 2,
     ) -> None:
@@ -48,7 +48,9 @@ class IntentTrainer:
             raise ValueError("CSV must contain 'text' and 'intent' columns.")
         return df
 
-    def prepare_data(self, df: pd.DataFrame, label_map: Dict[str, int]) -> None:
+    def prepare_data(
+        self, df: pd.DataFrame, label_map: Dict[str, int]
+    ) -> "IntentDataset":
         """Przygotowuje dane do treningu (tokenizacja, mapowanie etykiet)."""
         texts = df["text"].tolist()
         labels = [label_map[intent] for intent in df["intent"].tolist()]
@@ -57,7 +59,9 @@ class IntentTrainer:
 
         return IntentDataset(encodings, labels)
 
-    async def train(self, train_dataset, val_dataset, output_dir: str = "./results") -> None:
+    def train(
+        self, train_dataset: Any, val_dataset: Any, output_dir: str = "./results"
+    ) -> Dict[str, Any]:
         """Trenuje model klasyfikacji intencji."""
         logging_args = TrainingArguments(
             output_dir=output_dir,
@@ -93,7 +97,7 @@ class IntentTrainer:
         self.model.save_pretrained(output_dir)
         self.tokenizer.save_pretrained(output_dir)
         logger.info(f"Model saved to {output_dir}")
-        return eval_results
+        return dict(eval_results)
 
     def create_label_map(self, intents: List[str]) -> Dict[str, int]:
         """Tworzy mapowanie etykiet tekstowych na ID numeryczne."""

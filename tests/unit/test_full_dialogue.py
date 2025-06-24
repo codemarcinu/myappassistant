@@ -9,11 +9,11 @@ import pytest
 
 from backend.agents.interfaces import AgentResponse, BaseAgent
 from backend.agents.orchestrator import Orchestrator
-from backend.core import crud
-from backend.models.shopping import Product, ShoppingTrip
 from backend.config import settings
+from backend.core import crud
 from backend.core.database import AsyncSessionLocal
 from backend.core.llm_client import llm_client
+from backend.models.shopping import Product, ShoppingTrip
 
 # --- Funkcje pomocnicze, które już znamy ---
 

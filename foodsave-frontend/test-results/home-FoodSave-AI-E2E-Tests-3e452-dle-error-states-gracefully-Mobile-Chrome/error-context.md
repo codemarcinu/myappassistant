@@ -1,0 +1,61 @@
+# Page snapshot
+
+```yaml
+- alert
+- main:
+  - heading "Prognoza pogody" [level=3]
+  - text: ⛅️
+  - paragraph: Ząbki
+  - paragraph: zachmurzenie małe
+  - paragraph: 20°C
+  - text: ⛅️
+  - paragraph: Warszawa
+  - paragraph: zachmurzenie małe
+  - paragraph: 19°C
+  - heading "Ustawienia Modelu LLM" [level=2]
+  - heading "Aktualny model:" [level=3]
+  - text: SpeakLeash/bielik-11b-v2.3-instruct:Q5_K_M
+  - heading "Wybierz model:" [level=3]
+  - 'button "SpeakLeash/bielik-4.5b-v3.0-instruct:Q8_0 Rozmiar: 5061216212 | Zmodyfikowano: 2025-06-24T07:25:02.498570882Z"':
+    - heading "SpeakLeash/bielik-4.5b-v3.0-instruct:Q8_0" [level=4]
+    - paragraph: "Rozmiar: 5061216212 | Zmodyfikowano: 2025-06-24T07:25:02.498570882Z"
+  - 'button "SpeakLeash/bielik-11b-v2.3-instruct:Q5_K_M Rozmiar: 7907041623 | Zmodyfikowano: 2025-06-24T06:35:06.71652751Z ✓"':
+    - heading "SpeakLeash/bielik-11b-v2.3-instruct:Q5_K_M" [level=4]
+    - paragraph: "Rozmiar: 7907041623 | Zmodyfikowano: 2025-06-24T06:35:06.71652751Z"
+    - text: ✓
+  - 'button "nomic-embed-text:latest Rozmiar: 274302450 | Zmodyfikowano: 2025-06-22T20:12:26.559768968Z"':
+    - heading "nomic-embed-text:latest" [level=4]
+    - paragraph: "Rozmiar: 274302450 | Zmodyfikowano: 2025-06-22T20:12:26.559768968Z"
+  - 'button "gemma3:12b Rozmiar: 8149190253 | Zmodyfikowano: 2025-06-22T20:06:09.483314269Z"':
+    - heading "gemma3:12b" [level=4]
+    - paragraph: "Rozmiar: 8149190253 | Zmodyfikowano: 2025-06-22T20:06:09.483314269Z"
+  - button "Zapisz model" [disabled]
+  - heading "Asystent AI" [level=2]
+  - button "Wyczyść czat"
+  - text: 🤖
+  - paragraph: Cześć! Jestem Twoim asystentem FoodSave. W czym mogę dziś pomóc?
+  - textbox "Wpisz wiadomość..."
+  - button "Włącz tryb gotowania":
+    - img
+  - button "Włącz tryb zakupów":
+    - img
+  - button "Przełącz na Gemma":
+    - img
+  - button "Włącz Perplexity (użyj modeli online)":
+    - img
+  - button "Wyślij" [disabled]
+- button "Dashboard":
+  - img
+  - text: Dashboard
+- button "Czat":
+  - img
+  - text: Czat
+- button "Zakupy":
+  - img
+  - text: Zakupy
+- button "Gotowanie":
+  - img
+  - text: Gotowanie
+- button "Open Tanstack query devtools":
+  - img
+```

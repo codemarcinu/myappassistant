@@ -1,12 +1,12 @@
 from __future__ import annotations
+
+from typing import Any, AsyncGenerator, Callable, Coroutine, Dict, List, Optional, Union
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from backend.agents.interfaces import AgentResponse
 from backend.agents.search_agent import SearchAgent
-from typing import Any, Dict, List, Optional, Union, Callable
-from typing import AsyncGenerator, Coroutine
 
 
 @pytest.mark.asyncio
@@ -50,11 +50,14 @@ async def test_search_agent_empty_results() -> None:
     with patch(
         "backend.agents.search_agent.perplexity_client.search"
     ) as mock_web_search:
-        mock_web_search.return_value = {"success": True, "content": "Nie znaleziono odpowiednich wyników."}
+        mock_web_search.return_value = {
+            "success": True,
+            "content": "Nie znaleziono odpowiednich wyników.",
+        }
 
         response = await agent.process(mock_context)
         assert response.success is True  # Empty results are handled gracefully
-        
+
         # Consume the stream
         result_text = ""
         async for chunk in response.text_stream:
@@ -89,16 +92,18 @@ async def test_search_agent_llm_error() -> None:
     mock_input = {"query": "test query"}
 
     with patch("backend.agents.search_agent.perplexity_client.search") as mock_search:
-        mock_search.return_value = {"success": False, "error": "LLM Error", "content": "Błąd podczas generowania odpowiedzi"}
+        mock_search.return_value = {
+            "success": False,
+            "error": "LLM Error",
+            "content": "Błąd podczas generowania odpowiedzi",
+        }
 
-        with patch(
-            "backend.agents.search_agent.hybrid_llm_client.chat"
-        ) as mock_chat:
+        with patch("backend.agents.search_agent.hybrid_llm_client.chat") as mock_chat:
             mock_chat.side_effect = Exception("LLM Error")
 
             response = await agent.process(mock_input)
             assert response.success is True
-            
+
             # Consume the stream
             result_text = ""
             if response.text_stream:

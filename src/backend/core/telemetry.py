@@ -4,7 +4,9 @@ Zgodnie z regułami MDC dla monitoringu i observability
 """
 
 import os
-from typing import Optional
+from functools import wraps
+from types import TracebackType
+from typing import Any, Awaitable, Callable, Dict, Optional
 
 from opentelemetry import trace
 from opentelemetry.exporter.jaeger.thrift import JaegerExporter
@@ -76,7 +78,7 @@ def setup_prometheus_metrics(port: int = 8001) -> None:
         print(f"Failed to start Prometheus server: {e}")
 
 
-def instrument_sqlalchemy(engine) -> None:
+def instrument_sqlalchemy(engine: Any) -> None:
     """Instrument SQLAlchemy engine z OpenTelemetry"""
     SQLAlchemyInstrumentor.instrument(engine=engine)
 
@@ -108,7 +110,7 @@ def add_span_event(
     span.add_event(name, attributes=attributes or {})
 
 
-def set_span_attribute(span: trace.Span, key: str, value) -> None:
+def set_span_attribute(span: trace.Span, key: str, value: Any) -> None:
     """Set attribute on span"""
     span.set_attribute(key, value)
 
@@ -128,22 +130,31 @@ class SpanContext:
         self.attributes = attributes or {}
         self.span = None
 
-    def __enter__(self) -> None:
+    def __enter__(self) -> "SpanContext":
         self.span = create_span(self.name, self.attributes)
-        return self.span
+        return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
-        if exc_type:
-            record_exception(self.span, exc_val)
-        self.span.end()
+    def __exit__(
+        self,
+        exc_type: Optional[type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[TracebackType],
+    ) -> None:
+        if self.span:
+            if exc_type:
+                record_exception(self.span, exc_val)
+            self.span.end()
 
 
 # Decorator dla funkcji z tracing
-def traced_function(name: str | None = None, attributes: Optional[dict] = None) -> None:
+def traced_function(
+    name: str | None = None, attributes: Optional[dict] = None
+) -> Callable[..., Any]:
     """Decorator to add tracing to functions"""
 
-    def decorator(func) -> None:
-        def wrapper(*args, **kwargs) -> None:
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+        @wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             span_name = name or f"{func.__module__}.{func.__name__}"
             with SpanContext(span_name, attributes):
                 return func(*args, **kwargs)
@@ -154,11 +165,14 @@ def traced_function(name: str | None = None, attributes: Optional[dict] = None) 
 
 
 # Async decorator
-def traced_async_function(name: str | None = None, attributes: Optional[dict] = None) -> None:
+def traced_async_function(
+    name: str | None = None, attributes: Optional[Dict[str, Any]] = None
+) -> Callable[..., Any]:
     """Decorator to add tracing to async functions"""
 
-    def decorator(func) -> None:
-        async def wrapper(*args, **kwargs) -> None:
+    def decorator(func: Callable[..., Awaitable[Any]]) -> Callable[..., Awaitable[Any]]:
+        @wraps(func)
+        async def wrapper(*args: Any, **kwargs: Any) -> Any:
             span_name = name or f"{func.__module__}.{func.__name__}"
             with SpanContext(span_name, attributes):
                 return await func(*args, **kwargs)

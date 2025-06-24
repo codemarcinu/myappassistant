@@ -49,7 +49,7 @@ class AgentResponse(BaseModel):
 async def execute_orchestrator_task(
     request: OrchestratorRequest,
     db: AsyncSession = Depends(get_db),
-):
+) -> AgentResponse:
     """
     Główny endpoint do zlecania zadań.
     Orchestrator sam decyduje, który agent wykona zadanie.
@@ -135,7 +135,7 @@ async def execute_orchestrator_task(
 async def process_query(
     request: OrchestratorRequest,
     db: AsyncSession = Depends(get_db_with_error_handling),
-):
+) -> AgentResponse:
     """
     Endpoint do przetwarzania zapytań użytkownika.
     """
@@ -221,13 +221,13 @@ async def process_query(
 
 
 @router.get("/agents", response_model=List[Dict[str, str]])
-async def list_available_agents() -> list[dict]:
+async def list_available_agents() -> List[Dict[str, str]]:
     """Zwraca listę wszystkich dostępnych intencji."""
     return [{"name": intent.value, "description": intent.value} for intent in AgentType]
 
 
 @router.get("/mmlw/status")
-async def get_mmlw_status() -> dict:
+async def get_mmlw_status() -> Dict[str, Any]:
     """Sprawdza stan modelu MMLW"""
     if not MMLW_AVAILABLE:
         return {
@@ -243,7 +243,7 @@ async def get_mmlw_status() -> dict:
 
 
 @router.post("/mmlw/initialize")
-async def initialize_mmlw() -> dict:
+async def initialize_mmlw() -> Dict[str, Any]:
     """Inicjalizuje model MMLW"""
     if not MMLW_AVAILABLE:
         raise HTTPException(
@@ -266,7 +266,7 @@ async def initialize_mmlw() -> dict:
 
 
 @router.post("/mmlw/test")
-async def test_mmlw_embedding() -> dict:
+async def test_mmlw_embedding(text: str = Form(...)) -> Dict[str, Any]:
     """Testuje generowanie embeddingów przez model MMLW"""
     if not MMLW_AVAILABLE:
         raise HTTPException(
@@ -284,15 +284,14 @@ async def test_mmlw_embedding() -> dict:
             )
 
         # Test embedding
-        test_text = "To jest testowy tekst w języku polskim."
-        embedding = await mmlw_client.embed_text(test_text)
+        embedding = await mmlw_client.embed_text(text)
 
         if embedding and len(embedding) == 768:
             return {
                 "success": True,
                 "message": "MMLW embedding test successful",
                 "embedding_dimension": len(embedding),
-                "test_text": test_text,
+                "text": text,
             }
         else:
             raise HTTPException(
@@ -306,7 +305,7 @@ async def test_mmlw_embedding() -> dict:
 
 
 @router.post("/perplexity/test")
-async def test_perplexity_api(query: str = Form(...)) -> dict:
+async def test_perplexity_api(query: str = Form(...)) -> Dict[str, Any]:
     """Testuje Perplexity API"""
     try:
         if not perplexity_client.is_configured():
@@ -339,7 +338,7 @@ async def test_perplexity_api(query: str = Form(...)) -> dict:
 
 
 @router.get("/perplexity/status")
-async def get_perplexity_status() -> dict:
+async def get_perplexity_status() -> Dict[str, Any]:
     """Sprawdza status Perplexity API"""
     return {
         "configured": perplexity_client.is_configured(),

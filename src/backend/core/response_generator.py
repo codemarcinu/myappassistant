@@ -9,4 +9,4 @@ class ResponseGenerator:
         Generuje końcową odpowiedź na podstawie odpowiedzi agenta i kontekstu.
         W rzeczywistej implementacji powinien formatować odpowiedź i dodawać personalizację.
         """
-        return agent_response.get("response", "Brak odpowiedzi od agenta.")
+        return str(agent_response.get("response", "Brak odpowiedzi od agenta."))

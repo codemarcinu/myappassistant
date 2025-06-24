@@ -1,5 +1,5 @@
 import logging
-from typing import Any, AsyncGenerator, Dict
+from typing import Any, AsyncGenerator, Dict, List
 
 import httpx
 
@@ -34,12 +34,12 @@ class SearchAgent(BaseAgent):
         self,
         vector_store: VectorStore,
         llm_client: LLMClient,
-        perplexity_client=None,
+        perplexity_client: Any | None = None,
         model: str | None = None,
         embedding_model: str = "nomic-embed-text",
-        plugins: list | None = None,
-        initial_state: dict | None = None,
-        **kwargs,
+        plugins: List[Any] | None = None,
+        initial_state: Dict[str, Any] | None = None,
+        **kwargs: Any,
     ) -> None:
         super().__init__(**kwargs)
         self.vector_store = vector_store
@@ -48,7 +48,10 @@ class SearchAgent(BaseAgent):
             timeout=30.0, headers={"User-Agent": settings.USER_AGENT}
         )
         self.llm_client = llm_client
-        from backend.core.perplexity_client import perplexity_client as global_perplexity_client
+        from backend.core.perplexity_client import (
+            perplexity_client as global_perplexity_client,
+        )
+
         self.web_search = perplexity_client or global_perplexity_client
         self.plugins = plugins or []
         self.initial_state = initial_state or {}
@@ -267,11 +270,11 @@ class SearchAgent(BaseAgent):
             return english_content
 
     @handle_exceptions(max_retries=1)
-    def get_dependencies(self) -> list[str]:
+    def get_dependencies(self) -> List[type]:
         """Return list of dependencies this agent requires"""
         return ["httpx", "hybrid_llm_client", "perplexity_client"]
 
-    def get_metadata(self) -> dict:
+    def get_metadata(self) -> Dict[str, Any]:
         """Return metadata about this agent"""
         return {
             "name": self.name,

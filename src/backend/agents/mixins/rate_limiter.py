@@ -2,7 +2,7 @@ import asyncio
 import logging
 import time
 from collections import defaultdict
-from typing import Any, Callable, Dict, Optional
+from typing import Callable, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +83,9 @@ class RateLimiter:
         return True
 
 
-def rate_limited(agent_type: str, user_id_key: Optional[str] = None) -> Callable[[Callable], Callable]:
+def rate_limited(
+    agent_type: str, user_id_key: Optional[str] = None
+) -> Callable[[Callable], Callable]:
     """Decorator for rate limiting agent methods"""
 
     def decorator(func: Callable) -> Callable:

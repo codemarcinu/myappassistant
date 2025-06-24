@@ -6,7 +6,7 @@ import re
 import time
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
+from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple, Union
 
 from pydantic import BaseModel, ConfigDict
 
@@ -392,7 +392,7 @@ class HybridLLMClient:
         task: Optional[ModelTask] = None,  # Nowy parametr
         contains_images: bool = False,  # Nowy parametr
         **kwargs,
-    ) -> Any:
+    ) -> Union[Dict[str, Any], AsyncGenerator[Dict[str, Any], None]]:
         """
         Enhanced chat method with automatic model selection and explicit model toggling
         """

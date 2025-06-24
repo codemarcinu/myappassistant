@@ -505,8 +505,8 @@ class ApiServiceClass {
     return this.get<LLMModel[]>('/api/settings/llm-models', undefined, signal);
   }
 
-  public async getSelectedLLMModel(signal?: AbortSignal): Promise<LLMModelSelectedResponse> {
-    return this.get<LLMModelSelectedResponse>('/api/settings/llm-model/selected', undefined, signal);
+  public async getSelectedLLMModel(signal?: AbortSignal): Promise<string> {
+    return this.get<string>('/api/settings/llm-model/selected', undefined, signal);
   }
 
   public async setSelectedLLMModel(modelName: string, signal?: AbortSignal): Promise<LLMModelSelectedResponse> {

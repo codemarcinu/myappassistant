@@ -7,7 +7,7 @@ apk add --no-cache docker-cli
 mkdir -p /var/log/ollama
 
 # Get the container ID of the Ollama container (handle both possible names)
-OLLAMA_CONTAINER=$(docker ps | grep -E 'foodsave-ollama-dev|.*_foodsave-ollama-dev' | awk '{print $1}')
+OLLAMA_CONTAINER=$(docker ps | grep -E 'foodsave-ollama|.*_foodsave-ollama' | awk '{print $1}')
 
 if [ -z "$OLLAMA_CONTAINER" ]; then
   echo "$(date '+%Y-%m-%d %H:%M:%S') Error: Ollama container not found" >> /var/log/ollama/ollama.log

@@ -22,4 +22,4 @@ fi
 "$VENV_PATH" -m src.tui_manager.main
 
 echo "Aplikacja zakończyła działanie. Naciśnij Enter, aby zamknąć terminal."
-read -p "" 
+read -p ""

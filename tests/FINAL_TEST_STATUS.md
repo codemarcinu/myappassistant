@@ -106,7 +106,7 @@ jobs:
 
 ---
 
-**Data**: 2024-12-21  
-**Wersja**: FoodSave AI v2.0  
-**Status**: Infrastruktura gotowa, testy OCR zaimplementowane  
-**Pokrycie**: 2/6 kategorii w pełni działających + nowe uproszczone testy OCR 
+**Data**: 2024-12-21
+**Wersja**: FoodSave AI v2.0
+**Status**: Infrastruktura gotowa, testy OCR zaimplementowane
+**Pokrycie**: 2/6 kategorii w pełni działających + nowe uproszczone testy OCR

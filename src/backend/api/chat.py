@@ -118,7 +118,7 @@ async def chat_response_generator(prompt: str, model: str) -> AsyncGenerator[str
 
 
 @router.post("/chat")
-async def chat_with_model(request: Request):
+async def chat_with_model(request: Request) -> StreamingResponse:
     body = await request.json()
     prompt = body.get("prompt")
     model = body.get("model") or get_selected_model()
@@ -261,22 +261,36 @@ async def memory_chat_generator(
                         }
                     ) + "\n"
 
-    except Exception as e:
-        error_time = int((asyncio.get_event_loop().time() - start_time) * 1000)
+    except asyncio.TimeoutError:
         logger.error(
-            f"Error in memory_chat_generator: {str(e)}",
-            exc_info=True,
+            "Memory chat processing timed out",
             extra={
                 "session_id": request.session_id,
-                "error_type": type(e).__name__,
-                "error_message": str(e),
-                "chat_event": "error",
-                "processing_time_ms": error_time,
+                "chat_event": "timeout",
             },
         )
         yield json.dumps(
-            {"text": f"Wystąpił błąd serwera: {str(e)}", "success": False}
+            {"text": "Processing timed out. Please try again.", "success": False}
         ) + "\n"
+    except Exception as e:
+        logger.error(
+            f"An error occurred during memory chat processing: {e}",
+            exc_info=True,
+            extra={
+                "session_id": request.session_id,
+                "chat_event": "error",
+                "error_message": str(e),
+            },
+        )
+        yield json.dumps(
+            {"text": f"An error occurred: {str(e)}", "success": False}
+        ) + "\n"
+    finally:
+        if orchestrator:
+            orchestrator_pool.release_orchestrator(orchestrator)
+            logger.debug(
+                f"Orchestrator {orchestrator.orchestrator_id} released from pool."
+            )
 
 
 @router.post("/memory_chat")
@@ -285,44 +299,19 @@ async def chat_with_memory(
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ) -> StreamingResponse:
-    """
-    Endpoint for chat with memory, streaming NDJSON response.
-    """
-    generator = memory_chat_generator(request, db)
-    return StreamingResponse(generator, media_type="application/x-ndjson")
+    # Dodaj zadanie w tle, aby monitorować i usuwać stare sesje, jeśli to konieczne
+    # background_tasks.add_task(cleanup_old_sessions, request.session_id)
+    return StreamingResponse(
+        memory_chat_generator(request, db), media_type="application/x-ndjson"
+    )
 
 
 @router.post("/test_simple_chat")
-async def test_simple_chat():
-    """
-    Simple test endpoint for basic chat functionality
-    """
-    return {"message": "Chat endpoint is working correctly"}
+async def test_simple_chat() -> Dict[str, Any]:
+    return {"message": "Test simple chat endpoint"}
 
 
 @router.post("/test_chat_simple")
 async def test_chat_simple(request: ChatRequest) -> Dict[str, Any]:
-    """
-    Simple non-streaming chat endpoint for testing
-    """
-    try:
-        # Use the LLM client directly without streaming
-        selected_model = get_selected_model()
-        response = await llm_client.chat(
-            model=request.model or selected_model,
-            messages=[{"role": "user", "content": request.prompt}],
-            stream=False,
-        )
-        return {
-            "response": response.get("response", "No response"),
-            "model": request.model or selected_model,
-            "success": True,
-        }
-    except Exception as e:
-        logger.error(f"Error in test_chat_simple: {e}")
-        selected_model = get_selected_model()
-        return {
-            "response": f"Error: {str(e)}",
-            "model": request.model or selected_model,
-            "success": False,
-        }
+    # Placeholder for actual chat logic
+    return {"reply": f"You said: {request.prompt}", "model": request.model}

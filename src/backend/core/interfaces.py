@@ -1,10 +1,20 @@
 from abc import ABC, abstractmethod
 from datetime import datetime
 from enum import Enum
-from typing import Any, AsyncGenerator, Dict, List, Optional, Type, TypeVar, Union, Tuple
 from pathlib import Path
-import numpy as np
+from typing import (
+    Any,
+    AsyncGenerator,
+    Dict,
+    List,
+    Optional,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+)
 
+import numpy as np
 from pydantic import BaseModel, ConfigDict
 
 T = TypeVar("T")
@@ -396,6 +406,7 @@ class AgentHealthCheck:
 
 class DocumentChunk(ABC):
     """Abstract base class for a document chunk."""
+
     id: str
     content: str
     metadata: Dict[str, Any]
@@ -411,7 +422,9 @@ class VectorStore(ABC):
         pass
 
     @abstractmethod
-    async def search(self, query_embedding: np.ndarray, k: int = 5) -> List[Tuple[DocumentChunk, float]]:
+    async def search(
+        self, query_embedding: np.ndarray, k: int = 5
+    ) -> List[Tuple[DocumentChunk, float]]:
         """Search for similar documents."""
         pass
 
@@ -430,16 +443,22 @@ class DocumentProcessor(ABC):
     """Abstract base class for a document processor."""
 
     @abstractmethod
-    async def process_file(self, file_path: Union[str, Path], metadata: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    async def process_file(
+        self, file_path: Union[str, Path], metadata: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
         """Process a file and add it to the vector store."""
         pass
 
     @abstractmethod
-    async def process_document(self, content: str, source_id: str, metadata: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+    async def process_document(
+        self, content: str, source_id: str, metadata: Optional[Dict[str, Any]] = None
+    ) -> List[Dict[str, Any]]:
         """Process text content and add it to the vector store."""
         pass
 
     @abstractmethod
-    async def process_url(self, url: str, metadata: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    async def process_url(
+        self, url: str, metadata: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
         """Process content from a URL."""
         pass

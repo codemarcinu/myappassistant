@@ -17,7 +17,7 @@ def load_seed_data() -> Dict[str, List[Dict[str, Any]]]:
     """Loads seed data from a JSON file."""
     path = os.path.join(os.path.dirname(__file__), "seed_data.json")
     with open(path, "r", encoding="utf-8") as f:
-        data = json.load(f)
+        data: Dict[str, List[Dict[str, Any]]] = json.load(f)
     # Convert date strings to date objects
     for trip in data["shopping_trips"]:
         trip["trip_date"] = datetime.date.fromisoformat(trip["trip_date"])

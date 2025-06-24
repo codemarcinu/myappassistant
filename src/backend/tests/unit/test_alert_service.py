@@ -1,13 +1,13 @@
 from __future__ import annotations
+
 from datetime import datetime, timedelta
+from typing import Any, AsyncGenerator, Callable, Coroutine, Dict, List, Optional, Union
 from unittest.mock import patch
 
 import pytest
 
 from backend.agents.adapters.alert_service import AlertService
 from backend.agents.error_types import ErrorSeverity
-from typing import Any, Dict, List, Optional, Union, Callable
-from typing import AsyncGenerator, Coroutine
 
 
 class TestAlertService:

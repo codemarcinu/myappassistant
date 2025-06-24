@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
+from typing import Any, AsyncGenerator
 
 import structlog
 from fastapi import APIRouter, FastAPI, Request
@@ -150,7 +150,7 @@ def create_app() -> FastAPI:
 
     # Add test endpoint for error handling
     @app.get("/raise_error")
-    async def raise_error(type: str = "value"):
+    async def raise_error(type: str = "value") -> Any:
         """Test endpoint for error handling scenarios"""
         if type == "value":
             raise ValueError("Test ValueError")

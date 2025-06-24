@@ -4,6 +4,7 @@ from datetime import date, timedelta
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy import func, select, update
+from sqlalchemy.engine import Result
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -617,24 +618,28 @@ async def update_user_topics(db: AsyncSession, user_id: str, topics: List[str]) 
         return False
 
 
-def get_products_paginated(session, limit: int = 100, offset: int = 0) -> None:
+async def get_products_paginated(
+    session: AsyncSession, limit: int = 100, offset: int = 0
+) -> Result[Any]:
     stmt = select(Product).order_by(Product.id.desc()).limit(limit).offset(offset)
-    return session.execute(stmt)
+    return await session.execute(stmt)
 
 
-def get_shopping_trips_paginated(session, limit: int = 100, offset: int = 0) -> None:
+async def get_shopping_trips_paginated(
+    session: AsyncSession, limit: int = 100, offset: int = 0
+) -> Result[Any]:
     stmt = (
         select(ShoppingTrip)
         .order_by(ShoppingTrip.id.desc())
         .limit(limit)
         .offset(offset)
     )
-    return session.execute(stmt)
+    return await session.execute(stmt)
 
 
-def get_messages_paginated(
-    session, conversation_id: int, limit: int = 100, offset: int = 0
-) -> None:
+async def get_messages_paginated(
+    session: AsyncSession, conversation_id: int, limit: int = 100, offset: int = 0
+) -> Result[Any]:
     stmt = (
         select(Message)
         .where(Message.conversation_id == conversation_id)
@@ -642,4 +647,4 @@ def get_messages_paginated(
         .limit(limit)
         .offset(offset)
     )
-    return session.execute(stmt)
+    return await session.execute(stmt)

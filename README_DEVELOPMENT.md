@@ -27,4 +27,4 @@ W projekcie znajduje się skrypt `fix_syntax_errors.py`, który automatycznie na
 
 ### Bezpieczeństwo
 - Skrypt nie usuwa kodu, tylko poprawia adnotacje typów
-- Zalecane commitowanie zmian po każdej automatycznej naprawie 
+- Zalecane commitowanie zmian po każdej automatycznej naprawie

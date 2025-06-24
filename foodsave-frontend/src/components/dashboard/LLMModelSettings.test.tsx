@@ -22,9 +22,7 @@ const mockModels = [
   },
 ];
 
-const mockSelectedModel = {
-  selected_model: 'SpeakLeash/bielik-11b-v2.3-instruct:Q5_K_M',
-};
+const mockSelectedModel = 'SpeakLeash/bielik-11b-v2.3-instruct:Q5_K_M';
 
 // Test wrapper with QueryClient
 const TestWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -74,7 +72,7 @@ describe('LLMModelSettings', () => {
     await waitFor(() => {
       expect(screen.getByText('Ustawienia Modelu LLM')).toBeInTheDocument();
       expect(screen.getByText('SpeakLeash/bielik-4.5b-v3.0-instruct:Q8_0')).toBeInTheDocument();
-      expect(screen.getByText('SpeakLeash/bielik-11b-v2.3-instruct:Q5_K_M')).toBeInTheDocument();
+      expect(screen.getByText('Aktualny model:')).toBeInTheDocument();
     });
   });
 
@@ -89,7 +87,8 @@ describe('LLMModelSettings', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('SpeakLeash/bielik-11b-v2.3-instruct:Q5_K_M')).toBeInTheDocument();
+      const currentModelSection = screen.getByText('Aktualny model:').closest('div');
+      expect(currentModelSection).toHaveTextContent('SpeakLeash/bielik-11b-v2.3-instruct:Q5_K_M');
     });
   });
 

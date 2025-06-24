@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 import logging
 from datetime import datetime
+from typing import Any, AsyncGenerator, Callable, Coroutine, Dict, List, Optional, Union
 
 from fastapi import HTTPException, Request
 from fastapi.responses import JSONResponse
@@ -12,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 @app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
+async def global_exception_handler(request: Request, exc: Exception) -> Any:
     logger.error(f"Unhandled exception on {request.url.path}: {exc}", exc_info=True)
     return JSONResponse(
         status_code=500,
@@ -27,7 +30,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 
 @app.exception_handler(HTTPException)
-async def http_exception_handler(request: Request, exc: HTTPException):
+async def http_exception_handler(request: Request, exc: HTTPException) -> Any:
     # Set error_code based on status_code
     if exc.status_code >= 500:
         error_code = "INTERNAL_SERVER_ERROR"

@@ -1,4 +1,3 @@
-from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
@@ -8,12 +7,8 @@ class RAGUploadResponse(BaseModel):
     """Response model for RAG document upload"""
 
     success: bool
-    document_id: str
     filename: str
     message: str
-    status: str = Field(
-        description="Status of document processing: processing, completed, failed"
-    )
 
 
 class RAGDocumentInfo(BaseModel):

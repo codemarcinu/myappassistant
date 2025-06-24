@@ -1,6 +1,7 @@
 from __future__ import annotations
-from typing import Any, Dict, List, Optional, Union, Callable
-from typing import AsyncGenerator, Coroutine
+
+from typing import Any, AsyncGenerator, Callable, Coroutine, Dict, List, Optional, Union
+
 """
 Tests dla Prometheus Metrics
 Zgodnie z regułami MDC dla testowania i monitoringu

@@ -19,7 +19,7 @@ import tarfile
 import zipfile
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, TypedDict
+from typing import Any, Dict, List, Optional, TypedDict
 
 import aiofiles
 from sqlalchemy import text
@@ -205,7 +205,12 @@ class BackupManager:
             size = backup_zip.stat().st_size
 
             logger.info(f"Database backup created: {backup_zip} ({size / 1024:.2f} KB)")
-            return {"status": "success", "path": str(backup_zip), "size": size, "checksum": checksum}
+            return {
+                "status": "success",
+                "path": str(backup_zip),
+                "size": size,
+                "checksum": checksum,
+            }
 
         except Exception as e:
             logger.error(f"Database backup failed: {e}")
@@ -227,7 +232,12 @@ class BackupManager:
             size = backup_file.stat().st_size
             checksum = await self._calculate_file_checksum(backup_file)
             logger.info(f"Files backup created: {backup_file} ({size / 1024:.2f} KB)")
-            return {"status": "success", "path": str(backup_file), "size": size, "checksum": checksum}
+            return {
+                "status": "success",
+                "path": str(backup_file),
+                "size": size,
+                "checksum": checksum,
+            }
 
         except Exception as e:
             logger.error(f"File backup failed: {e}")
@@ -237,7 +247,7 @@ class BackupManager:
         """Backup critical configuration files."""
         logger.info("Creating configuration backup...")
         backup_file = self.config_backup_dir / f"{backup_name}_config.json"
-        
+
         try:
             # Manually select non-sensitive settings to back up
             safe_config_data = {
@@ -249,12 +259,19 @@ class BackupManager:
 
             async with aiofiles.open(backup_file, "w", encoding="utf-8") as f:
                 await f.write(json.dumps(safe_config_data, indent=2))
-            
+
             size = backup_file.stat().st_size
             checksum = await self._calculate_file_checksum(backup_file)
-            logger.info(f"Configuration backup created: {backup_file} ({size / 1024:.2f} KB)")
-            return {"status": "success", "path": str(backup_file), "size": size, "checksum": checksum}
-        
+            logger.info(
+                f"Configuration backup created: {backup_file} ({size / 1024:.2f} KB)"
+            )
+            return {
+                "status": "success",
+                "path": str(backup_file),
+                "size": size,
+                "checksum": checksum,
+            }
+
         except Exception as e:
             logger.error(f"Configuration backup failed: {e}")
             return {"status": "error", "error": str(e)}
@@ -263,20 +280,33 @@ class BackupManager:
         """Backup the vector store data."""
         logger.info("Creating vector store backup...")
         backup_file = self.vector_backup_dir / f"{backup_name}_vector_store.json"
-        
+
         try:
             # Assuming vector store has an export method
-            if hasattr(settings, "VECTOR_STORE_PATH") and os.path.exists(settings.VECTOR_STORE_PATH):
+            if hasattr(settings, "VECTOR_STORE_PATH") and os.path.exists(
+                settings.VECTOR_STORE_PATH
+            ):
                 # This is a placeholder for actual vector store backup logic
-                shutil.copytree(settings.VECTOR_STORE_PATH, str(backup_file.with_suffix('')))
-                with tarfile.open(str(backup_file.with_suffix('.tar.gz')), "w:gz") as tar:
-                    tar.add(str(backup_file.with_suffix('')), arcname=backup_name)
-                
-                final_backup_file = backup_file.with_suffix('.tar.gz')
+                shutil.copytree(
+                    settings.VECTOR_STORE_PATH, str(backup_file.with_suffix(""))
+                )
+                with tarfile.open(
+                    str(backup_file.with_suffix(".tar.gz")), "w:gz"
+                ) as tar:
+                    tar.add(str(backup_file.with_suffix("")), arcname=backup_name)
+
+                final_backup_file = backup_file.with_suffix(".tar.gz")
                 size = final_backup_file.stat().st_size
                 checksum = await self._calculate_file_checksum(final_backup_file)
-                logger.info(f"Vector store backup created: {final_backup_file} ({size / 1024:.2f} KB)")
-                return {"status": "success", "path": str(final_backup_file), "size": size, "checksum": checksum}
+                logger.info(
+                    f"Vector store backup created: {final_backup_file} ({size / 1024:.2f} KB)"
+                )
+                return {
+                    "status": "success",
+                    "path": str(final_backup_file),
+                    "size": size,
+                    "checksum": checksum,
+                }
             else:
                 logger.info("Vector store is empty or not configured, skipping backup")
                 return {"status": "skipped", "size": 0}
@@ -303,21 +333,27 @@ class BackupManager:
     async def _apply_321_rule(self, backup_name: str) -> List[Dict[str, str]]:
         """Apply 3-2-1 backup rule (local, external, cloud)"""
         storage_locations = [{"type": "local", "location": str(self.backup_dir)}]
-        
+
         external_drive = await self._find_external_drive()
         if external_drive:
             await self._copy_to_external_drive(backup_name, external_drive)
-            storage_locations.append({"type": "external_drive", "location": external_drive})
+            storage_locations.append(
+                {"type": "external_drive", "location": external_drive}
+            )
 
         if settings.CLOUD_BACKUP_ENABLED:
             cloud_result = await self._upload_to_cloud(backup_name)
             if cloud_result.get("success"):
-                storage_locations.append({"type": "cloud", "location": cloud_result.get("url", "")})
+                storage_locations.append(
+                    {"type": "cloud", "location": cloud_result.get("url", "")}
+                )
 
         logger.info(f"3-2-1 rule applied: {len(storage_locations)} storage locations")
         return storage_locations
 
-    async def _verify_backup_integrity(self, backup_name: str) -> BackupVerificationResult:
+    async def _verify_backup_integrity(
+        self, backup_name: str
+    ) -> BackupVerificationResult:
         """Verify backup integrity using checksums from the manifest."""
         logger.info(f"Verifying integrity of backup: {backup_name}")
         verification_results: BackupVerificationResult = {"overall": "passed"}
@@ -334,12 +370,18 @@ class BackupManager:
                 manifest = json.loads(await f.read())
 
             component_results: Dict[str, str] = {}
-            for component_name, component_data in manifest.get("components", {}).items():
-                if component_data.get("status") == "success" and component_data.get("path"):
+            for component_name, component_data in manifest.get(
+                "components", {}
+            ).items():
+                if component_data.get("status") == "success" and component_data.get(
+                    "path"
+                ):
                     file_path = Path(component_data["path"])
                     if file_path.exists():
                         stored_checksum = component_data.get("checksum")
-                        current_checksum = await self._calculate_file_checksum(file_path)
+                        current_checksum = await self._calculate_file_checksum(
+                            file_path
+                        )
 
                         if current_checksum == stored_checksum:
                             component_results[component_name] = "verified"
@@ -352,14 +394,18 @@ class BackupManager:
                     else:
                         component_results[component_name] = "failed"
                         verification_results["overall"] = "failed"
-                        logger.warning(f"Backup file not found for {component_name}: {file_path}")
-            
-            verification_results.update(component_results) # type: ignore
+                        logger.warning(
+                            f"Backup file not found for {component_name}: {file_path}"
+                        )
+
+            verification_results.update(component_results)  # type: ignore
 
             if verification_results["overall"] == "passed":
-                 logger.info(f"Backup integrity verification passed for {backup_name}")
+                logger.info(f"Backup integrity verification passed for {backup_name}")
             else:
-                 logger.warning(f"Backup integrity verification failed for {backup_name}")
+                logger.warning(
+                    f"Backup integrity verification failed for {backup_name}"
+                )
 
         except Exception as e:
             logger.error(f"Error during backup verification for {backup_name}: {e}")
@@ -395,11 +441,12 @@ class BackupManager:
         """Find external drive for backup (simplified)."""
         if sys.platform == "win32":
             import wmi
+
             c = wmi.WMI()
             for drive in c.Win32_LogicalDisk():
-                if drive.DriveType == 2: # Removable drive
+                if drive.DriveType == 2:  # Removable drive
                     return drive.DeviceID + "\\"
-        else: # Linux/macOS
+        else:  # Linux/macOS
             mount_points = ["/media", "/mnt", "/Volumes"]
             for mount in mount_points:
                 if os.path.exists(mount):
@@ -408,7 +455,9 @@ class BackupManager:
                         return os.path.join(mount, item)
         return None
 
-    async def _copy_to_external_drive(self, backup_name: str, external_drive: str) -> None:
+    async def _copy_to_external_drive(
+        self, backup_name: str, external_drive: str
+    ) -> None:
         """Copy backup to external drive"""
         try:
             dest_dir = Path(external_drive) / "FoodSaveBackups"
@@ -467,7 +516,10 @@ class BackupManager:
                     )
                     results["details"][component] = restore_result
                 except Exception as e:
-                    results["details"][component] = {"status": "failed", "error": str(e)}
+                    results["details"][component] = {
+                        "status": "failed",
+                        "error": str(e),
+                    }
 
         all_successful = all(
             res["status"] == "success" for res in results["details"].values()
@@ -502,21 +554,25 @@ class BackupManager:
         # Simplified restore: drop tables and execute script
         try:
             async with AsyncSessionLocal() as session:
-                async with aiofiles.open(backup_path, 'r', encoding='utf-8') as f:
+                async with aiofiles.open(backup_path, "r", encoding="utf-8") as f:
                     sql_script = await f.read()
-                
+
                 # This is not ideal for async, but a pragmatic choice for sqlite
                 # For a production DB like Postgres, would use pg_restore
                 await session.execute(text("PRAGMA writable_schema = 1;"))
-                await session.execute(text("DELETE FROM sqlite_master WHERE type IN ('table', 'index', 'trigger');"))
+                await session.execute(
+                    text(
+                        "DELETE FROM sqlite_master WHERE type IN ('table', 'index', 'trigger');"
+                    )
+                )
                 await session.execute(text("PRAGMA writable_schema = 0;"))
                 await session.execute(text("VACUUM;"))
-                
+
                 # Cannot run executescript in async, so we split and run
-                for statement in sql_script.split(';'):
+                for statement in sql_script.split(";"):
                     if statement.strip():
                         await session.execute(text(statement))
-                
+
                 await session.commit()
             logger.info("Database restored successfully")
             return {"status": "success"}
@@ -532,7 +588,7 @@ class BackupManager:
         backup_path = Path(component_data["path"])
         if not backup_path.exists():
             return {"status": "failed", "error": "Backup file not found"}
-        
+
         try:
             with tarfile.open(backup_path, "r:gz") as tar:
                 tar.extractall(path=".")
@@ -553,10 +609,10 @@ class BackupManager:
         backup_path = Path(component_data["path"])
         if not backup_path.exists():
             return {"status": "failed", "error": "Backup file not found"}
-        
+
         async with aiofiles.open(backup_path, "r", encoding="utf-8") as f:
             backed_up_config = json.loads(await f.read())
-        
+
         logger.info(f"Configuration to restore: {backed_up_config}")
         # In a real scenario, you'd apply these settings to your config management system.
         logger.warning("Configuration restore is a manual process for safety.")
@@ -592,22 +648,29 @@ class BackupManager:
             try:
                 with open(manifest_file, "r", encoding="utf-8") as f:
                     manifest_data = json.load(f)
-                    total_size = sum(c.get('size', 0) for c in manifest_data.get('components', {}).values())
-                    backups.append({
-                        "name": manifest_data["backup_name"],
-                        "timestamp": manifest_data["timestamp"],
-                        "size_mb": total_size / (1024*1024),
-                        "components": list(manifest_data.get('components', {}).keys()),
-                    })
+                    total_size = sum(
+                        c.get("size", 0)
+                        for c in manifest_data.get("components", {}).values()
+                    )
+                    backups.append(
+                        {
+                            "name": manifest_data["backup_name"],
+                            "timestamp": manifest_data["timestamp"],
+                            "size_mb": total_size / (1024 * 1024),
+                            "components": list(
+                                manifest_data.get("components", {}).keys()
+                            ),
+                        }
+                    )
             except Exception as e:
                 logger.error(f"Could not read manifest {manifest_file}: {e}")
-        return sorted(backups, key=lambda x: x['timestamp'], reverse=True)
+        return sorted(backups, key=lambda x: x["timestamp"], reverse=True)
 
     async def get_backup_stats(self) -> Dict[str, Any]:
         """Get statistics about backups."""
         backups = await self.list_backups()
-        total_size = sum(b['size_mb'] for b in backups) * 1024 * 1024
-        
+        total_size = sum(b["size_mb"] for b in backups) * 1024 * 1024
+
         return {
             "total_backups": len(backups),
             "total_size_mb": total_size / (1024 * 1024),

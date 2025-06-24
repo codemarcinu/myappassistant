@@ -4,6 +4,7 @@ Main application entry point.
 
 import os
 import sys
+
 from backend.app_factory import create_app
 
 # Fix import paths

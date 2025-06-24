@@ -37,7 +37,9 @@ class ConversationState:
             "cooking": False,
         }
     )
-    current_model: str = "SpeakLeash/bielik-4.5b-v3.0-instruct:Q8_0"  # Default model to use for LLM operations
+    current_model: str = (
+        "SpeakLeash/bielik-4.5b-v3.0-instruct:Q8_0"  # Default model to use for LLM operations
+    )
 
     def add_message(self, role: str, content: str) -> None:
         self.history.append({"role": role, "content": content})

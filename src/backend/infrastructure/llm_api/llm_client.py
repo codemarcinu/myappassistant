@@ -16,7 +16,7 @@ class LLMClient:
             response = await hybrid_llm_client.generate_text(
                 prompt=prompt, complexity=ModelComplexity.MEDIUM, **kwargs
             )
-            return response.get("text", "")
+            return str(response.get("text", ""))
         except Exception as e:
             logger.error(f"Error generating text: {e}")
             return ""
@@ -38,7 +38,7 @@ class LLMClient:
             response = await hybrid_llm_client.chat(
                 messages=messages, complexity=ModelComplexity.MEDIUM, **kwargs
             )
-            return response.get("text", "")
+            return response.get("text", None)
         except Exception as e:
             logger.error(f"Error in chat: {e}")
             return None

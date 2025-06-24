@@ -1,0 +1,45 @@
+# Page snapshot
+
+```yaml
+- alert
+- main:
+  - heading "Prognoza pogody" [level=3]
+  - text: ⛅️
+  - paragraph: Ząbki
+  - paragraph: zachmurzenie małe
+  - paragraph: 20°C
+  - text: ⛅️
+  - paragraph: Warszawa
+  - paragraph: zachmurzenie małe
+  - paragraph: 19°C
+  - heading "Błąd ładowania ustawień" [level=3]
+  - paragraph: Nie udało się załadować ustawień modeli LLM.
+  - heading "Asystent AI" [level=2]
+  - button "Wyczyść czat"
+  - text: 🤖
+  - paragraph: Cześć! Jestem Twoim asystentem FoodSave. W czym mogę dziś pomóc?
+  - textbox "Wpisz wiadomość..."
+  - button "Włącz tryb gotowania":
+    - img
+  - button "Włącz tryb zakupów":
+    - img
+  - button "Przełącz na Gemma":
+    - img
+  - button "Włącz Perplexity (użyj modeli online)":
+    - img
+  - button "Wyślij" [disabled]
+- button "Dashboard":
+  - img
+  - text: Dashboard
+- button "Czat":
+  - img
+  - text: Czat
+- button "Zakupy":
+  - img
+  - text: Zakupy
+- button "Gotowanie":
+  - img
+  - text: Gotowanie
+- button "Open Tanstack query devtools":
+  - img
+```

@@ -1,12 +1,12 @@
 from __future__ import annotations
+
+from typing import Any, AsyncGenerator, Callable, Coroutine, Dict, List, Optional, Union
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from backend.agents.interfaces import AgentResponse
 from backend.agents.ocr_agent import OCRAgent
-from typing import Any, Dict, List, Optional, Union, Callable
-from typing import AsyncGenerator, Coroutine
 
 
 @pytest.mark.asyncio

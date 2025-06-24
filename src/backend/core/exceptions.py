@@ -6,7 +6,7 @@ This module provides a comprehensive exception system with proper error context 
 import logging
 import traceback
 from datetime import datetime
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +20,7 @@ class FoodSaveError(Exception):
         error_code: Optional[str] = None,
         details: Optional[Dict[str, Any]] = None,
         severity: str = "medium",
-        **kwargs,
+        **kwargs: Any,
     ) -> None:
         self.message = message
         self.error_code = error_code or "UNKNOWN_ERROR"
@@ -81,7 +81,7 @@ class ProcessingError(FoodSaveError):
         message: str,
         operation: Optional[str] = None,
         food_item_id: Optional[str] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> None:
         details = kwargs.pop("details", {})
         if operation:
@@ -106,7 +106,7 @@ class AgentError(FoodSaveError):
         message: str,
         agent_type: Optional[str] = None,
         agent_id: Optional[str] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> None:
         details = kwargs.pop("details", {})
         if agent_type:
@@ -131,7 +131,7 @@ class DatabaseError(FoodSaveError):
         message: str,
         operation: Optional[str] = None,
         table: Optional[str] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> None:
         details = kwargs.pop("details", {})
         if operation:
@@ -156,7 +156,7 @@ class ValidationError(FoodSaveError):
         message: str,
         field: Optional[str] = None,
         value: Optional[Any] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> None:
         details = kwargs.pop("details", {})
         if field:
@@ -181,7 +181,7 @@ class AuthenticationError(FoodSaveError):
         message: str,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> None:
         details = kwargs.pop("details", {})
         if user_id:
@@ -207,7 +207,7 @@ class ExternalAPIError(FoodSaveError):
         api_name: Optional[str] = None,
         endpoint: Optional[str] = None,
         status_code: Optional[int] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> None:
         details = kwargs.pop("details", {})
         if api_name:
@@ -234,7 +234,7 @@ class ConfigurationError(FoodSaveError):
         message: str,
         config_key: Optional[str] = None,
         config_value: Optional[Any] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> None:
         details = kwargs.pop("details", {})
         if config_key:
@@ -259,7 +259,7 @@ class RateLimitError(FoodSaveError):
         message: str,
         limit_type: Optional[str] = None,
         retry_after: Optional[int] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> None:
         details = kwargs.pop("details", {})
         if limit_type:
@@ -284,7 +284,7 @@ class HealthCheckError(FoodSaveError):
         message: str,
         service: Optional[str] = None,
         check_type: Optional[str] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> None:
         details = kwargs.pop("details", {})
         if service:
@@ -309,7 +309,7 @@ class NetworkError(FoodSaveError):
         message: str,
         url: Optional[str] = None,
         status_code: Optional[int] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> None:
         details = kwargs.pop("details", {})
         if url:
@@ -328,7 +328,7 @@ class NetworkError(FoodSaveError):
 
 # Error handling utilities
 def handle_exception_with_context(
-    exception: Exception, context: Dict[str, Any], operation: str, **kwargs
+    exception: Exception, context: Dict[str, Any], operation: str, **kwargs: Any
 ) -> FoodSaveError:
     """✅ ALWAYS: Proper error context and logging"""
     # Determine the appropriate exception type
@@ -379,7 +379,7 @@ def handle_exception_with_context(
 
 
 def log_error_with_context(
-    error: Exception, context: Dict[str, Any], operation: str, **kwargs
+    error: Exception, context: Dict[str, Any], operation: str, **kwargs: Any
 ) -> None:
     """Log error with full context for debugging"""
 
