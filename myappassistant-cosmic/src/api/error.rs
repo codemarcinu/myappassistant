@@ -20,4 +20,4 @@ pub enum ApiError {
     
     #[error("Invalid request: {0}")]
     InvalidRequest(String),
-} 
+}

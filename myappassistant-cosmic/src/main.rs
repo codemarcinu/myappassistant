@@ -1,17 +1,8 @@
+mod api;
+
 use iced::widget::{button, column, container, row, text, text_input};
 use iced::{Alignment, Element, Sandbox, Settings, Length, Color, Background, Theme, BorderRadius};
-use serde::{Deserialize, Serialize};
-
-#[derive(Debug, Serialize, Deserialize)]
-struct ChatRequest {
-    message: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct ChatResponse {
-    response: String,
-    agent_used: String,
-}
+use api::Client;
 
 fn main() -> iced::Result {
     println!("Uruchamianie MyAppAssistant GUI...");
@@ -22,6 +13,7 @@ fn main() -> iced::Result {
 struct MyAppAssistant {
     input_value: String,
     messages: Vec<(String, String)>, // (agent, message)
+    api_client: Client,
 }
 
 #[derive(Debug, Clone)]
@@ -75,6 +67,7 @@ impl Sandbox for MyAppAssistant {
             messages: vec![
                 ("System".to_string(), "Witaj w MyAppAssistant! Jak mogę Ci pomóc?".to_string()),
             ],
+            api_client: Client::new("http://localhost:8000"),
         }
     }
 
@@ -94,28 +87,23 @@ impl Sandbox for MyAppAssistant {
                     
                     // Symulacja odpowiedzi (w rzeczywistej aplikacji byłoby wywołanie API)
                     let response = if self.input_value.to_lowercase().contains("pogoda") {
-                        ChatResponse {
-                            response: "Obecnie jest słonecznie i 25°C na zewnątrz.".to_string(),
-                            agent_used: "WeatherAgent".to_string(),
-                        }
+                        ("WeatherAgent".to_string(), "Obecnie jest słonecznie i 25°C na zewnątrz.".to_string())
                     } else if self.input_value.to_lowercase().contains("przepis") 
                         || self.input_value.to_lowercase().contains("jedzenie") {
-                        ChatResponse {
-                            response: "Znalazłem świetny przepis na makaron dla Ciebie!".to_string(),
-                            agent_used: "ChefAgent".to_string(),
-                        }
+                        ("ChefAgent".to_string(), "Znalazłem świetny przepis na makaron dla Ciebie!".to_string())
                     } else {
-                        ChatResponse {
-                            response: format!("Otrzymałem Twoją wiadomość: {}", self.input_value),
-                            agent_used: "GeneralAgent".to_string(),
-                        }
+                        ("GeneralAgent".to_string(), format!("Otrzymałem Twoją wiadomość: {}", self.input_value))
                     };
                     
                     // Dodaj odpowiedź asystenta
-                    self.messages.push((response.agent_used, response.response));
+                    self.messages.push(response);
                     
                     // Wyczyść pole wejściowe
                     self.input_value = String::new();
+                    
+                    // TODO: W przyszłości użyj API client do wysłania wiadomości
+                    // Przykład:
+                    // let response = self.api_client.send_chat_message(&self.input_value, None).await;
                 }
             }
         }

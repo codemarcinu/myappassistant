@@ -26,9 +26,9 @@ impl Client {
         }
     }
     
-    /// Get food items from pantry
-    pub async fn get_food_items(&self) -> Result<Vec<FoodItem>, ApiError> {
-        let url = format!("{}/api/pantry/items", self.base_url);
+    /// Get pantry products
+    pub async fn get_pantry_products(&self) -> Result<Vec<PantryProduct>, ApiError> {
+        let url = format!("{}/api/pantry/products", self.base_url);
         
         let response = self.http
             .get(&url)
@@ -37,23 +37,23 @@ impl Client {
             .map_err(|e| ApiError::RequestFailed(e.to_string()))?;
             
         if response.status().is_success() {
-            let items = response
+            let products = response
                 .json()
                 .await
                 .map_err(|e| ApiError::ParseFailed(e.to_string()))?;
-            Ok(items)
+            Ok(products)
         } else {
             Err(ApiError::HttpError(response.status().as_u16()))
         }
     }
     
     /// Send chat message to AI
-    pub async fn send_chat_message(&self, message: &str, context: Option<String>) -> Result<ChatResponse, ApiError> {
+    pub async fn send_chat_message(&self, prompt: &str, model: Option<&str>) -> Result<String, ApiError> {
         let url = format!("{}/api/chat", self.base_url);
         
         let request = ChatRequest {
-            message: message.to_string(),
-            context,
+            prompt: prompt.to_string(),
+            model: model.map(|s| s.to_string()),
         };
         
         let response = self.http
@@ -64,11 +64,49 @@ impl Client {
             .map_err(|e| ApiError::RequestFailed(e.to_string()))?;
             
         if response.status().is_success() {
-            let chat_response = response
-                .json()
+            // This is a streaming response, so we need to read it as text
+            let text = response
+                .text()
                 .await
                 .map_err(|e| ApiError::ParseFailed(e.to_string()))?;
-            Ok(chat_response)
+            Ok(text)
+        } else {
+            Err(ApiError::HttpError(response.status().as_u16()))
+        }
+    }
+    
+    /// Send memory chat message
+    pub async fn send_memory_chat_message(
+        &self, 
+        message: &str, 
+        session_id: &str,
+        use_perplexity: Option<bool>,
+        use_bielik: Option<bool>,
+    ) -> Result<String, ApiError> {
+        let url = format!("{}/api/memory_chat", self.base_url);
+        
+        let request = MemoryChatRequest {
+            message: message.to_string(),
+            session_id: session_id.to_string(),
+            use_perplexity,
+            use_bielik,
+            agent_states: None,
+        };
+        
+        let response = self.http
+            .post(&url)
+            .json(&request)
+            .send()
+            .await
+            .map_err(|e| ApiError::RequestFailed(e.to_string()))?;
+            
+        if response.status().is_success() {
+            // This is a streaming response, so we need to read it as text
+            let text = response
+                .text()
+                .await
+                .map_err(|e| ApiError::ParseFailed(e.to_string()))?;
+            Ok(text)
         } else {
             Err(ApiError::HttpError(response.status().as_u16()))
         }
@@ -122,4 +160,4 @@ impl Client {
             Err(ApiError::HttpError(response.status().as_u16()))
         }
     }
-} 
+}

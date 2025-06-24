@@ -14,16 +14,25 @@ pub struct FoodItem {
 /// Chat message request
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChatRequest {
+    pub prompt: String,
+    pub model: Option<String>,
+}
+
+/// Memory chat request
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MemoryChatRequest {
     pub message: String,
-    pub context: Option<String>,
+    pub session_id: String,
+    pub use_perplexity: Option<bool>,
+    pub use_bielik: Option<bool>,
+    pub agent_states: Option<std::collections::HashMap<String, bool>>,
 }
 
 /// Chat message response
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChatResponse {
     pub response: String,
-    pub agent_used: String,
-    pub confidence: f32,
+    pub model: String,
 }
 
 /// Chat message
@@ -61,4 +70,12 @@ pub struct WeatherData {
     pub humidity: i32,
     pub wind_speed: f32,
     pub location: String,
-} 
+}
+
+/// Pantry product
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PantryProduct {
+    pub id: i32,
+    pub name: String,
+    pub unified_category: String,
+}

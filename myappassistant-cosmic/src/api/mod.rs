@@ -3,4 +3,4 @@ pub mod models;
 pub mod error;
 
 pub use client::Client;
-pub use error::ApiError; 
+pub use error::ApiError;
