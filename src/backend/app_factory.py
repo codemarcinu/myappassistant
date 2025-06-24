@@ -11,7 +11,9 @@ from slowapi import Limiter
 from slowapi.middleware import SlowAPIMiddleware
 from slowapi.util import get_remote_address
 
-from backend.api import agents, chat, food, monitoring, pantry, upload
+from backend.api import agents, chat, food, monitoring, pantry
+from backend.api import settings as settings_router
+from backend.api import upload
 from backend.api.v1.endpoints import receipts
 from backend.api.v2.endpoints import rag as rag_v2
 from backend.api.v2.endpoints import receipts as receipts_v2
@@ -173,6 +175,9 @@ def create_app() -> FastAPI:
     api_router.include_router(food.router, prefix="/food", tags=["Food"])
     api_router.include_router(pantry.router, prefix="/pantry", tags=["Pantry"])
     api_router.include_router(agents.router, prefix="/agents", tags=["Agents"])
+    api_router.include_router(
+        settings_router.router, prefix="/settings", tags=["Settings"]
+    )
 
     # Versioned API routers
     api_v1_router = APIRouter()
