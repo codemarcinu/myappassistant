@@ -1,30 +1,185 @@
-use cosmic::app;
-use tracing::{info, Level};
+use iced::widget::{button, column, container, row, text, text_input};
+use iced::{Alignment, Element, Sandbox, Settings, Length, Color, Background, Theme, BorderRadius};
+use serde::{Deserialize, Serialize};
 
-mod app;
-mod api;
-mod core;
-mod ui;
-mod utils;
-mod config;
+#[derive(Debug, Serialize, Deserialize)]
+struct ChatRequest {
+    message: String,
+}
 
-use app::MyAppAssistant;
+#[derive(Debug, Serialize, Deserialize)]
+struct ChatResponse {
+    response: String,
+    agent_used: String,
+}
 
-fn main() -> cosmic::iced::Result {
-    // Initialize logging
-    tracing_subscriber::fmt()
-        .with_env_filter("myappassistant_cosmic=debug,cosmic=info")
-        .with_target(false)
-        .init();
+fn main() -> iced::Result {
+    println!("Uruchamianie MyAppAssistant GUI...");
     
-    info!("Starting MyAppAssistant COSMIC");
-    
-    // Application settings
-    let settings = cosmic::app::Settings::default()
-        .theme(cosmic::theme::system_preference())
-        .size_limits(cosmic::iced::Size::new(800.0, 600.0).into())
-        .debug(cfg!(debug_assertions));
+    MyAppAssistant::run(Settings::default())
+}
 
-    // Run the application
-    cosmic::app::run::<MyAppAssistant>(settings, ())
-} 
+struct MyAppAssistant {
+    input_value: String,
+    messages: Vec<(String, String)>, // (agent, message)
+}
+
+#[derive(Debug, Clone)]
+enum Message {
+    InputChanged(String),
+    SendMessage,
+}
+
+// Definiujemy własne style dla kontenerów
+#[derive(Debug, Clone, Copy)]
+enum ContainerStyle {
+    User,
+    Assistant,
+}
+
+impl container::StyleSheet for ContainerStyle {
+    type Style = Theme;
+
+    fn appearance(&self, _style: &Self::Style) -> container::Appearance {
+        match self {
+            ContainerStyle::User => container::Appearance {
+                background: Some(Background::Color(Color::from_rgb(0.9, 0.9, 1.0))),
+                border_radius: BorderRadius::from(5.0),
+                border_width: 1.0,
+                border_color: Color::from_rgb(0.7, 0.7, 0.9),
+                text_color: None,
+            },
+            ContainerStyle::Assistant => container::Appearance {
+                background: Some(Background::Color(Color::from_rgb(0.9, 1.0, 0.9))),
+                border_radius: BorderRadius::from(5.0),
+                border_width: 1.0,
+                border_color: Color::from_rgb(0.7, 0.9, 0.7),
+                text_color: None,
+            },
+        }
+    }
+}
+
+impl From<ContainerStyle> for iced::theme::Container {
+    fn from(style: ContainerStyle) -> Self {
+        iced::theme::Container::Custom(Box::new(style))
+    }
+}
+
+impl Sandbox for MyAppAssistant {
+    type Message = Message;
+
+    fn new() -> Self {
+        Self {
+            input_value: String::new(),
+            messages: vec![
+                ("System".to_string(), "Witaj w MyAppAssistant! Jak mogę Ci pomóc?".to_string()),
+            ],
+        }
+    }
+
+    fn title(&self) -> String {
+        String::from("MyAppAssistant")
+    }
+
+    fn update(&mut self, message: Message) {
+        match message {
+            Message::InputChanged(value) => {
+                self.input_value = value;
+            }
+            Message::SendMessage => {
+                if !self.input_value.is_empty() {
+                    // Dodaj wiadomość użytkownika
+                    self.messages.push(("Ty".to_string(), self.input_value.clone()));
+                    
+                    // Symulacja odpowiedzi (w rzeczywistej aplikacji byłoby wywołanie API)
+                    let response = if self.input_value.to_lowercase().contains("pogoda") {
+                        ChatResponse {
+                            response: "Obecnie jest słonecznie i 25°C na zewnątrz.".to_string(),
+                            agent_used: "WeatherAgent".to_string(),
+                        }
+                    } else if self.input_value.to_lowercase().contains("przepis") 
+                        || self.input_value.to_lowercase().contains("jedzenie") {
+                        ChatResponse {
+                            response: "Znalazłem świetny przepis na makaron dla Ciebie!".to_string(),
+                            agent_used: "ChefAgent".to_string(),
+                        }
+                    } else {
+                        ChatResponse {
+                            response: format!("Otrzymałem Twoją wiadomość: {}", self.input_value),
+                            agent_used: "GeneralAgent".to_string(),
+                        }
+                    };
+                    
+                    // Dodaj odpowiedź asystenta
+                    self.messages.push((response.agent_used, response.response));
+                    
+                    // Wyczyść pole wejściowe
+                    self.input_value = String::new();
+                }
+            }
+        }
+    }
+
+    fn view(&self) -> Element<Message> {
+        let title = text("MyAppAssistant")
+            .size(30)
+            .width(Length::Fill)
+            .horizontal_alignment(iced::alignment::Horizontal::Center);
+            
+        // Wiadomości
+        let messages = self.messages.iter().fold(
+            column![].spacing(10).padding(20),
+            |column, (agent, message)| {
+                column.push(
+                    container(
+                        column![
+                            text(agent).size(14),
+                            text(message).size(16)
+                        ]
+                        .spacing(5)
+                    )
+                    .padding(10)
+                    .style(iced::theme::Container::Custom(Box::new(
+                        if agent == "Ty" {
+                            ContainerStyle::User
+                        } else {
+                            ContainerStyle::Assistant
+                        }
+                    )))
+                    .width(Length::Fill)
+                )
+            }
+        );
+        
+        // Pole wejściowe i przycisk wysyłania
+        let input = row![
+            text_input("Wpisz wiadomość...", &self.input_value)
+                .on_input(Message::InputChanged)
+                .on_submit(Message::SendMessage)
+                .padding(10)
+                .width(Length::Fill),
+            button("Wyślij")
+                .on_press(Message::SendMessage)
+                .padding(10)
+        ]
+        .spacing(10)
+        .padding(20)
+        .width(Length::Fill);
+        
+        // Główny układ
+        container(
+            column![
+                title,
+                messages,
+                input
+            ]
+            .spacing(20)
+            .align_items(Alignment::Center)
+        )
+        .width(Length::Fill)
+        .height(Length::Fill)
+        .center_x()
+        .into()
+    }
+}
