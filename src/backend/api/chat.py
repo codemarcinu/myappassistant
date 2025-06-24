@@ -1,38 +1,9 @@
-import os
-import sys
-
-# Fix import paths before other imports
-project_root = os.path.dirname(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-)
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
-parent_dir = os.path.dirname(project_root)
-if parent_dir not in sys.path:
-    sys.path.insert(0, parent_dir)
-
-
 import asyncio
+import json
 import logging
-from typing import Dict, Optional, Any, cast
+from typing import Any, AsyncGenerator, Dict, cast
 
-from fastapi import (
-    APIRouter,
-    Depends,
-    HTTPException,
-    Request,
-    WebSocket,
-    WebSocketDisconnect,
-)
-from fastapi.responses import StreamingResponse
-
-from backend.agents.orchestrator import Orchestrator
-from backend.core.container import Container
-
-router = APIRouter()
-logger = logging.getLogger(__name__)
-
-from fastapi import APIRouter, BackgroundTasks, Depends
+from fastapi import APIRouter, BackgroundTasks, Depends, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -47,12 +18,10 @@ from backend.core.async_patterns import (
 from backend.core.llm_client import llm_client
 from backend.infrastructure.database.database import get_db
 from backend.orchestrator_management.orchestrator_pool import orchestrator_pool
-
-# This import is now after the sys.path modification
 from backend.orchestrator_management.request_queue import request_queue
 
-# APIRouter działa jak "mini-aplikacja" FastAPI, grupując endpointy
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 class ChatRequest(BaseModel):
@@ -92,14 +61,14 @@ llm_circuit_breaker = CircuitBreakerConfig(
 @with_circuit_breaker(llm_circuit_breaker)
 @with_backpressure(max_concurrent=50)
 @with_backpressure(max_concurrent=20)  # Ograniczenie dla memory chat
-async def chat_response_generator(prompt: str, model: str) -> None:
+async def chat_response_generator(prompt: str, model: str) -> AsyncGenerator[str, None]:
     """
     Asynchroniczny generator. Pobiera kawałki odpowiedzi od klienta
     Ollama i od razu przesyła je dalej (yield).
     """
     try:
         async with timeout_context(30.0):  # 30 second timeout
-            async for chunk in await llm_client.generate_stream(
+            async for chunk in llm_client.generate_stream_from_prompt(
                 model=model, prompt=prompt, system_prompt=""
             ):
                 if not isinstance(chunk, dict):
@@ -109,27 +78,25 @@ async def chat_response_generator(prompt: str, model: str) -> None:
                     yield chunk_dict["response"]
     except Exception as e:
         logger.error(f"Błąd podczas streamowania: {e}")
-        yield "Wystąpił błąd serwera."
+        yield f"Wystąpił błąd serwera: {str(e)}"
+    # Jeśli nie było żadnego yielda (np. pusta odpowiedź)
+    yield "[Brak odpowiedzi od modelu]"
 
 
 @router.post("/chat")
-async def chat_with_model(request: ChatRequest) -> None:
-    """
-    Endpoint do prowadzenia rozmowy z modelem LLM.
-    Dzięki StreamingResponse, odpowiedź jest wysyłana do klienta
-    w czasie rzeczywistym, bez czekania na całą odpowiedź modelu.
-    """
-    # Jeśli w zapytaniu nie podano modelu, użyj domyślnego z konfiguracji
-    model_to_use = request.model or settings.DEFAULT_CODE_MODEL
-    generator = chat_response_generator(request.prompt, model_to_use)
-    return StreamingResponse(generator, media_type="text/plain")
-
-
-import json
+async def chat_with_model(request: Request):
+    body = await request.json()
+    prompt = body.get("prompt")
+    model = body.get("model") or settings.DEFAULT_CODE_MODEL
+    return StreamingResponse(
+        chat_response_generator(prompt, model), media_type="text/plain"
+    )
 
 
 @with_backpressure(max_concurrent=20)  # Ograniczenie dla memory chat
-async def memory_chat_generator(request: MemoryChatRequest, db: AsyncSession) -> None:
+async def memory_chat_generator(
+    request: MemoryChatRequest, db: AsyncSession
+) -> AsyncGenerator[str, None]:
     """
     Generator for streaming responses from the orchestrator.
     Każdy yield to linia NDJSON: {"text": ...}
@@ -138,7 +105,7 @@ async def memory_chat_generator(request: MemoryChatRequest, db: AsyncSession) ->
     try:
         # Rozszerzone logowanie czatu
         logger.info(
-            f"Chat request received",
+            "Chat request received",
             extra={
                 "session_id": request.session_id,
                 "message_length": len(request.message),
@@ -292,8 +259,34 @@ async def chat_with_memory(
 
 
 @router.post("/test_simple_chat")
-async def test_simple_chat() -> None:
+async def test_simple_chat():
     """
     Simple test endpoint for basic chat functionality
     """
     return {"message": "Chat endpoint is working correctly"}
+
+
+@router.post("/test_chat_simple")
+async def test_chat_simple(request: ChatRequest) -> Dict[str, Any]:
+    """
+    Simple non-streaming chat endpoint for testing
+    """
+    try:
+        # Use the LLM client directly without streaming
+        response = await llm_client.chat(
+            model=request.model or settings.DEFAULT_CODE_MODEL,
+            messages=[{"role": "user", "content": request.prompt}],
+            stream=False,
+        )
+        return {
+            "response": response.get("response", "No response"),
+            "model": request.model or settings.DEFAULT_CODE_MODEL,
+            "success": True,
+        }
+    except Exception as e:
+        logger.error(f"Error in test_chat_simple: {e}")
+        return {
+            "response": f"Error: {str(e)}",
+            "model": request.model or settings.DEFAULT_CODE_MODEL,
+            "success": False,
+        }
